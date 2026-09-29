@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ProgressContext } from "./ProgressContext";
 import { localToday } from "../lib/schedule";
 import * as reducers from "./progressReducers";
+import { DEFAULT_FILTERS, applyFilter } from "../lib/filters";
 
 const STORAGE_KEY = "leetcode-progress-v2";
 const LIST_KEY = "leetcode-selected-list";
@@ -22,6 +23,11 @@ export const ProgressProvider = ({ children }) => {
       return reducers.DEFAULT_LIST;
     }
   });
+
+  // Filters are shared by every page that lists problems (not saved)
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const setFilter = (key, value) =>
+    setFilters((prev) => applyFilter(prev, key, value));
 
   // Save progress to localStorage whenever it changes
   useEffect(() => {
@@ -90,6 +96,8 @@ export const ProgressProvider = ({ children }) => {
         setProgress,
         selectedList,
         setSelectedList,
+        filters,
+        setFilter,
         ...actions,
       }}
     >

@@ -69,7 +69,10 @@ const Filters = ({
           onChange={() => setShowOnlyDueToday((prev) => !prev)}
           className="h-4 w-4 cursor-pointer text-blue-600 focus:ring-blue-500 border border-gray-300 dark:border-gray-600 rounded bg-white"
         />
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label
+          htmlFor="due-today-checkbox"
+          className="block cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
           Show Only Due Today
         </label>
       </div>

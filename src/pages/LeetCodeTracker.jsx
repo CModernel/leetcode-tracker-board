@@ -27,11 +27,9 @@ const roadmapLinks = {
 
 const LeetCodeTracker = () => {
   // Progress and selected list live in the shared ProgressProvider
-  const { progress, selectedList, setSelectedList } = useProgress();
+  const { progress, selectedList, setSelectedList, filters, setFilter } =
+    useProgress();
 
-  const [filterCategory, setFilterCategory] = useState("All");
-  const [filterDifficulty, setFilterDifficulty] = useState("All");
-  const [showOnlyDueToday, setShowOnlyDueToday] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
 
   // --- Helpers ---
@@ -197,21 +195,18 @@ const LeetCodeTracker = () => {
         <Filters
           categories={categories}
           difficulties={difficulties}
-          filterCategory={filterCategory}
-          setFilterCategory={setFilterCategory}
-          filterDifficulty={filterDifficulty}
-          setFilterDifficulty={setFilterDifficulty}
-          showOnlyDueToday={showOnlyDueToday}
-          setShowOnlyDueToday={setShowOnlyDueToday}
+          filterCategory={filters.category}
+          setFilterCategory={(value) => setFilter("category", value)}
+          filterDifficulty={filters.difficulty}
+          setFilterDifficulty={(value) => setFilter("difficulty", value)}
+          showOnlyDueToday={filters.dueToday}
+          setShowOnlyDueToday={(value) => setFilter("dueToday", value)}
         />
 
         {/* Problems Table */}
         <ProblemTable
           problems={problems}
           progress={currentProgress}
-          filterCategory={filterCategory}
-          filterDifficulty={filterDifficulty}
-          showOnlyDueToday={showOnlyDueToday}
         />
       </div>
     </div>

@@ -1,10 +1,6 @@
  import { CheckCircle2, Circle, Calendar, ExternalLink, Minus } from "lucide-react";
-import {
-  localToday,
-  getSchedule,
-  isDue,
-  formatShortDate,
-} from "../lib/schedule";
+import { localToday, getSchedule, formatShortDate } from "../lib/schedule";
+import { filterProblems } from "../lib/filters";
 import {
   getUrgency,
   urgencyButtonStyles,
@@ -21,26 +17,12 @@ const difficultyColor = {
 const ProblemTable = ({
   problems,
   progress,
-  filterCategory,
-  filterDifficulty,
-  showOnlyDueToday,
 }) => {
-  const { markSolved, unsolve, completeReview, uncompleteReview } =
+  const { filters, markSolved, unsolve, completeReview, uncompleteReview } =
     useProgress();
   const today = localToday();
 
-  const filteredProblems = problems.filter((problem) => {
-    const categoryMatch =
-      filterCategory === "All" ||
-      (problem.topics || []).includes(filterCategory);
-
-    const difficultyMatch =
-      filterDifficulty === "All" || problem.difficulty === filterDifficulty;
-
-    if (!showOnlyDueToday) return categoryMatch && difficultyMatch;
-
-    return categoryMatch && difficultyMatch && isDue(progress[problem.id], today);
-  });
+  const filteredProblems = filterProblems(problems, progress, filters, today);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors">
