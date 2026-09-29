@@ -1,5 +1,8 @@
+import { canCompleteReview, canUncompleteReview } from "../lib/schedule";
+import { isStatus } from "../lib/status";
+
 // Pure functions that return the next `progress` object. `progress` is
-// { [listName]: { [problemId]: { solved, solvedDate, reviews, dates } } }.
+// { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates } } }.
 // `today` is passed in ("YYYY-MM-DD") so these stay easy to test.
 
 export const emptyProgress = () => ({
@@ -9,6 +12,7 @@ export const emptyProgress = () => ({
 });
 
 const emptyEntry = () => ({
+  status: "todo",
   solved: false,
   reviews: Array(5).fill(false),
   dates: {},
@@ -27,6 +31,7 @@ export const markSolved = (progress, list, problemId, today) => {
   if (progress[list]?.[problemId]?.solved) return progress;
   return updateEntry(progress, list, problemId, (current) => ({
     ...current,
+    status: "solved",
     solved: true,
     solvedDate: today,
     dates: { ...current.dates, initial: today },
@@ -37,14 +42,34 @@ export const markSolved = (progress, list, problemId, today) => {
 export const unsolve = (progress, list, problemId) =>
   updateEntry(progress, list, problemId, (current) => ({
     ...current,
+    status: "todo",
     solved: false,
     solvedDate: null,
     reviews: Array(5).fill(false),
     dates: {},
   }));
 
-export const completeReview = (progress, list, problemId, index, today) =>
-  updateEntry(progress, list, problemId, (current) => {
+// Moves a problem to a status. Going to "solved" is markSolved. Leaving
+// "solved" is unsolve, so its reviews and dates are wiped. Between "todo" and
+// "in-progress" only the status changes. An unknown status does nothing.
+export const setStatus = (progress, list, problemId, status, today) => {
+  if (!isStatus(status)) return progress;
+  const current = progress[list]?.[problemId];
+  if (status === "solved") return markSolved(progress, list, problemId, today);
+  if (current?.solved) {
+    return updateEntry(unsolve(progress, list, problemId), list, problemId, (entry) => ({
+      ...entry,
+      status,
+    }));
+  }
+  if (current?.status === status) return progress;
+  return updateEntry(progress, list, problemId, (entry) => ({ ...entry, status }));
+};
+
+// Reviews go in order (see canCompleteReview); anything else does nothing.
+export const completeReview = (progress, list, problemId, index, today) => {
+  if (!canCompleteReview(progress[list]?.[problemId], index)) return progress;
+  return updateEntry(progress, list, problemId, (current) => {
     const reviews = [...current.reviews];
     reviews[index] = true;
     return {
@@ -53,15 +78,19 @@ export const completeReview = (progress, list, problemId, index, today) =>
       dates: { ...current.dates, [`review${index + 1}`]: today },
     };
   });
+};
 
-export const uncompleteReview = (progress, list, problemId, index) =>
-  updateEntry(progress, list, problemId, (current) => {
+// Only the last completed review can be undone; anything else does nothing.
+export const uncompleteReview = (progress, list, problemId, index) => {
+  if (!canUncompleteReview(progress[list]?.[problemId], index)) return progress;
+  return updateEntry(progress, list, problemId, (current) => {
     const reviews = [...current.reviews];
     reviews[index] = false;
     const dates = { ...current.dates };
     delete dates[`review${index + 1}`];
     return { ...current, reviews, dates };
   });
+};
 
 // Replaces everything with an imported file's content. Throws if the content
 // is not an object (for example "null" or a list), so nothing gets replaced.
@@ -74,13 +103,6 @@ export const importData = (data) => {
 
 // Clears all progress but keeps an empty entry for each list.
 export const clearAll = () => emptyProgress();
-
-// Turns the raw localStorage text into progress. Missing text means no saved
-// progress yet. Throws on invalid JSON or content that is not an object.
-export const parseProgress = (raw) =>
-  raw === null || raw === undefined
-    ? emptyProgress()
-    : importData(JSON.parse(raw));
 
 export const DEFAULT_LIST = "Blind 75";
 

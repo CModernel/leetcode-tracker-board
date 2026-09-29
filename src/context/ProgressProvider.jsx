@@ -3,14 +3,20 @@ import { ProgressContext } from "./ProgressContext";
 import { localToday } from "../lib/schedule";
 import * as reducers from "./progressReducers";
 import { DEFAULT_FILTERS, applyFilter } from "../lib/filters";
+import {
+  V3_KEY,
+  loadProgress,
+  migrate,
+  parseStored,
+  serializeProgress,
+} from "../lib/migrate";
 
-const STORAGE_KEY = "leetcode-progress-v2";
 const LIST_KEY = "leetcode-selected-list";
 
 export const ProgressProvider = ({ children }) => {
   const [progress, setProgress] = useState(() => {
     try {
-      return reducers.parseProgress(localStorage.getItem(STORAGE_KEY));
+      return loadProgress((key) => localStorage.getItem(key));
     } catch (error) {
       console.error("Error loading progress from localStorage:", error);
       return reducers.emptyProgress();
@@ -32,7 +38,7 @@ export const ProgressProvider = ({ children }) => {
   // Save progress to localStorage whenever it changes
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+      localStorage.setItem(V3_KEY, serializeProgress(progress));
     } catch (error) {
       console.error("Error saving progress to localStorage:", error);
     }
@@ -52,9 +58,9 @@ export const ProgressProvider = ({ children }) => {
   useEffect(() => {
     const onStorage = (event) => {
       if (event.storageArea !== localStorage) return;
-      if (event.key !== null && event.key !== STORAGE_KEY) return;
+      if (event.key !== null && event.key !== V3_KEY) return;
       try {
-        setProgress(reducers.parseProgress(event.newValue));
+        setProgress(parseStored(event.newValue));
       } catch (error) {
         console.error("Error reading progress from another tab:", error);
       }
@@ -71,6 +77,10 @@ export const ProgressProvider = ({ children }) => {
       ),
     unsolve: (problemId) =>
       setProgress((prev) => reducers.unsolve(prev, selectedList, problemId)),
+    setStatus: (problemId, status) =>
+      setProgress((prev) =>
+        reducers.setStatus(prev, selectedList, problemId, status, localToday())
+      ),
     completeReview: (problemId, index) =>
       setProgress((prev) =>
         reducers.completeReview(
@@ -85,7 +95,8 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.uncompleteReview(prev, selectedList, problemId, index)
       ),
-    importData: (data) => setProgress(reducers.importData(data)),
+    // Old export files (plain progress) and v3 files both work
+    importData: (data) => setProgress(migrate(data).progress),
     clearAll: () => setProgress(reducers.clearAll()),
   };
 

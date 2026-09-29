@@ -3,6 +3,8 @@ import {
   INTERVALS,
   GAPS,
   addDays,
+  canCompleteReview,
+  canUncompleteReview,
   formatShortDate,
   getSchedule,
   isDue,
@@ -328,5 +330,78 @@ describe("getSchedule edge cases", () => {
     const undone = { ...done, reviews: [false, false, false, false, false] };
     expect(isDue(done, today)).toBe(false); // R2 moved to 10-08
     expect(isDue(undone, today)).toBe(true); // R1 pending again, overdue
+  });
+});
+
+describe("review order", () => {
+  const solved = (reviews) => ({ solved: true, solvedDate: "2026-10-01", reviews });
+  const none = [false, false, false, false, false];
+
+  describe("canCompleteReview", () => {
+    it("allows only the next pending review", () => {
+      const prob = solved([true, true, false, false, false]);
+      expect(canCompleteReview(prob, 2)).toBe(true);
+      expect(canCompleteReview(prob, 3)).toBe(false);
+      expect(canCompleteReview(prob, 4)).toBe(false);
+    });
+
+    it("allows R1 on a solved problem and nothing later", () => {
+      expect(canCompleteReview(solved(none), 0)).toBe(true);
+      for (const i of [1, 2, 3, 4]) {
+        expect(canCompleteReview(solved(none), i)).toBe(false);
+      }
+    });
+
+    it("does not allow a review that is already done", () => {
+      expect(canCompleteReview(solved([true, false, false, false, false]), 0)).toBe(false);
+    });
+
+    it("does not allow anything on a problem that is not solved", () => {
+      expect(canCompleteReview({ solved: false }, 0)).toBe(false);
+      expect(canCompleteReview(undefined, 0)).toBe(false);
+    });
+
+    it("works with a missing reviews list", () => {
+      expect(canCompleteReview({ solved: true, solvedDate: "2026-10-01" }, 0)).toBe(true);
+      expect(canCompleteReview({ solved: true, solvedDate: "2026-10-01" }, 1)).toBe(false);
+    });
+
+    it("rejects indexes outside R1..R5", () => {
+      const prob = solved([true, true, true, true, true]);
+      for (const i of [-1, 5, 1.5, NaN, undefined]) {
+        expect(canCompleteReview(prob, i)).toBe(false);
+      }
+    });
+  });
+
+  describe("canUncompleteReview", () => {
+    it("allows only the last completed review", () => {
+      const prob = solved([true, true, true, false, false]);
+      expect(canUncompleteReview(prob, 2)).toBe(true);
+      expect(canUncompleteReview(prob, 1)).toBe(false);
+      expect(canUncompleteReview(prob, 0)).toBe(false);
+    });
+
+    it("does not allow a review that is not done", () => {
+      const prob = solved([true, false, false, false, false]);
+      expect(canUncompleteReview(prob, 1)).toBe(false);
+      expect(canUncompleteReview(solved(none), 0)).toBe(false);
+    });
+
+    it("handles old data with skipped reviews", () => {
+      const prob = solved([true, false, false, true, false]);
+      expect(canUncompleteReview(prob, 3)).toBe(true);
+      expect(canUncompleteReview(prob, 0)).toBe(false);
+    });
+
+    it("rejects missing data and indexes outside R1..R5", () => {
+      expect(canUncompleteReview(undefined, 0)).toBe(false);
+      expect(canUncompleteReview({ solved: true }, 0)).toBe(false);
+      const prob = solved([true, true, true, true, true]);
+      for (const i of [-1, 5, 2.5, undefined]) {
+        expect(canUncompleteReview(prob, i)).toBe(false);
+      }
+      expect(canUncompleteReview(prob, 4)).toBe(true);
+    });
   });
 });
