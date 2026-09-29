@@ -18,3 +18,9 @@ export const addDays = (dateStr, days) => {
   const [year, month, day] = dateStr.split("-").map(Number);
   return formatDate(new Date(year, month - 1, day + days));
 };
+
+// Fixed review dates (R1..R5) counted from the solved date.
+export const calculateNextReviews = (solvedDate) => {
+  if (!solvedDate) return [];
+  return INTERVALS.map((days) => addDays(solvedDate, days));
+};

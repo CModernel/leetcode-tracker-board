@@ -1,5 +1,5 @@
  import { CheckCircle2, Circle, Calendar, ExternalLink, Minus } from "lucide-react";
-import { localToday } from "../lib/schedule";
+import { localToday, calculateNextReviews } from "../lib/schedule";
 
 const difficultyColor = {
   Easy: "text-green-600",
@@ -11,7 +11,6 @@ const ProblemTable = ({
   problems,
   progress,
   toggleComplete,
-  calculateNextReviews,
   filterCategory,
   filterDifficulty,
   showOnlyDueToday,
