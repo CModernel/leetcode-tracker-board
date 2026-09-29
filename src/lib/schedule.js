@@ -24,3 +24,11 @@ export const calculateNextReviews = (solvedDate) => {
   if (!solvedDate) return [];
   return INTERVALS.map((days) => addDays(solvedDate, days));
 };
+
+// A solved problem is due when any pending review date is today or earlier.
+export const isDue = (prob, today) => {
+  if (!prob || !prob.solved) return false;
+  return calculateNextReviews(prob.solvedDate).some(
+    (date, idx) => !prob.reviews?.[idx] && date <= today
+  );
+};

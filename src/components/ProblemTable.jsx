@@ -1,5 +1,5 @@
  import { CheckCircle2, Circle, Calendar, ExternalLink, Minus } from "lucide-react";
-import { localToday, calculateNextReviews } from "../lib/schedule";
+import { localToday, calculateNextReviews, isDue } from "../lib/schedule";
 
 const difficultyColor = {
   Easy: "text-green-600",
@@ -27,13 +27,7 @@ const ProblemTable = ({
 
     if (!showOnlyDueToday) return categoryMatch && difficultyMatch;
 
-    const prob = progress[problem.id];
-    if (!prob || !prob.solved) return false;
-    const nextReviews = calculateNextReviews(prob.solvedDate);
-    const isDueToday = nextReviews.some(
-      (date, idx) => !prob.reviews?.[idx] && date <= today
-    );
-    return categoryMatch && difficultyMatch && isDueToday;
+    return categoryMatch && difficultyMatch && isDue(progress[problem.id], today);
   });
 
   const formatDate = (dateString) => {

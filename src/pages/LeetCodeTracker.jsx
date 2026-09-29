@@ -8,7 +8,7 @@ import {
   CircularStatsCard,
 } from "../components";
 import { blind75, leetcode75, neetcode150 } from "../data";
-import { localToday, calculateNextReviews } from "../lib/schedule";
+import { localToday, isDue } from "../lib/schedule";
 
 const problemLists = {
   "Blind 75": blind75,
@@ -135,14 +135,9 @@ const LeetCodeTracker = () => {
    };
 
   const getDueProblems = () => {
-    return problems.filter((problem) => {
-      const prob = currentProgress[problem.id];
-      if (!prob || !prob.solved) return false;
-      const nextReviews = calculateNextReviews(prob.solvedDate);
-      return nextReviews.some(
-        (date, idx) => !prob.reviews?.[idx] && date <= today
-      );
-    }).length;
+    return problems.filter((problem) =>
+      isDue(currentProgress[problem.id], today)
+    ).length;
   };
 
   return (
