@@ -5,6 +5,11 @@ import {
   isDue,
   formatShortDate,
 } from "../lib/schedule";
+import {
+  getUrgency,
+  urgencyButtonStyles,
+  urgencyTextStyles,
+} from "../lib/urgencyStyles";
 
 const difficultyColor = {
   Easy: "text-green-600",
@@ -34,14 +39,6 @@ const ProblemTable = ({
 
     return categoryMatch && difficultyMatch && isDue(progress[problem.id], today);
   });
-
-  const isOverdue = (date) => {
-    return date < today;
-  };
-
-  const isDueToday = (date) => {
-    return date === today;
-  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors">
@@ -190,9 +187,11 @@ const ProblemTable = ({
                     {prob.solved ? (
                       <div className="flex flex-wrap gap-2">
                         {nextReviews.map((date, idx) => {
-                          const isCompleted = prob.reviews?.[idx];
-                          const overdue = !isCompleted && isOverdue(date);
-                          const dueToday = !isCompleted && isDueToday(date);
+                          const urgency = getUrgency(
+                            prob.reviews?.[idx],
+                            date,
+                            today
+                          );
 
                           return (
                             <div
@@ -201,15 +200,7 @@ const ProblemTable = ({
                             >
                               <button
                                 onClick={() => toggleComplete(problem.id, idx)}
-                                className={`px-2 py-1 rounded text-xs border min-w-[50px] transition-colors ${
-                                  isCompleted
-                                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-600"
-                                    : overdue
-                                    ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-600"
-                                    : dueToday
-                                    ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-600"
-                                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600"
-                                }`}
+                                className={`px-2 py-1 rounded text-xs border min-w-[50px] transition-colors ${urgencyButtonStyles[urgency]}`}
                                 title={`Review ${idx + 1} - Due: ${formatShortDate(
                                   date
                                 )}`}
@@ -217,15 +208,7 @@ const ProblemTable = ({
                                 {`R${idx + 1}`}
                               </button>
                               <div
-                                className={`text-[10px] mt-1 flex items-center gap-0.5 ${
-                                  isCompleted
-                                    ? "text-green-600 dark:text-green-400"
-                                    : overdue
-                                    ? "text-red-600 dark:text-red-400"
-                                    : dueToday
-                                    ? "text-yellow-600 dark:text-yellow-400"
-                                    : "text-gray-500 dark:text-gray-300"
-                                }`}
+                                className={`text-[10px] mt-1 flex items-center gap-0.5 ${urgencyTextStyles[urgency]}`}
                               >
                                 <Calendar size={10} />
                                 {formatShortDate(date)}
