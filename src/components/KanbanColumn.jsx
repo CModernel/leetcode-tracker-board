@@ -1,6 +1,6 @@
 // One board column. `count` is optional: nothing is shown until it is given.
 const KanbanColumn = ({ title, count, children }) => (
-  <section className="flex flex-col bg-gray-100 dark:bg-gray-800 rounded-lg p-3 min-h-[200px] transition-colors">
+  <section className="flex flex-col flex-shrink-0 w-[85%] snap-center md:w-auto md:flex-shrink bg-gray-100 dark:bg-gray-800 rounded-lg p-3 min-h-[200px] transition-colors">
     <header className="flex items-center justify-between mb-3 px-1">
       <h2 className="font-semibold text-gray-800 dark:text-white">{title}</h2>
       {count !== undefined && (

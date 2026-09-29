@@ -21,7 +21,7 @@ const KanbanBoard = () => {
   const columns = buildColumns(problems, listProgress, today);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 md:grid md:grid-cols-2 lg:grid-cols-4 md:overflow-visible md:snap-none md:pb-0">
       {columns.map((column) => (
         <KanbanColumn key={column.id} title={column.title} count={column.count}>
           {column.cards.map((card) => (
