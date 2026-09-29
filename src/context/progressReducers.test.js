@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   clearAll,
   completeReview,
+  DEFAULT_LIST,
   importData,
   markSolved,
   parseProgress,
+  parseSelectedList,
   uncompleteReview,
   unsolve,
 } from "./progressReducers";
@@ -185,5 +187,19 @@ describe("parseProgress", () => {
     expect(() => parseProgress("{oops")).toThrow();
     expect(() => parseProgress("null")).toThrow();
     expect(() => parseProgress("[]")).toThrow();
+  });
+});
+
+describe("parseSelectedList", () => {
+  it("keeps a saved known list", () => {
+    expect(parseSelectedList("Blind 75")).toBe("Blind 75");
+    expect(parseSelectedList("LeetCode 75")).toBe("LeetCode 75");
+  });
+
+  it("falls back to the default list when nothing valid is saved", () => {
+    expect(DEFAULT_LIST).toBe("Blind 75");
+    expect(parseSelectedList(null)).toBe(DEFAULT_LIST);
+    expect(parseSelectedList("")).toBe(DEFAULT_LIST);
+    expect(parseSelectedList("Some old list")).toBe(DEFAULT_LIST);
   });
 });

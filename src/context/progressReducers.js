@@ -81,3 +81,9 @@ export const parseProgress = (raw) =>
   raw === null || raw === undefined
     ? emptyProgress()
     : importData(JSON.parse(raw));
+
+export const DEFAULT_LIST = "Blind 75";
+
+// Saved list name if it is a known list, otherwise the default one.
+export const parseSelectedList = (raw) =>
+  raw && Object.keys(emptyProgress()).includes(raw) ? raw : DEFAULT_LIST;

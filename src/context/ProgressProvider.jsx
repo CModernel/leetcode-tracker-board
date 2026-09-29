@@ -4,6 +4,7 @@ import { localToday } from "../lib/schedule";
 import * as reducers from "./progressReducers";
 
 const STORAGE_KEY = "leetcode-progress-v2";
+const LIST_KEY = "leetcode-selected-list";
 
 export const ProgressProvider = ({ children }) => {
   const [progress, setProgress] = useState(() => {
@@ -14,7 +15,13 @@ export const ProgressProvider = ({ children }) => {
       return reducers.emptyProgress();
     }
   });
-  const [selectedList, setSelectedList] = useState("");
+  const [selectedList, setSelectedList] = useState(() => {
+    try {
+      return reducers.parseSelectedList(localStorage.getItem(LIST_KEY));
+    } catch {
+      return reducers.DEFAULT_LIST;
+    }
+  });
 
   // Save progress to localStorage whenever it changes
   useEffect(() => {
@@ -24,6 +31,15 @@ export const ProgressProvider = ({ children }) => {
       console.error("Error saving progress to localStorage:", error);
     }
   }, [progress]);
+
+  // Remember the selected list
+  useEffect(() => {
+    try {
+      localStorage.setItem(LIST_KEY, selectedList);
+    } catch (error) {
+      console.error("Error saving selected list to localStorage:", error);
+    }
+  }, [selectedList]);
 
   // Keep several open tabs in sync: the browser fires "storage" in the other
   // tabs when one of them saves. Applying the same text does not re-fire it.
