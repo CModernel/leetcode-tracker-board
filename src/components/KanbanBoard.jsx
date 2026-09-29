@@ -1,4 +1,5 @@
 import KanbanColumn from "./KanbanColumn";
+import KanbanCard from "./KanbanCard";
 import { buildColumns } from "../lib/board";
 import { localToday } from "../lib/schedule";
 import { getProblems } from "../lib/lists";
@@ -16,7 +17,11 @@ const KanbanBoard = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {columns.map((column) => (
-        <KanbanColumn key={column.id} title={column.title} count={column.count} />
+        <KanbanColumn key={column.id} title={column.title} count={column.count}>
+          {column.cards.map((card) => (
+            <KanbanCard key={card.problem.id} card={card} />
+          ))}
+        </KanbanColumn>
       ))}
     </div>
   );

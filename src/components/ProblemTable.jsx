@@ -12,13 +12,8 @@ import {
   urgencyButtonStyles,
   urgencyTextStyles,
 } from "../lib/urgencyStyles";
+import { difficultyColor } from "../lib/difficultyStyles";
 import { useProgress } from "../context/ProgressContext";
-
-const difficultyColor = {
-  Easy: "text-green-600",
-  Medium: "text-yellow-600",
-  Hard: "text-red-600",
-};
 
 const ProblemTable = ({
   problems,

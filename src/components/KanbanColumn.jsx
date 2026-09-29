@@ -9,7 +9,9 @@ const KanbanColumn = ({ title, count, children }) => (
         </span>
       )}
     </header>
-    <div className="flex flex-col gap-2">{children}</div>
+    <div className="flex flex-col gap-2 max-h-[70vh] overflow-y-auto">
+      {children}
+    </div>
   </section>
 );
 
