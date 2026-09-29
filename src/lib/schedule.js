@@ -19,16 +19,10 @@ export const addDays = (dateStr, days) => {
   return formatDate(new Date(year, month - 1, day + days));
 };
 
-// Fixed review dates (R1..R5) counted from the solved date.
-export const calculateNextReviews = (solvedDate) => {
-  if (!solvedDate) return [];
-  return INTERVALS.map((days) => addDays(solvedDate, days));
-};
-
 // A solved problem is due when any pending review date is today or earlier.
 export const isDue = (prob, today) => {
   if (!prob || !prob.solved) return false;
-  return calculateNextReviews(prob.solvedDate).some(
+  return getSchedule(prob).some(
     (date, idx) => !prob.reviews?.[idx] && date <= today
   );
 };
@@ -40,4 +34,21 @@ export const formatShortDate = (dateStr) => {
     month: "short",
     day: "numeric",
   });
+};
+
+// Review due dates that follow the real review dates: R1 is GAPS[0] days after
+// solving, and each next one is GAPS[n] days after the previous review was
+// completed (or after its projected due date while it is still pending).
+// On time this gives the same 1/3/7/14/30 days as INTERVALS.
+export const getSchedule = (prob) => {
+  if (!prob?.solvedDate) return [];
+  const schedule = [];
+  let previous = prob.solvedDate;
+  GAPS.forEach((gap, idx) => {
+    const due = addDays(previous, gap);
+    schedule.push(due);
+    const completedOn = prob.dates?.[`review${idx + 1}`];
+    previous = prob.reviews?.[idx] && completedOn ? completedOn : due;
+  });
+  return schedule;
 };

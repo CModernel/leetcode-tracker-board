@@ -1,7 +1,7 @@
  import { CheckCircle2, Circle, Calendar, ExternalLink, Minus } from "lucide-react";
 import {
   localToday,
-  calculateNextReviews,
+  getSchedule,
   isDue,
   formatShortDate,
 } from "../lib/schedule";
@@ -75,7 +75,7 @@ const ProblemTable = ({
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {filteredProblems.map((problem, index) => {
               const prob = progress[problem.id] || {};
-              const nextReviews = calculateNextReviews(prob.solvedDate);
+              const nextReviews = getSchedule(prob);
               return (
                 <tr
                   key={problem.id}

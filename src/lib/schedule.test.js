@@ -3,8 +3,8 @@ import {
   INTERVALS,
   GAPS,
   addDays,
-  calculateNextReviews,
   formatShortDate,
+  getSchedule,
   isDue,
   localToday,
 } from "./schedule";
@@ -36,6 +36,9 @@ afterEach(() => {
   if (originalTZ === undefined) delete process.env.TZ;
   else process.env.TZ = originalTZ;
 });
+
+// The fixed 1/3/7/14/30 days after solving, used as the on-time reference.
+const fixedDates = (solved) => INTERVALS.map((days) => addDays(solved, days));
 
 describe("constants", () => {
   it("GAPS add up to INTERVALS", () => {
@@ -112,23 +115,6 @@ describe.each(ZONES)("in %s", (zone) => {
     });
   });
 
-  describe("calculateNextReviews", () => {
-    it("returns R1..R5 at 1, 3, 7, 14 and 30 days", () => {
-      expect(calculateNextReviews("2026-10-03")).toEqual([
-        "2026-10-04",
-        "2026-10-06",
-        "2026-10-10",
-        "2026-10-17",
-        "2026-11-02",
-      ]);
-    });
-
-    it("returns an empty list without a solved date", () => {
-      expect(calculateNextReviews(null)).toEqual([]);
-      expect(calculateNextReviews(undefined)).toEqual([]);
-    });
-  });
-
   describe("isDue", () => {
     const today = "2026-09-29";
     const pending = [false, false, false, false, false];
@@ -177,5 +163,170 @@ describe.each(ZONES)("in %s", (zone) => {
       const prob = { solved: true, solvedDate: "2026-09-28" };
       expect(isDue(prob, today)).toBe(true);
     });
+
+    it("uses the real review date: a late R1 pushes R2 out of today", () => {
+      // R1 done 09-27 (due 09-24); R2 is now 09-29, so it is due today...
+      const onTime = {
+        solved: true,
+        solvedDate: "2026-09-23",
+        reviews: [true, false, false, false, false],
+        dates: { review1: "2026-09-27" },
+      };
+      expect(isDue(onTime, today)).toBe(true);
+      // ...but if R1 was done today, R2 is only due on 10-01.
+      const late = { ...onTime, dates: { review1: today } };
+      expect(isDue(late, today)).toBe(false);
+      expect(isDue(late, "2026-10-01")).toBe(true);
+    });
+  });
+});
+
+describe("getSchedule", () => {
+  const solvedDate = "2026-10-01";
+  const none = [false, false, false, false, false];
+
+  it("is empty without a solved date", () => {
+    expect(getSchedule(undefined)).toEqual([]);
+    expect(getSchedule({ solved: false })).toEqual([]);
+  });
+
+  it("matches the fixed 1/3/7/14/30 days when nothing is completed", () => {
+    expect(getSchedule({ solvedDate, reviews: none })).toEqual(
+      fixedDates(solvedDate)
+    );
+  });
+
+  it("matches the fixed days when every review is done on time", () => {
+    const prob = {
+      solvedDate,
+      reviews: [true, true, true, true, true],
+      dates: {
+        review1: "2026-10-02",
+        review2: "2026-10-04",
+        review3: "2026-10-08",
+        review4: "2026-10-15",
+        review5: "2026-10-31",
+      },
+    };
+    expect(getSchedule(prob)).toEqual(fixedDates(solvedDate));
+  });
+
+  it("shifts the next reviews after a late completion", () => {
+    // R1 was due 10-02 but done 10-06: R2 = 10-08, then R3..R5 follow it.
+    const prob = {
+      solvedDate,
+      reviews: [true, false, false, false, false],
+      dates: { review1: "2026-10-06" },
+    };
+    expect(getSchedule(prob)).toEqual([
+      "2026-10-02",
+      "2026-10-08",
+      "2026-10-12",
+      "2026-10-19",
+      "2026-11-04",
+    ]);
+  });
+
+  it("keeps earlier reviews fixed when a later one is late", () => {
+    const prob = {
+      solvedDate,
+      reviews: [true, true, false, false, false],
+      dates: { review1: "2026-10-02", review2: "2026-10-10" },
+    };
+    expect(getSchedule(prob).slice(0, 2)).toEqual(["2026-10-02", "2026-10-04"]);
+    expect(getSchedule(prob).slice(2)).toEqual([
+      "2026-10-14",
+      "2026-10-21",
+      "2026-11-06",
+    ]);
+  });
+
+  it("falls back to the projected date when a completed review has no date", () => {
+    const prob = { solvedDate, reviews: [true, false, false, false, false] };
+    expect(getSchedule(prob)).toEqual(fixedDates(solvedDate));
+  });
+});
+
+describe("getSchedule edge cases", () => {
+  const solvedDate = "2026-10-01";
+
+  it("ignores a leftover date when the review is not marked done (un-complete)", () => {
+    const prob = {
+      solvedDate,
+      reviews: [false, false, false, false, false],
+      dates: { review1: "2026-10-09" },
+    };
+    expect(getSchedule(prob)).toEqual(fixedDates(solvedDate));
+  });
+
+  it("moves the next reviews earlier when a review is done early", () => {
+    // R1 was due 10-02 but done on 10-01: R2 = 10-03 and the rest follow it.
+    const prob = {
+      solvedDate,
+      reviews: [true, false, false, false, false],
+      dates: { review1: "2026-10-01" },
+    };
+    expect(getSchedule(prob)).toEqual([
+      "2026-10-02",
+      "2026-10-03",
+      "2026-10-07",
+      "2026-10-14",
+      "2026-10-30",
+    ]);
+  });
+
+  it("handles reviews completed out of order", () => {
+    // Only R3 is done (10-05). R1 and R2 stay projected; R3 keeps its own due
+    // date; R4 and R5 follow the real R3 date.
+    const prob = {
+      solvedDate,
+      reviews: [false, false, true, false, false],
+      dates: { review3: "2026-10-05" },
+    };
+    expect(getSchedule(prob)).toEqual([
+      "2026-10-02",
+      "2026-10-04",
+      "2026-10-08",
+      "2026-10-12",
+      "2026-10-28",
+    ]);
+  });
+
+  it("accumulates the delay when every review is done a day late", () => {
+    const prob = {
+      solvedDate,
+      reviews: [true, true, true, true, false],
+      dates: {
+        review1: "2026-10-03",
+        review2: "2026-10-06",
+        review3: "2026-10-11",
+        review4: "2026-10-19",
+      },
+    };
+    expect(getSchedule(prob)).toEqual([
+      "2026-10-02",
+      "2026-10-05",
+      "2026-10-10",
+      "2026-10-18",
+      "2026-11-04",
+    ]);
+  });
+
+  it("does not fail when the dates object is missing", () => {
+    const prob = { solvedDate, reviews: [true, true, false, false, false] };
+    expect(getSchedule(prob)).toEqual(fixedDates(solvedDate));
+  });
+
+  it("is due again right after a completed review is un-completed", () => {
+    const today = "2026-10-06";
+    const done = {
+      solved: true,
+      solvedDate,
+      reviews: [true, false, false, false, false],
+      dates: { review1: today },
+    };
+    const undone = { ...done, reviews: [false, false, false, false, false] };
+    expect(isDue(done, today)).toBe(false); // R2 moved to 10-08
+    expect(isDue(undone, today)).toBe(true); // R1 pending again, overdue
   });
 });

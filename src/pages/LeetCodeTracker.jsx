@@ -213,21 +213,26 @@ const LeetCodeTracker = () => {
                   <h4 className="font-semibold mb-2">Review Schedule:</h4>
                   <ul className="space-y-1 text-sm">
                     <li>
-                      <strong>R1:</strong> Review after 1 day
+                      <strong>R1:</strong> 1 day after solving
                     </li>
                     <li>
-                      <strong>R2:</strong> Review after 3 days
+                      <strong>R2:</strong> 2 days after you complete R1
                     </li>
                     <li>
-                      <strong>R3:</strong> Review after 7 days (1 week)
+                      <strong>R3:</strong> 4 days after you complete R2
                     </li>
                     <li>
-                      <strong>R4:</strong> Review after 14 days (2 weeks)
+                      <strong>R4:</strong> 7 days after you complete R3
                     </li>
                     <li>
-                      <strong>R5:</strong> Review after 30 days (1 month)
+                      <strong>R5:</strong> 16 days after you complete R4
                     </li>
                   </ul>
+                  <p className="text-sm mt-2">
+                    Done on time, that is 1, 3, 7, 14 and 30 days after
+                    solving. If you review late, the next dates move from the
+                    day you actually reviewed.
+                  </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">How to Use:</h4>
