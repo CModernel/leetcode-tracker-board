@@ -1,9 +1,13 @@
-import { ExternalLink } from "lucide-react";
+import { Calendar, ExternalLink } from "lucide-react";
 import { difficultyColor } from "../lib/difficultyStyles";
+import { formatShortDate } from "../lib/schedule";
+import { urgencyButtonStyles, urgencyTextStyles } from "../lib/urgencyStyles";
 
-// One problem on the board: title (opens the problem), difficulty and topics.
+// One problem on the board: title (opens the problem), difficulty, topics and,
+// for problems waiting for a review, the review (R1..R5) with its due date in
+// the same colors as the tracker.
 const KanbanCard = ({ card }) => {
-  const { problem } = card;
+  const { problem, stage, nextDue, urgency } = card;
 
   return (
     <article className="bg-white dark:bg-gray-700 rounded-lg shadow p-3 transition-colors">
@@ -32,6 +36,22 @@ const KanbanCard = ({ card }) => {
           </span>
         ))}
       </div>
+      {urgency && (
+        <div className="mt-2 flex items-center gap-2">
+          <span
+            className={`px-2 py-0.5 rounded text-xs border ${urgencyButtonStyles[urgency]}`}
+            title={`Review ${stage.slice(1)} - Due: ${formatShortDate(nextDue)}`}
+          >
+            {stage}
+          </span>
+          <span
+            className={`text-xs flex items-center gap-1 ${urgencyTextStyles[urgency]}`}
+          >
+            <Calendar size={12} />
+            {formatShortDate(nextDue)}
+          </span>
+        </div>
+      )}
     </article>
   );
 };
