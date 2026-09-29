@@ -1,4 +1,5 @@
  import { CheckCircle2, Circle, Calendar, ExternalLink, Minus } from "lucide-react";
+import { localToday } from "../lib/schedule";
 
 const difficultyColor = {
   Easy: "text-green-600",
@@ -15,7 +16,7 @@ const ProblemTable = ({
   filterDifficulty,
   showOnlyDueToday,
 }) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = localToday();
 
   const filteredProblems = problems.filter((problem) => {
     const categoryMatch =

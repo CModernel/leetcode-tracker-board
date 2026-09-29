@@ -8,6 +8,7 @@ import {
   CircularStatsCard,
 } from "../components";
 import { blind75, leetcode75, neetcode150 } from "../data";
+import { localToday } from "../lib/schedule";
 
 const problemLists = {
   "Blind 75": blind75,
@@ -66,7 +67,7 @@ const LeetCodeTracker = () => {
 
 
   // --- Helpers ---
-  const today = new Date().toISOString().split("T")[0];
+  const today = localToday();
 
   const calculateNextReviews = (solvedDate) => {
     if (!solvedDate) return [];
@@ -80,7 +81,7 @@ const LeetCodeTracker = () => {
   };
 
   const toggleComplete = (problemId, reviewIndex = null) => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = localToday();
     setProgress((prev) => {
       const listProgress = prev[selectedList] || {};
       const current = listProgress[problemId] || {
