@@ -38,51 +38,6 @@ const LeetCodeTracker = () => {
   // --- Helpers ---
   const today = localToday();
 
-  const toggleComplete = (problemId, reviewIndex = null) => {
-    const todayStr = localToday();
-    setProgress((prev) => {
-      const listProgress = prev[selectedList] || {};
-      const current = listProgress[problemId] || {
-        solved: false,
-        reviews: Array(5).fill(false),
-        dates: {},
-      };
-
-      if (reviewIndex === null) {
-        const newSolved = !current.solved;
-        return {
-          ...prev,
-          [selectedList]: {
-            ...listProgress,
-            [problemId]: {
-              ...current,
-              solved: newSolved,
-              solvedDate: newSolved ? todayStr : null,
-              reviews: newSolved ? current.reviews : Array(5).fill(false),
-              dates: newSolved ? { ...current.dates, initial: todayStr } : {},
-            },
-          },
-        };
-      } else {
-        const newReviews = [...current.reviews];
-        newReviews[reviewIndex] = !newReviews[reviewIndex];
-        const newDates = { ...current.dates };
-        if (newReviews[reviewIndex]) {
-          newDates[`review${reviewIndex + 1}`] = todayStr;
-        } else {
-          delete newDates[`review${reviewIndex + 1}`];
-        }
-        return {
-          ...prev,
-          [selectedList]: {
-            ...listProgress,
-            [problemId]: { ...current, reviews: newReviews, dates: newDates },
-          },
-        };
-      }
-    });
-  };
-
   const problems = problemLists[selectedList] || [];
   const currentProgress = progress[selectedList] || {};
 
@@ -255,7 +210,6 @@ const LeetCodeTracker = () => {
         <ProblemTable
           problems={problems}
           progress={currentProgress}
-          toggleComplete={toggleComplete}
           filterCategory={filterCategory}
           filterDifficulty={filterDifficulty}
           showOnlyDueToday={showOnlyDueToday}

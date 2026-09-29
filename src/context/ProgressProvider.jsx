@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { ProgressContext } from "./ProgressContext";
+import { localToday } from "../lib/schedule";
+import * as reducers from "./progressReducers";
 
 const STORAGE_KEY = "leetcode-progress-v2";
 
@@ -30,9 +32,39 @@ export const ProgressProvider = ({ children }) => {
     }
   }, [progress]);
 
+  // Actions apply to the selected list and stamp today's local date.
+  const actions = {
+    markSolved: (problemId) =>
+      setProgress((prev) =>
+        reducers.markSolved(prev, selectedList, problemId, localToday())
+      ),
+    unsolve: (problemId) =>
+      setProgress((prev) => reducers.unsolve(prev, selectedList, problemId)),
+    completeReview: (problemId, index) =>
+      setProgress((prev) =>
+        reducers.completeReview(
+          prev,
+          selectedList,
+          problemId,
+          index,
+          localToday()
+        )
+      ),
+    uncompleteReview: (problemId, index) =>
+      setProgress((prev) =>
+        reducers.uncompleteReview(prev, selectedList, problemId, index)
+      ),
+  };
+
   return (
     <ProgressContext.Provider
-      value={{ progress, setProgress, selectedList, setSelectedList }}
+      value={{
+        progress,
+        setProgress,
+        selectedList,
+        setSelectedList,
+        ...actions,
+      }}
     >
       {children}
     </ProgressContext.Provider>
