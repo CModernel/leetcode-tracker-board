@@ -37,7 +37,7 @@ A modern, interactive web application to track your progress through the famous 
 
 ## 🚀 Live Demo
 
-[View Live Demo](https://track-leetcode.vercel.app)
+[View Live Demo](https://track-leetcode.vercel.app) (soon to be migrated to GitHub Pages)
 
 ## 🛠️ Installation
 
@@ -128,11 +128,14 @@ The built files will be in the `dist/` directory, ready for deployment.
 ## 📋 Roadmap
 
 - [x] Dark mode support
-- [ ] Custom problem sets
+- [ ] Kanban board with auto-repetition schedule
+- [ ] Notes per task for better retrieval
+- [ ] Show/hide solution (if attached)
+- [ ] Cloud data persistence
 - [ ] Study streaks tracking
 - [ ] Performance analytics
-- [ ] Social features (optional)
 - [ ] Mobile app version
+- [ ] Custom problem sets
 
 ## ❓ FAQ
 
@@ -140,13 +143,14 @@ The built files will be in the `dist/` directory, ready for deployment.
 A: Yes, since data is stored in localStorage. Use the export feature to backup your progress.
 
 **Q: Can I access my progress from different devices?**
-A: Currently no, as data is stored locally. You can export from one device and import to another.
+A: Not currently, but cloud data persistence is being planned as a future feature.
 
 **Q: Can I add custom problems?**
 A: Not currently, but this feature is planned for future releases.
 
 ## 🙏 Acknowledgments
 
+- **[javydevx](https://github.com/javydevx/leetcode-tracker)**: Original author of this project — this repository is a fork building on their work
 - **NeetCode**: For the excellent problem curation and learning resources
 - **Spaced Repetition Research**: Based on cognitive science research for optimal learning
 - **React Community**: For the amazing ecosystem and tools
