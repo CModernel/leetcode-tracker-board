@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Info, ExternalLink, Map } from "lucide-react";
 import {
   Filters,
@@ -9,6 +9,7 @@ import {
 } from "../components";
 import { blind75, leetcode75, neetcode150 } from "../data";
 import { localToday, isDue } from "../lib/schedule";
+import { useProgress } from "../context/ProgressContext";
 
 const problemLists = {
   "Blind 75": blind75,
@@ -25,43 +26,14 @@ const roadmapLinks = {
 
 
 const LeetCodeTracker = () => {
-  // --- Local state with localStorage ---
-    const [progress, setProgress] = useState(() => {
-      try {
-        const savedProgress = localStorage.getItem("leetcode-progress-v2");
-        return savedProgress
-          ? JSON.parse(savedProgress)
-          : {
-              "Blind 75": {},
-              "LeetCode 75": {},
-              "NeetCode 150": {},
-            };
-      } catch (error) {
-        console.error("Error loading progress from localStorage:", error);
-        return {
-          "Blind 75": {},
-          "LeetCode 75": {},
-          "NeetCode 150": {},
-        };
-      }
-    });
+  // Progress and selected list live in the shared ProgressProvider
+  const { progress, setProgress, selectedList, setSelectedList } =
+    useProgress();
 
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterDifficulty, setFilterDifficulty] = useState("All");
   const [showOnlyDueToday, setShowOnlyDueToday] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
-  const [selectedList, setSelectedList] = useState("");
-
-
-// Save progress to localStorage whenever it changes
-  useEffect(() => {
-    try {
-      localStorage.setItem("leetcode-progress-v2", JSON.stringify(progress));
-    } catch (error) {
-      console.error("Error saving progress to localStorage:", error);
-    }
-  }, [progress]);
-
 
   // --- Helpers ---
   const today = localToday();
