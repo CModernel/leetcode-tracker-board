@@ -8,10 +8,7 @@ const STORAGE_KEY = "leetcode-progress-v2";
 export const ProgressProvider = ({ children }) => {
   const [progress, setProgress] = useState(() => {
     try {
-      const savedProgress = localStorage.getItem(STORAGE_KEY);
-      return savedProgress
-        ? JSON.parse(savedProgress)
-        : reducers.emptyProgress();
+      return reducers.parseProgress(localStorage.getItem(STORAGE_KEY));
     } catch (error) {
       console.error("Error loading progress from localStorage:", error);
       return reducers.emptyProgress();
@@ -27,6 +24,22 @@ export const ProgressProvider = ({ children }) => {
       console.error("Error saving progress to localStorage:", error);
     }
   }, [progress]);
+
+  // Keep several open tabs in sync: the browser fires "storage" in the other
+  // tabs when one of them saves. Applying the same text does not re-fire it.
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.storageArea !== localStorage) return;
+      if (event.key !== null && event.key !== STORAGE_KEY) return;
+      try {
+        setProgress(reducers.parseProgress(event.newValue));
+      } catch (error) {
+        console.error("Error reading progress from another tab:", error);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   // Actions apply to the selected list and stamp today's local date.
   const actions = {

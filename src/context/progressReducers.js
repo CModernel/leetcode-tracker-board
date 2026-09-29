@@ -74,3 +74,10 @@ export const importData = (data) => {
 
 // Clears all progress but keeps an empty entry for each list.
 export const clearAll = () => emptyProgress();
+
+// Turns the raw localStorage text into progress. Missing text means no saved
+// progress yet. Throws on invalid JSON or content that is not an object.
+export const parseProgress = (raw) =>
+  raw === null || raw === undefined
+    ? emptyProgress()
+    : importData(JSON.parse(raw));
