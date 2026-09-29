@@ -1,15 +1,12 @@
  import { CheckCircle2, Circle, Calendar, ExternalLink, Minus } from "lucide-react";
-import {
-  localToday,
-  getSchedule,
-  isDue,
-  formatShortDate,
-} from "../lib/schedule";
+import { localToday, getSchedule, formatShortDate } from "../lib/schedule";
+import { filterProblems } from "../lib/filters";
 import {
   getUrgency,
   urgencyButtonStyles,
   urgencyTextStyles,
 } from "../lib/urgencyStyles";
+import { useProgress } from "../context/ProgressContext";
 
 const difficultyColor = {
   Easy: "text-green-600",
@@ -20,25 +17,12 @@ const difficultyColor = {
 const ProblemTable = ({
   problems,
   progress,
-  toggleComplete,
-  filterCategory,
-  filterDifficulty,
-  showOnlyDueToday,
 }) => {
+  const { filters, markSolved, unsolve, completeReview, uncompleteReview } =
+    useProgress();
   const today = localToday();
 
-  const filteredProblems = problems.filter((problem) => {
-    const categoryMatch =
-      filterCategory === "All" ||
-      (problem.topics || []).includes(filterCategory);
-
-    const difficultyMatch =
-      filterDifficulty === "All" || problem.difficulty === filterDifficulty;
-
-    if (!showOnlyDueToday) return categoryMatch && difficultyMatch;
-
-    return categoryMatch && difficultyMatch && isDue(progress[problem.id], today);
-  });
+  const filteredProblems = filterProblems(problems, progress, filters, today);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors">
@@ -167,7 +151,11 @@ const ProblemTable = ({
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
                     <button
-                      onClick={() => toggleComplete(problem.id)}
+                      onClick={() =>
+                        prob.solved
+                          ? unsolve(problem.id)
+                          : markSolved(problem.id)
+                      }
                       className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                     >
                       {prob.solved ? (
@@ -199,7 +187,11 @@ const ProblemTable = ({
                               className="flex flex-col items-center"
                             >
                               <button
-                                onClick={() => toggleComplete(problem.id, idx)}
+                                onClick={() =>
+                                  prob.reviews?.[idx]
+                                    ? uncompleteReview(problem.id, idx)
+                                    : completeReview(problem.id, idx)
+                                }
                                 className={`px-2 py-1 rounded text-xs border min-w-[50px] transition-colors ${urgencyButtonStyles[urgency]}`}
                                 title={`Review ${idx + 1} - Due: ${formatShortDate(
                                   date

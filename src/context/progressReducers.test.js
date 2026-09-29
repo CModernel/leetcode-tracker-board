@@ -1,0 +1,205 @@
+import { describe, expect, it } from "vitest";
+import {
+  clearAll,
+  completeReview,
+  DEFAULT_LIST,
+  importData,
+  markSolved,
+  parseProgress,
+  parseSelectedList,
+  uncompleteReview,
+  unsolve,
+} from "./progressReducers";
+
+const LIST = "NeetCode 150";
+const OTHER = "Blind 75";
+const noReviews = [false, false, false, false, false];
+
+const solvedState = () => ({
+  [LIST]: {
+    1: {
+      solved: true,
+      solvedDate: "2026-10-01",
+      reviews: [true, true, false, false, false],
+      dates: {
+        initial: "2026-10-01",
+        review1: "2026-10-02",
+        review2: "2026-10-05",
+      },
+    },
+  },
+  [OTHER]: { 7: { solved: true, solvedDate: "2026-09-01", reviews: noReviews, dates: {} } },
+});
+
+describe("markSolved", () => {
+  it("creates the entry with today's date and empty reviews", () => {
+    const next = markSolved({ [LIST]: {} }, LIST, 1, "2026-10-01");
+    expect(next[LIST][1]).toEqual({
+      solved: true,
+      solvedDate: "2026-10-01",
+      reviews: noReviews,
+      dates: { initial: "2026-10-01" },
+    });
+  });
+
+  it("works when the list has no progress yet", () => {
+    const next = markSolved({}, LIST, 1, "2026-10-01");
+    expect(next[LIST][1].solved).toBe(true);
+  });
+
+  it("does nothing when the problem is already solved", () => {
+    const state = solvedState();
+    expect(markSolved(state, LIST, 1, "2026-10-09")).toBe(state);
+  });
+
+  it("does not touch other problems or lists", () => {
+    const state = solvedState();
+    const next = markSolved(state, LIST, 2, "2026-10-09");
+    expect(next[LIST][1]).toBe(state[LIST][1]);
+    expect(next[OTHER]).toBe(state[OTHER]);
+  });
+
+  it("does not mutate the previous state", () => {
+    const state = { [LIST]: {} };
+    markSolved(state, LIST, 1, "2026-10-01");
+    expect(state).toEqual({ [LIST]: {} });
+  });
+});
+
+describe("unsolve", () => {
+  it("wipes reviews, dates and the solved date", () => {
+    const next = unsolve(solvedState(), LIST, 1);
+    expect(next[LIST][1]).toEqual({
+      solved: false,
+      solvedDate: null,
+      reviews: noReviews,
+      dates: {},
+    });
+  });
+
+  it("solving again starts from today, not from the old date", () => {
+    const unsolved = unsolve(solvedState(), LIST, 1);
+    const again = markSolved(unsolved, LIST, 1, "2026-10-20");
+    expect(again[LIST][1].solvedDate).toBe("2026-10-20");
+    expect(again[LIST][1].reviews).toEqual(noReviews);
+    expect(again[LIST][1].dates).toEqual({ initial: "2026-10-20" });
+  });
+
+  it("does not touch other lists", () => {
+    const state = solvedState();
+    expect(unsolve(state, LIST, 1)[OTHER]).toBe(state[OTHER]);
+  });
+});
+
+describe("completeReview", () => {
+  it("marks the review and stamps today's date", () => {
+    const next = completeReview(solvedState(), LIST, 1, 2, "2026-10-08");
+    expect(next[LIST][1].reviews).toEqual([true, true, true, false, false]);
+    expect(next[LIST][1].dates.review3).toBe("2026-10-08");
+  });
+
+  it("keeps the other reviews and dates", () => {
+    const next = completeReview(solvedState(), LIST, 1, 2, "2026-10-08");
+    expect(next[LIST][1].dates).toMatchObject({
+      initial: "2026-10-01",
+      review1: "2026-10-02",
+      review2: "2026-10-05",
+    });
+  });
+
+  it("allows completing reviews out of order", () => {
+    const state = markSolved({}, LIST, 1, "2026-10-01");
+    const next = completeReview(state, LIST, 1, 3, "2026-10-04");
+    expect(next[LIST][1].reviews).toEqual([false, false, false, true, false]);
+  });
+
+  it("does not mutate the previous state", () => {
+    const state = solvedState();
+    completeReview(state, LIST, 1, 2, "2026-10-08");
+    expect(state[LIST][1].reviews).toEqual([true, true, false, false, false]);
+    expect(state[LIST][1].dates.review3).toBeUndefined();
+  });
+});
+
+describe("uncompleteReview", () => {
+  it("clears the review and deletes its date", () => {
+    const next = uncompleteReview(solvedState(), LIST, 1, 1);
+    expect(next[LIST][1].reviews).toEqual([true, false, false, false, false]);
+    expect(next[LIST][1].dates).toEqual({
+      initial: "2026-10-01",
+      review1: "2026-10-02",
+    });
+  });
+
+  it("keeps the problem solved", () => {
+    const next = uncompleteReview(solvedState(), LIST, 1, 0);
+    expect(next[LIST][1].solved).toBe(true);
+    expect(next[LIST][1].solvedDate).toBe("2026-10-01");
+  });
+
+  it("does not mutate the previous state", () => {
+    const state = solvedState();
+    uncompleteReview(state, LIST, 1, 1);
+    expect(state[LIST][1].reviews[1]).toBe(true);
+    expect(state[LIST][1].dates.review2).toBe("2026-10-05");
+  });
+});
+
+describe("importData", () => {
+  it("returns the imported object as is", () => {
+    const data = solvedState();
+    expect(importData(data)).toBe(data);
+  });
+
+  it("rejects content that is not an object", () => {
+    for (const bad of [null, undefined, [], "text", 5]) {
+      expect(() => importData(bad)).toThrow();
+    }
+  });
+});
+
+describe("clearAll", () => {
+  it("removes all progress but keeps an empty entry per list", () => {
+    expect(clearAll()).toEqual({
+      "Blind 75": {},
+      "LeetCode 75": {},
+      "NeetCode 150": {},
+    });
+  });
+
+  it("returns a new object each time", () => {
+    expect(clearAll()).not.toBe(clearAll());
+  });
+});
+
+describe("parseProgress", () => {
+  it("returns empty lists when nothing is saved", () => {
+    expect(parseProgress(null)).toEqual(clearAll());
+    expect(parseProgress(undefined)).toEqual(clearAll());
+  });
+
+  it("parses saved progress", () => {
+    const state = solvedState();
+    expect(parseProgress(JSON.stringify(state))).toEqual(state);
+  });
+
+  it("throws on invalid JSON or non-object content", () => {
+    expect(() => parseProgress("{oops")).toThrow();
+    expect(() => parseProgress("null")).toThrow();
+    expect(() => parseProgress("[]")).toThrow();
+  });
+});
+
+describe("parseSelectedList", () => {
+  it("keeps a saved known list", () => {
+    expect(parseSelectedList("Blind 75")).toBe("Blind 75");
+    expect(parseSelectedList("LeetCode 75")).toBe("LeetCode 75");
+  });
+
+  it("falls back to the default list when nothing valid is saved", () => {
+    expect(DEFAULT_LIST).toBe("Blind 75");
+    expect(parseSelectedList(null)).toBe(DEFAULT_LIST);
+    expect(parseSelectedList("")).toBe(DEFAULT_LIST);
+    expect(parseSelectedList("Some old list")).toBe(DEFAULT_LIST);
+  });
+});
