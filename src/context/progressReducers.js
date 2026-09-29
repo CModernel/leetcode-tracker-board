@@ -1,7 +1,8 @@
 import { canCompleteReview, canUncompleteReview } from "../lib/schedule";
+import { isStatus } from "../lib/status";
 
 // Pure functions that return the next `progress` object. `progress` is
-// { [listName]: { [problemId]: { solved, solvedDate, reviews, dates } } }.
+// { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates } } }.
 // `today` is passed in ("YYYY-MM-DD") so these stay easy to test.
 
 export const emptyProgress = () => ({
@@ -11,6 +12,7 @@ export const emptyProgress = () => ({
 });
 
 const emptyEntry = () => ({
+  status: "todo",
   solved: false,
   reviews: Array(5).fill(false),
   dates: {},
@@ -29,6 +31,7 @@ export const markSolved = (progress, list, problemId, today) => {
   if (progress[list]?.[problemId]?.solved) return progress;
   return updateEntry(progress, list, problemId, (current) => ({
     ...current,
+    status: "solved",
     solved: true,
     solvedDate: today,
     dates: { ...current.dates, initial: today },
@@ -39,11 +42,29 @@ export const markSolved = (progress, list, problemId, today) => {
 export const unsolve = (progress, list, problemId) =>
   updateEntry(progress, list, problemId, (current) => ({
     ...current,
+    status: "todo",
     solved: false,
     solvedDate: null,
     reviews: Array(5).fill(false),
     dates: {},
   }));
+
+// Moves a problem to a status. Going to "solved" is markSolved. Leaving
+// "solved" is unsolve, so its reviews and dates are wiped. Between "todo" and
+// "in-progress" only the status changes. An unknown status does nothing.
+export const setStatus = (progress, list, problemId, status, today) => {
+  if (!isStatus(status)) return progress;
+  const current = progress[list]?.[problemId];
+  if (status === "solved") return markSolved(progress, list, problemId, today);
+  if (current?.solved) {
+    return updateEntry(unsolve(progress, list, problemId), list, problemId, (entry) => ({
+      ...entry,
+      status,
+    }));
+  }
+  if (current?.status === status) return progress;
+  return updateEntry(progress, list, problemId, (entry) => ({ ...entry, status }));
+};
 
 // Reviews go in order (see canCompleteReview); anything else does nothing.
 export const completeReview = (progress, list, problemId, index, today) => {

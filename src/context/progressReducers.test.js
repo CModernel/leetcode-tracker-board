@@ -6,6 +6,7 @@ import {
   importData,
   markSolved,
   parseSelectedList,
+  setStatus,
   uncompleteReview,
   unsolve,
 } from "./progressReducers";
@@ -34,6 +35,7 @@ describe("markSolved", () => {
   it("creates the entry with today's date and empty reviews", () => {
     const next = markSolved({ [LIST]: {} }, LIST, 1, "2026-10-01");
     expect(next[LIST][1]).toEqual({
+      status: "solved",
       solved: true,
       solvedDate: "2026-10-01",
       reviews: noReviews,
@@ -65,10 +67,89 @@ describe("markSolved", () => {
   });
 });
 
+describe("setStatus", () => {
+  const entry = (state, id = 1) => state[LIST][id];
+
+  it("starts a problem: todo -> in-progress without touching anything else", () => {
+    const next = setStatus({}, LIST, 1, "in-progress", "2026-10-01");
+    expect(entry(next)).toMatchObject({ status: "in-progress", solved: false });
+    expect(entry(next).reviews).toEqual(noReviews);
+  });
+
+  it("goes back from in-progress to todo", () => {
+    const started = setStatus({}, LIST, 1, "in-progress", "2026-10-01");
+    const back = setStatus(started, LIST, 1, "todo", "2026-10-02");
+    expect(entry(back).status).toBe("todo");
+  });
+
+  it("solves like markSolved, from todo or in-progress", () => {
+    const started = setStatus({}, LIST, 1, "in-progress", "2026-10-01");
+    const solved = setStatus(started, LIST, 1, "solved", "2026-10-03");
+    expect(entry(solved)).toMatchObject({
+      status: "solved",
+      solved: true,
+      solvedDate: "2026-10-03",
+    });
+    expect(solved).toEqual(markSolved(started, LIST, 1, "2026-10-03"));
+  });
+
+  it("leaving solved wipes reviews and dates, like unsolve", () => {
+    const next = setStatus(solvedState(), LIST, 1, "in-progress", "2026-10-09");
+    expect(entry(next)).toEqual({
+      status: "in-progress",
+      solved: false,
+      solvedDate: null,
+      reviews: noReviews,
+      dates: {},
+    });
+    const todo = setStatus(solvedState(), LIST, 1, "todo", "2026-10-09");
+    expect(entry(todo).status).toBe("todo");
+    expect(entry(todo).solved).toBe(false);
+  });
+
+  it("does nothing for an unknown status or the same status", () => {
+    const state = solvedState();
+    expect(setStatus(state, LIST, 1, "done", "2026-10-09")).toBe(state);
+    expect(setStatus(state, LIST, 1, undefined, "2026-10-09")).toBe(state);
+    expect(setStatus(state, LIST, 1, "solved", "2026-10-09")).toBe(state);
+    const started = setStatus({}, LIST, 1, "in-progress", "2026-10-01");
+    expect(setStatus(started, LIST, 1, "in-progress", "2026-10-02")).toBe(started);
+  });
+
+  it("does not touch other problems or lists", () => {
+    const state = solvedState();
+    const next = setStatus(state, LIST, 1, "todo", "2026-10-09");
+    expect(next[OTHER]).toBe(state[OTHER]);
+    expect(entry(setStatus(state, LIST, 2, "in-progress", "2026-10-09"), 1)).toBe(
+      state[LIST][1]
+    );
+  });
+
+  it("keeps solved equal to (status === solved) through any sequence", () => {
+    const steps = ["in-progress", "solved", "todo", "solved", "in-progress", "in-progress", "todo", "solved"];
+    let state = {};
+    steps.forEach((status, n) => {
+      state = setStatus(state, LIST, 1, status, `2026-10-${10 + n}`);
+      expect(entry(state).solved).toBe(entry(state).status === "solved");
+      expect(entry(state).status).toBe(status);
+    });
+  });
+
+  it("keeps the sync with markSolved, unsolve and reviews too", () => {
+    let state = markSolved({}, LIST, 1, "2026-10-01");
+    expect(entry(state)).toMatchObject({ status: "solved", solved: true });
+    state = completeReview(state, LIST, 1, 0, "2026-10-02");
+    expect(entry(state).status).toBe("solved");
+    state = unsolve(state, LIST, 1);
+    expect(entry(state)).toMatchObject({ status: "todo", solved: false });
+  });
+});
+
 describe("unsolve", () => {
   it("wipes reviews, dates and the solved date", () => {
     const next = unsolve(solvedState(), LIST, 1);
     expect(next[LIST][1]).toEqual({
+      status: "todo",
       solved: false,
       solvedDate: null,
       reviews: noReviews,

@@ -77,6 +77,10 @@ export const ProgressProvider = ({ children }) => {
       ),
     unsolve: (problemId) =>
       setProgress((prev) => reducers.unsolve(prev, selectedList, problemId)),
+    setStatus: (problemId, status) =>
+      setProgress((prev) =>
+        reducers.setStatus(prev, selectedList, problemId, status, localToday())
+      ),
     completeReview: (problemId, index) =>
       setProgress((prev) =>
         reducers.completeReview(

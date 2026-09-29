@@ -1,4 +1,5 @@
 import { emptyProgress, importData } from "../context/progressReducers";
+import { getStatus } from "./status";
 
 // Saved data:
 // - v2 (old key): the progress object itself, { [listName]: { [problemId]: entry } }.
@@ -8,14 +9,34 @@ export const SCHEMA_VERSION = 3;
 export const V2_KEY = "leetcode-progress-v2";
 export const V3_KEY = "leetcode-progress-v3";
 
+// Gives every saved problem a status (v3 data saved before statuses existed
+// has none): solved problems become "solved", the rest "todo". An existing
+// valid status is kept, so running it again changes nothing.
+const addStatuses = (progress) => {
+  const result = {};
+  for (const [list, entries] of Object.entries(progress)) {
+    if (typeof entries !== "object" || entries === null) {
+      result[list] = entries;
+      continue;
+    }
+    result[list] = {};
+    for (const [id, entry] of Object.entries(entries)) {
+      result[list][id] =
+        typeof entry === "object" && entry !== null
+          ? { ...entry, status: getStatus(entry) }
+          : entry;
+    }
+  }
+  return result;
+};
+
 // Any supported shape -> { version: 3, progress }. Later schema changes go
 // here and must be safe to run more than once. Throws on invalid content.
 export const migrate = (data) => {
   const parsed = importData(data);
-  if (parsed.version === SCHEMA_VERSION) {
-    return { version: SCHEMA_VERSION, progress: importData(parsed.progress) };
-  }
-  return { version: SCHEMA_VERSION, progress: parsed };
+  const progress =
+    parsed.version === SCHEMA_VERSION ? importData(parsed.progress) : parsed;
+  return { version: SCHEMA_VERSION, progress: addStatuses(progress) };
 };
 
 // Raw saved text -> progress. Missing text means nothing saved yet.
