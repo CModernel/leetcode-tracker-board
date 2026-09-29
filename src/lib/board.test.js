@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { COLUMNS, buildColumns, getNextDue, getStage } from "./board";
+import {
+  COLUMNS,
+  UNSOLVE_CONFIRM,
+  buildColumns,
+  getCardActions,
+  getNextDue,
+  getStage,
+  runCardAction,
+} from "./board";
 import { computeStats } from "./stats";
 
 const today = "2026-09-29";
@@ -176,5 +184,107 @@ describe("buildColumns", () => {
     const before = JSON.stringify(progress);
     buildColumns(problems, progress, today);
     expect(JSON.stringify(progress)).toBe(before);
+  });
+});
+
+describe("getCardActions", () => {
+  const types = (stage, entry) => getCardActions(stage, entry).map((a) => a.type);
+
+  it("offers start and solve for a problem in To Do", () => {
+    expect(types("todo", {})).toEqual(["start", "markSolved"]);
+  });
+
+  it("offers solve and going back for a problem in progress", () => {
+    expect(types("in-progress", { status: "in-progress" })).toEqual([
+      "markSolved",
+      "backToTodo",
+    ]);
+  });
+
+  it("offers the pending review and unsolve when no review is done", () => {
+    const actions = getCardActions("R1", solved(none));
+    expect(actions.map((a) => a.type)).toEqual(["completeReview", "unsolve"]);
+    expect(actions[0]).toMatchObject({ label: "Complete R1", index: 0 });
+  });
+
+  it("offers completing the next review and undoing the last one", () => {
+    const entry = solved([true, true, false, false, false]);
+    const actions = getCardActions("R3", entry);
+    expect(actions.map((a) => a.type)).toEqual([
+      "completeReview",
+      "undoReview",
+      "unsolve",
+    ]);
+    expect(actions[0]).toMatchObject({ label: "Complete R3", index: 2 });
+    expect(actions[1]).toMatchObject({ label: "Undo R2", index: 1 });
+  });
+
+  it("offers only undo and unsolve when mastered", () => {
+    const entry = solved([true, true, true, true, true]);
+    const actions = getCardActions("mastered", entry);
+    expect(actions.map((a) => a.type)).toEqual(["undoReview", "unsolve"]);
+    expect(actions[0]).toMatchObject({ label: "Undo R5", index: 4 });
+  });
+
+  it("asks for confirmation before unsolving, and only then", () => {
+    for (const stage of ["R1", "mastered"]) {
+      const entry = stage === "R1" ? solved(none) : solved([true, true, true, true, true]);
+      const unsolve = getCardActions(stage, entry).find((a) => a.type === "unsolve");
+      expect(unsolve.confirm).toBe(UNSOLVE_CONFIRM);
+    }
+    const others = [
+      ...getCardActions("todo", {}),
+      ...getCardActions("in-progress", {}),
+      ...getCardActions("R2", solved([true, false, false, false, false])).filter(
+        (a) => a.type !== "unsolve"
+      ),
+    ];
+    for (const action of others) expect(action.confirm).toBeUndefined();
+  });
+
+  it("undoes the last done review of old out-of-order data", () => {
+    const old = solved([true, false, false, true, false]); // stage R2
+    const actions = getCardActions("R2", old);
+    expect(actions.find((a) => a.type === "undoReview")).toMatchObject({ index: 3 });
+    expect(actions.find((a) => a.type === "completeReview")).toMatchObject({ index: 1 });
+  });
+
+  it("works without an entry", () => {
+    expect(() => getCardActions("R1")).not.toThrow();
+  });
+});
+
+describe("runCardAction", () => {
+  const makeActions = () => {
+    const calls = [];
+    const record = (name) => (...args) => calls.push([name, ...args]);
+    return {
+      calls,
+      actions: {
+        setStatus: record("setStatus"),
+        markSolved: record("markSolved"),
+        completeReview: record("completeReview"),
+        uncompleteReview: record("uncompleteReview"),
+        unsolve: record("unsolve"),
+      },
+    };
+  };
+  const run = (action) => {
+    const { calls, actions } = makeActions();
+    runCardAction(action, 7, actions);
+    return calls;
+  };
+
+  it("maps each menu action to the shared progress action", () => {
+    expect(run({ type: "start" })).toEqual([["setStatus", 7, "in-progress"]]);
+    expect(run({ type: "backToTodo" })).toEqual([["setStatus", 7, "todo"]]);
+    expect(run({ type: "markSolved" })).toEqual([["markSolved", 7]]);
+    expect(run({ type: "completeReview", index: 2 })).toEqual([["completeReview", 7, 2]]);
+    expect(run({ type: "undoReview", index: 1 })).toEqual([["uncompleteReview", 7, 1]]);
+    expect(run({ type: "unsolve" })).toEqual([["unsolve", 7]]);
+  });
+
+  it("does nothing for an unknown action", () => {
+    expect(run({ type: "explode" })).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { getSchedule } from "./schedule";
+import { canCompleteReview, canUncompleteReview, getSchedule } from "./schedule";
 import { getStatus } from "./status";
 import { getUrgency } from "./urgencyStyles";
 
@@ -53,6 +53,7 @@ export const buildColumns = (problems, progress, today) => {
     const nextDue = getNextDue(entry);
     const card = {
       problem,
+      entry,
       stage,
       nextDue,
       urgency: nextDue ? getUrgency(false, nextDue, today) : null,
@@ -60,4 +61,74 @@ export const buildColumns = (problems, progress, today) => {
     columns.find((column) => column.id === columnOf(stage)).cards.push(card);
   }
   return columns.map((column) => ({ ...column, count: column.cards.length }));
+};
+
+export const UNSOLVE_CONFIRM =
+  "Unsolve this problem? Its reviews and dates will be erased.";
+
+// Index of the last completed review, or -1 when none is done.
+const lastDoneReview = (entry) => {
+  for (let i = 4; i >= 0; i--) if (entry.reviews?.[i]) return i;
+  return -1;
+};
+
+// Actions offered in a card's menu, from its stage and saved entry. Each is
+// { type, label, index?, confirm? }; `confirm` is a question to ask first.
+export const getCardActions = (stage, entry = {}) => {
+  if (stage === "todo") {
+    return [
+      { type: "start", label: "Start" },
+      { type: "markSolved", label: "Mark as solved" },
+    ];
+  }
+  if (stage === "in-progress") {
+    return [
+      { type: "markSolved", label: "Mark as solved" },
+      { type: "backToTodo", label: "Back to To Do" },
+    ];
+  }
+  const actions = [];
+  const pending = stage.startsWith("R") ? Number(stage.slice(1)) - 1 : -1;
+  if (pending >= 0 && canCompleteReview(entry, pending)) {
+    actions.push({
+      type: "completeReview",
+      label: `Complete R${pending + 1}`,
+      index: pending,
+    });
+  }
+  const last = lastDoneReview(entry);
+  if (last >= 0 && canUncompleteReview(entry, last)) {
+    actions.push({
+      type: "undoReview",
+      label: `Undo R${last + 1}`,
+      index: last,
+    });
+  }
+  actions.push({
+    type: "unsolve",
+    label: "Unsolve",
+    confirm: UNSOLVE_CONFIRM,
+  });
+  return actions;
+};
+
+// Runs a menu action through the shared progress actions, so the tracker and
+// the board always change the same data.
+export const runCardAction = (action, problemId, actions) => {
+  switch (action.type) {
+    case "start":
+      return actions.setStatus(problemId, "in-progress");
+    case "backToTodo":
+      return actions.setStatus(problemId, "todo");
+    case "markSolved":
+      return actions.markSolved(problemId);
+    case "completeReview":
+      return actions.completeReview(problemId, action.index);
+    case "undoReview":
+      return actions.uncompleteReview(problemId, action.index);
+    case "unsolve":
+      return actions.unsolve(problemId);
+    default:
+      return undefined;
+  }
 };
