@@ -1,18 +1,24 @@
 import KanbanColumn from "./KanbanColumn";
 import KanbanCard from "./KanbanCard";
 import { buildColumns } from "../lib/board";
+import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
 import { getProblems } from "../lib/lists";
 import { useProgress } from "../context/ProgressContext";
 
 const KanbanBoard = () => {
-  const { progress, selectedList } = useProgress();
+  const { progress, selectedList, filters } = useProgress();
 
-  const columns = buildColumns(
+  const today = localToday();
+  const listProgress = progress[selectedList] || {};
+  // Same filters as the tracker table, so both views show the same problems
+  const problems = filterProblems(
     getProblems(selectedList),
-    progress[selectedList] || {},
-    localToday()
+    listProgress,
+    filters,
+    today
   );
+  const columns = buildColumns(problems, listProgress, today);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
