@@ -5,6 +5,7 @@ import {
   addDays,
   calculateNextReviews,
   formatShortDate,
+  getSchedule,
   isDue,
   localToday,
 } from "./schedule";
@@ -177,5 +178,71 @@ describe.each(ZONES)("in %s", (zone) => {
       const prob = { solved: true, solvedDate: "2026-09-28" };
       expect(isDue(prob, today)).toBe(true);
     });
+  });
+});
+
+describe("getSchedule", () => {
+  const solvedDate = "2026-10-01";
+  const none = [false, false, false, false, false];
+
+  it("is empty without a solved date", () => {
+    expect(getSchedule(undefined)).toEqual([]);
+    expect(getSchedule({ solved: false })).toEqual([]);
+  });
+
+  it("matches the fixed 1/3/7/14/30 days when nothing is completed", () => {
+    expect(getSchedule({ solvedDate, reviews: none })).toEqual(
+      calculateNextReviews(solvedDate)
+    );
+  });
+
+  it("matches the fixed days when every review is done on time", () => {
+    const prob = {
+      solvedDate,
+      reviews: [true, true, true, true, true],
+      dates: {
+        review1: "2026-10-02",
+        review2: "2026-10-04",
+        review3: "2026-10-08",
+        review4: "2026-10-15",
+        review5: "2026-10-31",
+      },
+    };
+    expect(getSchedule(prob)).toEqual(calculateNextReviews(solvedDate));
+  });
+
+  it("shifts the next reviews after a late completion", () => {
+    // R1 was due 10-02 but done 10-06: R2 = 10-08, then R3..R5 follow it.
+    const prob = {
+      solvedDate,
+      reviews: [true, false, false, false, false],
+      dates: { review1: "2026-10-06" },
+    };
+    expect(getSchedule(prob)).toEqual([
+      "2026-10-02",
+      "2026-10-08",
+      "2026-10-12",
+      "2026-10-19",
+      "2026-11-04",
+    ]);
+  });
+
+  it("keeps earlier reviews fixed when a later one is late", () => {
+    const prob = {
+      solvedDate,
+      reviews: [true, true, false, false, false],
+      dates: { review1: "2026-10-02", review2: "2026-10-10" },
+    };
+    expect(getSchedule(prob).slice(0, 2)).toEqual(["2026-10-02", "2026-10-04"]);
+    expect(getSchedule(prob).slice(2)).toEqual([
+      "2026-10-14",
+      "2026-10-21",
+      "2026-11-06",
+    ]);
+  });
+
+  it("falls back to the projected date when a completed review has no date", () => {
+    const prob = { solvedDate, reviews: [true, false, false, false, false] };
+    expect(getSchedule(prob)).toEqual(calculateNextReviews(solvedDate));
   });
 });

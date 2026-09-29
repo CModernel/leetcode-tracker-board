@@ -41,3 +41,20 @@ export const formatShortDate = (dateStr) => {
     day: "numeric",
   });
 };
+
+// Review due dates that follow the real review dates: R1 is GAPS[0] days after
+// solving, and each next one is GAPS[n] days after the previous review was
+// completed (or after its projected due date while it is still pending).
+// On time this gives the same 1/3/7/14/30 days as INTERVALS.
+export const getSchedule = (prob) => {
+  if (!prob?.solvedDate) return [];
+  const schedule = [];
+  let previous = prob.solvedDate;
+  GAPS.forEach((gap, idx) => {
+    const due = addDays(previous, gap);
+    schedule.push(due);
+    const completedOn = prob.dates?.[`review${idx + 1}`];
+    previous = prob.reviews?.[idx] && completedOn ? completedOn : due;
+  });
+  return schedule;
+};
