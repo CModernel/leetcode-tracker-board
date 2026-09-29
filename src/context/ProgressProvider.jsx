@@ -6,6 +6,7 @@ import { DEFAULT_FILTERS, applyFilter } from "../lib/filters";
 import {
   V3_KEY,
   loadProgress,
+  migrate,
   parseStored,
   serializeProgress,
 } from "../lib/migrate";
@@ -90,7 +91,8 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.uncompleteReview(prev, selectedList, problemId, index)
       ),
-    importData: (data) => setProgress(reducers.importData(data)),
+    // Old export files (plain progress) and v3 files both work
+    importData: (data) => setProgress(migrate(data).progress),
     clearAll: () => setProgress(reducers.clearAll()),
   };
 

@@ -110,6 +110,25 @@ describe("loadProgress", () => {
   });
 });
 
+describe("importing a file", () => {
+  // The app exports the plain progress object (same shape as v2), so files
+  // exported before this version must still import.
+  it("accepts an old export file", () => {
+    const fileText = JSON.stringify(v2Data(), null, 2);
+    expect(migrate(JSON.parse(fileText)).progress).toEqual(v2Data());
+  });
+
+  it("accepts a v3 file", () => {
+    const fileText = serializeProgress(v2Data());
+    expect(migrate(JSON.parse(fileText)).progress).toEqual(v2Data());
+  });
+
+  it("rejects a file that is not progress data", () => {
+    expect(() => migrate(JSON.parse("[1, 2]"))).toThrow();
+    expect(() => migrate(JSON.parse("null"))).toThrow();
+  });
+});
+
 describe("serializeProgress", () => {
   it("writes the v3 wrapper", () => {
     expect(JSON.parse(serializeProgress(v2Data()))).toEqual({
