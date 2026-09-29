@@ -16,6 +16,12 @@ const Navbar = () => {
             Tracker
           </Link>
           <Link
+            to="/board"
+            className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+          >
+            Board
+          </Link>
+          <Link
             to="/patterns"
             className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
           >

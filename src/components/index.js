@@ -4,3 +4,8 @@ export { default as StatsCard } from "./StatsCard";
 export { default as ProblemTable } from "./ProblemTable";
 export { default as CircularStatsCard } from "./CircularStatsCard";
 export { default as ExportImportControls } from "./ExportImportControls";
+export { default as TrackerHeader } from "./TrackerHeader";
+export { default as KanbanBoard } from "./KanbanBoard";
+export { default as KanbanColumn } from "./KanbanColumn";
+export { default as KanbanCard } from "./KanbanCard";
+export { default as KanbanCardMenu } from "./KanbanCardMenu";
