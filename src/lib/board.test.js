@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { COLUMNS } from "./board";
+import { COLUMNS, buildColumns, getNextDue, getStage } from "./board";
+import { computeStats } from "./stats";
+
+const today = "2026-09-29";
+const none = [false, false, false, false, false];
+
+const solved = (reviews, extra = {}) => ({
+  status: "solved",
+  solved: true,
+  solvedDate: "2026-09-28",
+  reviews,
+  dates: {},
+  ...extra,
+});
 
 describe("COLUMNS", () => {
   it("has the four columns in order, each with an id and a title", () => {
@@ -14,5 +27,154 @@ describe("COLUMNS", () => {
 
   it("has unique ids", () => {
     expect(new Set(COLUMNS.map((c) => c.id)).size).toBe(COLUMNS.length);
+  });
+});
+
+describe("getStage", () => {
+  it("is todo or in-progress for problems that are not solved", () => {
+    expect(getStage(undefined)).toBe("todo");
+    expect(getStage({})).toBe("todo");
+    expect(getStage({ status: "todo", solved: false })).toBe("todo");
+    expect(getStage({ status: "in-progress", solved: false })).toBe("in-progress");
+  });
+
+  it("is the review a solved problem is waiting for", () => {
+    expect(getStage(solved(none))).toBe("R1");
+    expect(getStage(solved([true, false, false, false, false]))).toBe("R2");
+    expect(getStage(solved([true, true, true, false, false]))).toBe("R4");
+    expect(getStage(solved([true, true, true, true, false]))).toBe("R5");
+  });
+
+  it("is mastered when all five reviews are done", () => {
+    expect(getStage(solved([true, true, true, true, true]))).toBe("mastered");
+  });
+
+  it("works with entries saved before statuses existed", () => {
+    expect(getStage({ solved: true, reviews: none })).toBe("R1");
+    expect(getStage({ solved: false })).toBe("todo");
+  });
+
+  it("uses the first review not done for old out-of-order data", () => {
+    expect(getStage(solved([true, false, false, true, false]))).toBe("R2");
+  });
+
+  it("treats a missing reviews list as no review done", () => {
+    expect(getStage({ status: "solved", solved: true })).toBe("R1");
+  });
+});
+
+describe("getNextDue", () => {
+  it("is null when the problem is not solved", () => {
+    expect(getNextDue(undefined)).toBe(null);
+    expect(getNextDue({ status: "todo", solved: false })).toBe(null);
+    expect(getNextDue({ status: "in-progress", solved: false })).toBe(null);
+  });
+
+  it("is null when mastered", () => {
+    expect(getNextDue(solved([true, true, true, true, true]))).toBe(null);
+  });
+
+  it("is the due date of the review it waits for", () => {
+    expect(getNextDue(solved(none))).toBe("2026-09-29"); // solved 28th + 1
+    const r2 = solved([true, false, false, false, false], {
+      dates: { review1: "2026-09-29" },
+    });
+    expect(getNextDue(r2)).toBe("2026-10-01"); // review1 + 2
+  });
+
+  it("follows a late review", () => {
+    const late = solved([true, false, false, false, false], {
+      solvedDate: "2026-09-01",
+      dates: { review1: "2026-09-20" },
+    });
+    expect(getNextDue(late)).toBe("2026-09-22");
+  });
+});
+
+describe("buildColumns", () => {
+  const problems = [
+    { id: 1, difficulty: "Easy" },
+    { id: 2, difficulty: "Medium" },
+    { id: 3, difficulty: "Hard" },
+    { id: 4, difficulty: "Easy" },
+    { id: 5, difficulty: "Medium" },
+    { id: 6, difficulty: "Hard" },
+  ];
+  const progress = {
+    2: { status: "in-progress", solved: false },
+    3: solved(none), // R1 due today
+    4: solved([true, true, true, true, true]), // mastered
+    5: solved(none, { solvedDate: "2026-09-01" }), // R1 overdue
+    // 1 and 6 have no progress
+  };
+  const columns = buildColumns(problems, progress, today);
+  const byId = (id) => columns.find((c) => c.id === id);
+  const ids = (id) => byId(id).cards.map((card) => card.problem.id);
+
+  it("returns the four columns in order with their titles", () => {
+    expect(columns.map((c) => c.id)).toEqual(COLUMNS.map((c) => c.id));
+    expect(columns.map((c) => c.title)).toEqual(COLUMNS.map((c) => c.title));
+  });
+
+  it("puts each problem in its column, keeping the list order", () => {
+    expect(ids("todo")).toEqual([1, 6]);
+    expect(ids("in-progress")).toEqual([2]);
+    expect(ids("reviewing")).toEqual([3, 5]);
+    expect(ids("mastered")).toEqual([4]);
+  });
+
+  it("gives each column its count", () => {
+    expect(columns.map((c) => c.count)).toEqual([2, 1, 2, 1]);
+  });
+
+  it("puts every problem in exactly one column", () => {
+    const all = columns.flatMap((c) => c.cards.map((card) => card.problem.id));
+    expect(all.sort()).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it("matches the tracker stats: reviewing + mastered = solved", () => {
+    const stats = computeStats(problems, progress, today);
+    expect(byId("reviewing").count + byId("mastered").count).toBe(stats.solved);
+    expect(columns.reduce((sum, c) => sum + c.count, 0)).toBe(stats.total);
+  });
+
+  it("sets stage, next due date and urgency on the cards", () => {
+    const [dueToday, overdue] = byId("reviewing").cards;
+    expect(dueToday).toMatchObject({
+      stage: "R1",
+      nextDue: "2026-09-29",
+      urgency: "today",
+    });
+    expect(overdue).toMatchObject({ stage: "R1", urgency: "overdue" });
+    expect(byId("todo").cards[0]).toMatchObject({
+      stage: "todo",
+      nextDue: null,
+      urgency: null,
+    });
+    expect(byId("mastered").cards[0]).toMatchObject({
+      stage: "mastered",
+      nextDue: null,
+      urgency: null,
+    });
+  });
+
+  it("marks a review that is not due yet as upcoming", () => {
+    const [column] = buildColumns(
+      [{ id: 1 }],
+      { 1: solved(none, { solvedDate: today }) },
+      today
+    ).filter((c) => c.id === "reviewing");
+    expect(column.cards[0].urgency).toBe("upcoming");
+  });
+
+  it("handles an empty list and empty progress", () => {
+    expect(buildColumns([], {}, today).map((c) => c.count)).toEqual([0, 0, 0, 0]);
+    expect(buildColumns(problems, {}, today)[0].count).toBe(6);
+  });
+
+  it("does not mutate its input", () => {
+    const before = JSON.stringify(progress);
+    buildColumns(problems, progress, today);
+    expect(JSON.stringify(progress)).toBe(before);
   });
 });
