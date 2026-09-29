@@ -1,5 +1,10 @@
  import { CheckCircle2, Circle, Calendar, ExternalLink, Minus } from "lucide-react";
-import { localToday, calculateNextReviews, isDue } from "../lib/schedule";
+import {
+  localToday,
+  calculateNextReviews,
+  isDue,
+  formatShortDate,
+} from "../lib/schedule";
 
 const difficultyColor = {
   Easy: "text-green-600",
@@ -29,14 +34,6 @@ const ProblemTable = ({
 
     return categoryMatch && difficultyMatch && isDue(progress[problem.id], today);
   });
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   const isOverdue = (date) => {
     return date < today;
@@ -84,7 +81,7 @@ const ProblemTable = ({
               const nextReviews = calculateNextReviews(prob.solvedDate);
               return (
                 <tr
-                  key={index.id}
+                  key={problem.id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
@@ -213,7 +210,7 @@ const ProblemTable = ({
                                     ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-600"
                                     : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600"
                                 }`}
-                                title={`Review ${idx + 1} - Due: ${formatDate(
+                                title={`Review ${idx + 1} - Due: ${formatShortDate(
                                   date
                                 )}`}
                               >
@@ -231,7 +228,7 @@ const ProblemTable = ({
                                 }`}
                               >
                                 <Calendar size={10} />
-                                {formatDate(date)}
+                                {formatShortDate(date)}
                               </div>
                             </div>
                           );

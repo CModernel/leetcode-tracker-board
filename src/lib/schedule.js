@@ -32,3 +32,12 @@ export const isDue = (prob, today) => {
     (date, idx) => !prob.reviews?.[idx] && date <= today
   );
 };
+
+// "2026-10-05" -> "Oct 5". Built from local parts, so the day never shifts.
+export const formatShortDate = (dateStr) => {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+};

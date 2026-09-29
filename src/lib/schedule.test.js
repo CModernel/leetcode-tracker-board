@@ -4,6 +4,7 @@ import {
   GAPS,
   addDays,
   calculateNextReviews,
+  formatShortDate,
   isDue,
   localToday,
 } from "./schedule";
@@ -100,6 +101,14 @@ describe.each(ZONES)("in %s", (zone) => {
         vi.setSystemTime(new Date(iso));
         expect(localToday()).toBe(dateInZone(new Date(iso), zone));
       }
+    });
+  });
+
+  describe("formatShortDate", () => {
+    it("shows the stored day, never the previous one", () => {
+      expect(formatShortDate("2026-10-05")).toBe("Oct 5");
+      expect(formatShortDate("2026-01-01")).toBe("Jan 1");
+      expect(formatShortDate("2026-12-31")).toBe("Dec 31");
     });
   });
 
