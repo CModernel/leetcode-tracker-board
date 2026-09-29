@@ -1,3 +1,5 @@
+import { canCompleteReview, canUncompleteReview } from "../lib/schedule";
+
 // Pure functions that return the next `progress` object. `progress` is
 // { [listName]: { [problemId]: { solved, solvedDate, reviews, dates } } }.
 // `today` is passed in ("YYYY-MM-DD") so these stay easy to test.
@@ -43,8 +45,10 @@ export const unsolve = (progress, list, problemId) =>
     dates: {},
   }));
 
-export const completeReview = (progress, list, problemId, index, today) =>
-  updateEntry(progress, list, problemId, (current) => {
+// Reviews go in order (see canCompleteReview); anything else does nothing.
+export const completeReview = (progress, list, problemId, index, today) => {
+  if (!canCompleteReview(progress[list]?.[problemId], index)) return progress;
+  return updateEntry(progress, list, problemId, (current) => {
     const reviews = [...current.reviews];
     reviews[index] = true;
     return {
@@ -53,15 +57,19 @@ export const completeReview = (progress, list, problemId, index, today) =>
       dates: { ...current.dates, [`review${index + 1}`]: today },
     };
   });
+};
 
-export const uncompleteReview = (progress, list, problemId, index) =>
-  updateEntry(progress, list, problemId, (current) => {
+// Only the last completed review can be undone; anything else does nothing.
+export const uncompleteReview = (progress, list, problemId, index) => {
+  if (!canUncompleteReview(progress[list]?.[problemId], index)) return progress;
+  return updateEntry(progress, list, problemId, (current) => {
     const reviews = [...current.reviews];
     reviews[index] = false;
     const dates = { ...current.dates };
     delete dates[`review${index + 1}`];
     return { ...current, reviews, dates };
   });
+};
 
 // Replaces everything with an imported file's content. Throws if the content
 // is not an object (for example "null" or a list), so nothing gets replaced.

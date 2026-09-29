@@ -1,5 +1,11 @@
  import { CheckCircle2, Circle, Calendar, ExternalLink, Minus } from "lucide-react";
-import { localToday, getSchedule, formatShortDate } from "../lib/schedule";
+import {
+  localToday,
+  getSchedule,
+  formatShortDate,
+  canCompleteReview,
+  canUncompleteReview,
+} from "../lib/schedule";
 import { filterProblems } from "../lib/filters";
 import {
   getUrgency,
@@ -175,6 +181,10 @@ const ProblemTable = ({
                     {prob.solved ? (
                       <div className="flex flex-wrap gap-2">
                         {nextReviews.map((date, idx) => {
+                          const isDone = Boolean(prob.reviews?.[idx]);
+                          const canToggle = isDone
+                            ? canUncompleteReview(prob, idx)
+                            : canCompleteReview(prob, idx);
                           const urgency = getUrgency(
                             prob.reviews?.[idx],
                             date,
@@ -188,14 +198,25 @@ const ProblemTable = ({
                             >
                               <button
                                 onClick={() =>
-                                  prob.reviews?.[idx]
+                                  isDone
                                     ? uncompleteReview(problem.id, idx)
                                     : completeReview(problem.id, idx)
                                 }
-                                className={`px-2 py-1 rounded text-xs border min-w-[50px] transition-colors ${urgencyButtonStyles[urgency]}`}
-                                title={`Review ${idx + 1} - Due: ${formatShortDate(
-                                  date
-                                )}`}
+                                disabled={!canToggle}
+                                className={`px-2 py-1 rounded text-xs border min-w-[50px] transition-colors ${urgencyButtonStyles[urgency]} ${
+                                  canToggle
+                                    ? ""
+                                    : "opacity-50 cursor-not-allowed"
+                                }`}
+                                title={
+                                  canToggle
+                                    ? `Review ${idx + 1} - Due: ${formatShortDate(
+                                        date
+                                      )}`
+                                    : isDone
+                                    ? "Undo the later reviews first"
+                                    : `Complete R${idx} first`
+                                }
                               >
                                 {`R${idx + 1}`}
                               </button>

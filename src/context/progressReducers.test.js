@@ -106,10 +106,37 @@ describe("completeReview", () => {
     });
   });
 
-  it("allows completing reviews out of order", () => {
+  it("completes the reviews one after another", () => {
+    let state = markSolved({}, LIST, 1, "2026-10-01");
+    for (let i = 0; i < 5; i++) {
+      state = completeReview(state, LIST, 1, i, `2026-10-0${i + 2}`);
+    }
+    expect(state[LIST][1].reviews).toEqual([true, true, true, true, true]);
+    expect(state[LIST][1].dates.review5).toBe("2026-10-06");
+  });
+
+  it("ignores a review whose earlier reviews are not done", () => {
     const state = markSolved({}, LIST, 1, "2026-10-01");
-    const next = completeReview(state, LIST, 1, 3, "2026-10-04");
-    expect(next[LIST][1].reviews).toEqual([false, false, false, true, false]);
+    expect(completeReview(state, LIST, 1, 1, "2026-10-04")).toBe(state);
+    expect(completeReview(state, LIST, 1, 3, "2026-10-04")).toBe(state);
+  });
+
+  it("ignores a review that is already done", () => {
+    const state = solvedState();
+    expect(completeReview(state, LIST, 1, 0, "2026-10-09")).toBe(state);
+  });
+
+  it("ignores reviews of a problem that is not solved or does not exist", () => {
+    const state = { [LIST]: { 1: { solved: false, reviews: [false, false, false, false, false], dates: {} } } };
+    expect(completeReview(state, LIST, 1, 0, "2026-10-09")).toBe(state);
+    expect(completeReview(state, LIST, 99, 0, "2026-10-09")).toBe(state);
+    expect(completeReview({}, LIST, 1, 0, "2026-10-09")).toEqual({});
+  });
+
+  it("ignores an index outside R1..R5", () => {
+    const state = markSolved({}, LIST, 1, "2026-10-01");
+    expect(completeReview(state, LIST, 1, -1, "2026-10-04")).toBe(state);
+    expect(completeReview(state, LIST, 1, 5, "2026-10-04")).toBe(state);
   });
 
   it("does not mutate the previous state", () => {
@@ -130,8 +157,44 @@ describe("uncompleteReview", () => {
     });
   });
 
+  it("ignores a review that is not the last completed one", () => {
+    const state = solvedState(); // R1 and R2 done
+    expect(uncompleteReview(state, LIST, 1, 0)).toBe(state);
+  });
+
+  it("ignores a review that is not done", () => {
+    const state = solvedState();
+    expect(uncompleteReview(state, LIST, 1, 3)).toBe(state);
+  });
+
+  it("undoes the reviews from the last one backwards", () => {
+    let state = solvedState(); // R1 and R2 done
+    state = uncompleteReview(state, LIST, 1, 1);
+    state = uncompleteReview(state, LIST, 1, 0);
+    expect(state[LIST][1].reviews).toEqual(noReviews);
+    expect(state[LIST][1].dates).toEqual({ initial: "2026-10-01" });
+  });
+
+  it("can unwind old data that is already out of order", () => {
+    // Saved before the order rule: R1 and R4 done, R2 and R3 skipped.
+    const old = {
+      [LIST]: {
+        1: {
+          solved: true,
+          solvedDate: "2026-10-01",
+          reviews: [true, false, false, true, false],
+          dates: { review1: "2026-10-02", review4: "2026-10-20" },
+        },
+      },
+    };
+    expect(uncompleteReview(old, LIST, 1, 0)).toBe(old); // R4 still done
+    const next = uncompleteReview(old, LIST, 1, 3);
+    expect(next[LIST][1].reviews).toEqual([true, false, false, false, false]);
+    expect(uncompleteReview(next, LIST, 1, 0)[LIST][1].reviews).toEqual(noReviews);
+  });
+
   it("keeps the problem solved", () => {
-    const next = uncompleteReview(solvedState(), LIST, 1, 0);
+    const next = uncompleteReview(solvedState(), LIST, 1, 1);
     expect(next[LIST][1].solved).toBe(true);
     expect(next[LIST][1].solvedDate).toBe("2026-10-01");
   });

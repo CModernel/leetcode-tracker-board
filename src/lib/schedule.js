@@ -52,3 +52,19 @@ export const getSchedule = (prob) => {
   });
   return schedule;
 };
+
+// Reviews must go in order: R(n) can be completed only when R1..R(n-1) are
+// done, and only the last completed review can be undone.
+const isReviewIndex = (index) =>
+  Number.isInteger(index) && index >= 0 && index < GAPS.length;
+
+export const canCompleteReview = (prob, index) =>
+  Boolean(prob?.solved) &&
+  isReviewIndex(index) &&
+  !prob.reviews?.[index] &&
+  GAPS.slice(0, index).every((_, i) => prob.reviews?.[i]);
+
+export const canUncompleteReview = (prob, index) =>
+  isReviewIndex(index) &&
+  Boolean(prob?.reviews?.[index]) &&
+  !prob.reviews.slice(index + 1).some(Boolean);
