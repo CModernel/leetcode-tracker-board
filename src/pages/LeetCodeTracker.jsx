@@ -27,8 +27,7 @@ const roadmapLinks = {
 
 const LeetCodeTracker = () => {
   // Progress and selected list live in the shared ProgressProvider
-  const { progress, setProgress, selectedList, setSelectedList } =
-    useProgress();
+  const { progress, selectedList, setSelectedList } = useProgress();
 
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterDifficulty, setFilterDifficulty] = useState("All");
@@ -192,7 +191,7 @@ const LeetCodeTracker = () => {
         />
 
         {/* Export / Import / Clear */}
-        <ExportImportControls progress={progress} setProgress={setProgress} />
+        <ExportImportControls />
 
         {/* Filters */}
         <Filters

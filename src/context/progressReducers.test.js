@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  clearAll,
   completeReview,
+  importData,
   markSolved,
   uncompleteReview,
   unsolve,
@@ -137,5 +139,32 @@ describe("uncompleteReview", () => {
     uncompleteReview(state, LIST, 1, 1);
     expect(state[LIST][1].reviews[1]).toBe(true);
     expect(state[LIST][1].dates.review2).toBe("2026-10-05");
+  });
+});
+
+describe("importData", () => {
+  it("returns the imported object as is", () => {
+    const data = solvedState();
+    expect(importData(data)).toBe(data);
+  });
+
+  it("rejects content that is not an object", () => {
+    for (const bad of [null, undefined, [], "text", 5]) {
+      expect(() => importData(bad)).toThrow();
+    }
+  });
+});
+
+describe("clearAll", () => {
+  it("removes all progress but keeps an empty entry per list", () => {
+    expect(clearAll()).toEqual({
+      "Blind 75": {},
+      "LeetCode 75": {},
+      "NeetCode 150": {},
+    });
+  });
+
+  it("returns a new object each time", () => {
+    expect(clearAll()).not.toBe(clearAll());
   });
 });

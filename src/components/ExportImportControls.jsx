@@ -1,6 +1,9 @@
 import { Download, Upload, Trash2 } from "lucide-react";
+import { useProgress } from "../context/ProgressContext";
 
-const ExportImportControls = ({ progress, setProgress }) => {
+const ExportImportControls = () => {
+  const { progress, importData: applyImport, clearAll } = useProgress();
+
   const exportData = () => {
     const dataStr = JSON.stringify(progress, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
@@ -20,7 +23,7 @@ const ExportImportControls = ({ progress, setProgress }) => {
       reader.onload = (e) => {
         try {
           const imported = JSON.parse(e.target.result);
-          setProgress(imported);
+          applyImport(imported);
           alert("Progress imported successfully!");
         } catch {
           alert("Error importing file. Please check the file format.");
@@ -32,7 +35,7 @@ const ExportImportControls = ({ progress, setProgress }) => {
 
   const clearAllData = () => {
     if (window.confirm("Are you sure you want to clear all progress?")) {
-      setProgress({});
+      clearAll();
     }
   };
 

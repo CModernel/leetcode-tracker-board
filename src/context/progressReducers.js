@@ -2,6 +2,12 @@
 // { [listName]: { [problemId]: { solved, solvedDate, reviews, dates } } }.
 // `today` is passed in ("YYYY-MM-DD") so these stay easy to test.
 
+export const emptyProgress = () => ({
+  "Blind 75": {},
+  "LeetCode 75": {},
+  "NeetCode 150": {},
+});
+
 const emptyEntry = () => ({
   solved: false,
   reviews: Array(5).fill(false),
@@ -56,3 +62,15 @@ export const uncompleteReview = (progress, list, problemId, index) =>
     delete dates[`review${index + 1}`];
     return { ...current, reviews, dates };
   });
+
+// Replaces everything with an imported file's content. Throws if the content
+// is not an object (for example "null" or a list), so nothing gets replaced.
+export const importData = (data) => {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    throw new Error("Invalid progress data");
+  }
+  return data;
+};
+
+// Clears all progress but keeps an empty entry for each list.
+export const clearAll = () => emptyProgress();
