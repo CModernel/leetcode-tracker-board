@@ -1,4 +1,4 @@
-import { TrackerHeader } from "../components";
+import { KanbanBoard, TrackerHeader } from "../components";
 import { useProgress } from "../context/ProgressContext";
 
 const BoardPage = () => {
@@ -9,11 +9,7 @@ const BoardPage = () => {
       <div className="max-w-7xl mx-auto">
         <TrackerHeader title={`CodeTrack Pro - ${selectedList} Board`} />
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors">
-          <p className="text-gray-600 dark:text-gray-300">
-            The Kanban board is coming soon.
-          </p>
-        </div>
+        <KanbanBoard />
       </div>
     </div>
   );
