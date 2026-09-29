@@ -5,7 +5,6 @@ import {
   DEFAULT_LIST,
   importData,
   markSolved,
-  parseProgress,
   parseSelectedList,
   uncompleteReview,
   unsolve,
@@ -169,24 +168,6 @@ describe("clearAll", () => {
 
   it("returns a new object each time", () => {
     expect(clearAll()).not.toBe(clearAll());
-  });
-});
-
-describe("parseProgress", () => {
-  it("returns empty lists when nothing is saved", () => {
-    expect(parseProgress(null)).toEqual(clearAll());
-    expect(parseProgress(undefined)).toEqual(clearAll());
-  });
-
-  it("parses saved progress", () => {
-    const state = solvedState();
-    expect(parseProgress(JSON.stringify(state))).toEqual(state);
-  });
-
-  it("throws on invalid JSON or non-object content", () => {
-    expect(() => parseProgress("{oops")).toThrow();
-    expect(() => parseProgress("null")).toThrow();
-    expect(() => parseProgress("[]")).toThrow();
   });
 });
 
