@@ -19,16 +19,10 @@ export const addDays = (dateStr, days) => {
   return formatDate(new Date(year, month - 1, day + days));
 };
 
-// Fixed review dates (R1..R5) counted from the solved date.
-export const calculateNextReviews = (solvedDate) => {
-  if (!solvedDate) return [];
-  return INTERVALS.map((days) => addDays(solvedDate, days));
-};
-
 // A solved problem is due when any pending review date is today or earlier.
 export const isDue = (prob, today) => {
   if (!prob || !prob.solved) return false;
-  return calculateNextReviews(prob.solvedDate).some(
+  return getSchedule(prob).some(
     (date, idx) => !prob.reviews?.[idx] && date <= today
   );
 };
