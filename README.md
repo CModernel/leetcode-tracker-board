@@ -37,7 +37,7 @@ A modern, interactive web application to track your progress through the famous 
 
 ## 🚀 Live Demo
 
-[View Live Demo](https://track-leetcode.vercel.app) (soon to be migrated to GitHub Pages)
+[View Live Demo](https://cmodernel.github.io/leetcode-tracker-board/)
 
 ## 🛠️ Installation
 
@@ -51,8 +51,8 @@ A modern, interactive web application to track your progress through the famous 
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/javydevx/leetcode-tracker.git
-   cd leetcode-tracker
+   git clone https://github.com/CModernel/leetcode-tracker-board.git
+   cd leetcode-tracker-board
    ```
 
 2. **Install dependencies**
@@ -68,7 +68,7 @@ A modern, interactive web application to track your progress through the famous 
    ```
 
 4. **Open your browser**
-   Navigate to `http://localhost:5173`
+   Navigate to `http://localhost:5173/leetcode-tracker-board/`
 
 ## 📦 Build for Production
 
@@ -77,6 +77,8 @@ npm run build
 ```
 
 The built files will be in the `dist/` directory, ready for deployment.
+
+Every push to `master` is built and deployed to GitHub Pages automatically via GitHub Actions.
 
 ## 🎯 How to Use
 

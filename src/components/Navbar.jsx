@@ -46,7 +46,7 @@ const Navbar = () => {
 
           {/* GitHub Button */}
           <a
-            href="https://github.com/javydevx/neetcode-tracker"
+            href="https://github.com/CModernel/leetcode-tracker-board"
             target="_blank"
             rel="noopener noreferrer"
             className="h-10 group relative flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white rounded overflow-hidden font-semibold transition-all duration-300 hover:shadow-xl"

@@ -9,14 +9,14 @@
       "Arrays & Hashing"
     ],
     "companies": [
-      { "name": "Google", "logo": "/logos/google.png" },
-      { "name": "Amazon", "logo": "/logos/amazon.png" },
-      { "name": "Meta", "logo": "/logos/meta.png" },
-      { "name": "Microsoft", "logo": "/logos/microsoft.png" },
-      { "name": "Bloomberg", "logo": "/logos/bloomberg.png" },
-      { "name": "Netflix", "logo": "/logos/netflix.png" },
-      { "name": "IBM", "logo": "/logos/ibm.png" },
-      { "name": "VISA", "logo": "/logos/visa.png" }
+      { "name": "Google", "logo": "logos/google.png" },
+      { "name": "Amazon", "logo": "logos/amazon.png" },
+      { "name": "Meta", "logo": "logos/meta.png" },
+      { "name": "Microsoft", "logo": "logos/microsoft.png" },
+      { "name": "Bloomberg", "logo": "logos/bloomberg.png" },
+      { "name": "Netflix", "logo": "logos/netflix.png" },
+      { "name": "IBM", "logo": "logos/ibm.png" },
+      { "name": "VISA", "logo": "logos/visa.png" }
     ],
     "listMeta": {
       "day": 1,

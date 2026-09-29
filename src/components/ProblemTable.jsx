@@ -149,7 +149,7 @@ const ProblemTable = ({
                           >
                             {company.logo ? (
                               <img
-                                src={company.logo}
+                                src={`${import.meta.env.BASE_URL}${company.logo}`}
                                 alt={company.name}
                                 className="h-6 w-6 object-contain cursor-pointer hover:scale-110 transition-transform"
                               />

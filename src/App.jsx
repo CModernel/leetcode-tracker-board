@@ -1,10 +1,10 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { LeetCodeTracker, Patterns, InterviewRoadmap } from "./pages";
 import { Navbar } from "./components";
 
 const App = () => {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
         <Navbar />
         <Routes>
@@ -13,7 +13,7 @@ const App = () => {
           <Route path="/roadmap" element={<InterviewRoadmap />} />
         </Routes>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   );
 };
 
