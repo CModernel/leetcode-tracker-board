@@ -8,6 +8,7 @@ import {
   CircularStatsCard,
 } from "../components";
 import { blind75, leetcode75, neetcode150 } from "../data";
+import { localToday, isDue } from "../lib/schedule";
 
 const problemLists = {
   "Blind 75": blind75,
@@ -22,9 +23,6 @@ const roadmapLinks = {
   "NeetCode 150": "https://neetcode.io/roadmap",
 };
 
-
-// --- Spaced repetition intervals ---
-const intervals = [1, 3, 7, 14, 30];
 
 const LeetCodeTracker = () => {
   // --- Local state with localStorage ---
@@ -66,21 +64,10 @@ const LeetCodeTracker = () => {
 
 
   // --- Helpers ---
-  const today = new Date().toISOString().split("T")[0];
-
-  const calculateNextReviews = (solvedDate) => {
-    if (!solvedDate) return [];
-    const date = new Date(solvedDate);
-    return intervals.map(
-      (days) =>
-        new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0]
-    );
-  };
+  const today = localToday();
 
   const toggleComplete = (problemId, reviewIndex = null) => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = localToday();
     setProgress((prev) => {
       const listProgress = prev[selectedList] || {};
       const current = listProgress[problemId] || {
@@ -148,14 +135,9 @@ const LeetCodeTracker = () => {
    };
 
   const getDueProblems = () => {
-    return problems.filter((problem) => {
-      const prob = currentProgress[problem.id];
-      if (!prob || !prob.solved) return false;
-      const nextReviews = calculateNextReviews(prob.solvedDate);
-      return nextReviews.some(
-        (date, idx) => !prob.reviews?.[idx] && date <= today
-      );
-    }).length;
+    return problems.filter((problem) =>
+      isDue(currentProgress[problem.id], today)
+    ).length;
   };
 
   return (
@@ -297,7 +279,6 @@ const LeetCodeTracker = () => {
           problems={problems}
           progress={currentProgress}
           toggleComplete={toggleComplete}
-          calculateNextReviews={calculateNextReviews}
           filterCategory={filterCategory}
           filterDifficulty={filterDifficulty}
           showOnlyDueToday={showOnlyDueToday}

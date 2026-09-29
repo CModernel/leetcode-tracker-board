@@ -1,4 +1,15 @@
  import { CheckCircle2, Circle, Calendar, ExternalLink, Minus } from "lucide-react";
+import {
+  localToday,
+  calculateNextReviews,
+  isDue,
+  formatShortDate,
+} from "../lib/schedule";
+import {
+  getUrgency,
+  urgencyButtonStyles,
+  urgencyTextStyles,
+} from "../lib/urgencyStyles";
 
 const difficultyColor = {
   Easy: "text-green-600",
@@ -10,12 +21,11 @@ const ProblemTable = ({
   problems,
   progress,
   toggleComplete,
-  calculateNextReviews,
   filterCategory,
   filterDifficulty,
   showOnlyDueToday,
 }) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = localToday();
 
   const filteredProblems = problems.filter((problem) => {
     const categoryMatch =
@@ -27,30 +37,8 @@ const ProblemTable = ({
 
     if (!showOnlyDueToday) return categoryMatch && difficultyMatch;
 
-    const prob = progress[problem.id];
-    if (!prob || !prob.solved) return false;
-    const nextReviews = calculateNextReviews(prob.solvedDate);
-    const isDueToday = nextReviews.some(
-      (date, idx) => !prob.reviews?.[idx] && date <= today
-    );
-    return categoryMatch && difficultyMatch && isDueToday;
+    return categoryMatch && difficultyMatch && isDue(progress[problem.id], today);
   });
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const isOverdue = (date) => {
-    return date < today;
-  };
-
-  const isDueToday = (date) => {
-    return date === today;
-  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors">
@@ -90,7 +78,7 @@ const ProblemTable = ({
               const nextReviews = calculateNextReviews(prob.solvedDate);
               return (
                 <tr
-                  key={index.id}
+                  key={problem.id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
@@ -199,9 +187,11 @@ const ProblemTable = ({
                     {prob.solved ? (
                       <div className="flex flex-wrap gap-2">
                         {nextReviews.map((date, idx) => {
-                          const isCompleted = prob.reviews?.[idx];
-                          const overdue = !isCompleted && isOverdue(date);
-                          const dueToday = !isCompleted && isDueToday(date);
+                          const urgency = getUrgency(
+                            prob.reviews?.[idx],
+                            date,
+                            today
+                          );
 
                           return (
                             <div
@@ -210,34 +200,18 @@ const ProblemTable = ({
                             >
                               <button
                                 onClick={() => toggleComplete(problem.id, idx)}
-                                className={`px-2 py-1 rounded text-xs border min-w-[50px] transition-colors ${
-                                  isCompleted
-                                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-600"
-                                    : overdue
-                                    ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-600"
-                                    : dueToday
-                                    ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-600"
-                                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600"
-                                }`}
-                                title={`Review ${idx + 1} - Due: ${formatDate(
+                                className={`px-2 py-1 rounded text-xs border min-w-[50px] transition-colors ${urgencyButtonStyles[urgency]}`}
+                                title={`Review ${idx + 1} - Due: ${formatShortDate(
                                   date
                                 )}`}
                               >
                                 {`R${idx + 1}`}
                               </button>
                               <div
-                                className={`text-[10px] mt-1 flex items-center gap-0.5 ${
-                                  isCompleted
-                                    ? "text-green-600 dark:text-green-400"
-                                    : overdue
-                                    ? "text-red-600 dark:text-red-400"
-                                    : dueToday
-                                    ? "text-yellow-600 dark:text-yellow-400"
-                                    : "text-gray-500 dark:text-gray-300"
-                                }`}
+                                className={`text-[10px] mt-1 flex items-center gap-0.5 ${urgencyTextStyles[urgency]}`}
                               >
                                 <Calendar size={10} />
-                                {formatDate(date)}
+                                {formatShortDate(date)}
                               </div>
                             </div>
                           );
