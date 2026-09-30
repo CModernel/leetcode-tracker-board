@@ -5,7 +5,7 @@ import KanbanCard from "./KanbanCard";
 // the keyboard (focus the card, then space or enter). While it is dragged, this
 // copy stays in its column, dimmed; the board shows the moving copy in a
 // DragOverlay.
-const DraggableKanbanCard = ({ card, onComplete }) => {
+const DraggableKanbanCard = ({ card, onComplete, onHelp }) => {
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
     id: card.problem.id,
   });
@@ -19,7 +19,7 @@ const DraggableKanbanCard = ({ card, onComplete }) => {
         isDragging ? "opacity-40" : ""
       }`}
     >
-      <KanbanCard card={card} onComplete={onComplete} />
+      <KanbanCard card={card} onComplete={onComplete} onHelp={onHelp} />
     </div>
   );
 };

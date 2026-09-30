@@ -540,3 +540,122 @@ describe("going back more than one review", () => {
     expect(screen.getByRole("menuitem", { name: "Undo R1" })).toBeTruthy();
   });
 });
+
+describe("Needed help… on a card", () => {
+  // Two Sum solved on 2026-10-01 with R1 and R2 done on time, today 2026-10-20
+  // (R3 is overdue). Only Date is faked, so timers and effects still run.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 20, 12, 0, 0));
+    localStorage.setItem(
+      "leetcode-progress-v3",
+      JSON.stringify({
+        version: 3,
+        progress: {
+          "Blind 75": {
+            "blind75-1": {
+              status: "solved",
+              solved: true,
+              solvedDate: "2026-10-01",
+              reviews: [true, true, false, false, false],
+              dates: { initial: "2026-10-01", review1: "2026-10-02", review2: "2026-10-04" },
+            },
+          },
+        },
+      })
+    );
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const openDialog = (view) =>
+    fireEvent.click(within(view.card()).getByRole("button", { name: "Needed help…" }));
+  const saved = () =>
+    JSON.parse(localStorage.getItem("leetcode-progress-v3")).progress["Blind 75"]["blind75-1"];
+
+  it("has the link only on cards with a review to complete", () => {
+    const view = renderBoth();
+    expect(within(view.card()).getByRole("button", { name: "Needed help…" })).toBeTruthy();
+    const other = view.board().getByText("2 - Contains Duplicate").closest("article");
+    expect(within(other).queryByRole("button", { name: "Needed help…" })).toBeNull();
+  });
+
+  it("shows the three outcomes with real dates", () => {
+    const view = renderBoth();
+    openDialog(view);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("How did it go?")).toBeTruthy();
+    expect(within(dialog).getByText("Next review: R4 in 7 days (Oct 27)")).toBeTruthy();
+    expect(within(dialog).getByText("Repeat R3 in 2 days (Oct 22)")).toBeTruthy();
+    expect(within(dialog).getByText("Back to R2 in 2 days (Oct 22)")).toBeTruthy();
+  });
+
+  it("Cancel changes nothing", () => {
+    const view = renderBoth();
+    openDialog(view);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(saved().reviews).toEqual([true, true, false, false, false]);
+    expect(saved().attempts).toBeUndefined();
+  });
+
+  it("solved it myself completes the review and is written in the history", () => {
+    const view = renderBoth();
+    openDialog(view);
+    fireEvent.click(screen.getByRole("button", { name: /Solved it myself/ }));
+    expect(screen.getByText("Completed R3")).toBeTruthy();
+    expect(saved().reviews).toEqual([true, true, true, false, false]);
+    expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 0 }]);
+    expect(within(view.card()).getByText("R4")).toBeTruthy();
+  });
+
+  it("needed the note repeats R3 in 2 days, and the table shows that date", () => {
+    const view = renderBoth();
+    openDialog(view);
+    fireEvent.click(screen.getByRole("button", { name: /Needed the note/ }));
+    expect(screen.getByText("R3 again in 2 days")).toBeTruthy();
+    expect(saved().reviews).toEqual([true, true, false, false, false]);
+    expect(saved().attempts[0]).toEqual({ date: "2026-10-20", review: 2, help: 1 });
+    expect(within(view.card()).getByText("R3")).toBeTruthy();
+    expect(within(view.card()).getByText("Oct 22")).toBeTruthy();
+    expect(within(view.row()).getByText("Oct 22")).toBeTruthy();
+  });
+
+  it("needed the solution goes one review back, not a reset", () => {
+    const view = renderBoth();
+    openDialog(view);
+    fireEvent.click(screen.getByRole("button", { name: /Needed the solution/ }));
+    expect(screen.getByText("Back to R2 in 2 days")).toBeTruthy();
+    expect(saved().reviews).toEqual([true, false, false, false, false]);
+    expect(saved().solved).toBe(true);
+    expect(saved().attempts[0]).toEqual({ date: "2026-10-20", review: 2, help: 2 });
+    expect(within(view.card()).getByText("R2")).toBeTruthy();
+    expect(view.columnOfCard()).toBe("Reviewing");
+  });
+
+  it("Undo brings back the review and removes the attempt", () => {
+    const view = renderBoth();
+    openDialog(view);
+    fireEvent.click(screen.getByRole("button", { name: /Needed the solution/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(saved().reviews).toEqual([true, true, false, false, false]);
+    expect(saved().attempts).toBeUndefined();
+    expect(saved().dueOverride).toBeUndefined();
+  });
+
+  it("the plain Complete button still means solved it myself", () => {
+    const view = renderBoth();
+    fireEvent.click(within(view.card()).getByRole("button", { name: "Complete R3" }));
+    expect(saved().attempts).toBeUndefined();
+    expect(saved().reviews).toEqual([true, true, true, false, false]);
+  });
+
+  it("keys typed in the dialog do not lift the card", () => {
+    const view = renderBoth();
+    openDialog(view);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.keyDown(dialog, { key: " ", code: "Space" });
+    fireEvent.keyDown(dialog, { key: "Enter", code: "Enter" });
+    expect(screen.queryByText(/picked up|dragging/i)).toBeNull();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+});

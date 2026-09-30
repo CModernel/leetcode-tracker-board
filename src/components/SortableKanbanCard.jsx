@@ -6,7 +6,7 @@ import KanbanCard from "./KanbanCard";
 // dragged the same way as a DraggableKanbanCard: mouse, long press, keyboard.
 // While dragged, this copy stays in its column, dimmed, and the other cards
 // make room for it.
-const SortableKanbanCard = ({ card, onComplete }) => {
+const SortableKanbanCard = ({ card, onComplete, onHelp }) => {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
     useSortable({ id: card.problem.id });
 
@@ -20,7 +20,7 @@ const SortableKanbanCard = ({ card, onComplete }) => {
         isDragging ? "opacity-40" : ""
       }`}
     >
-      <KanbanCard card={card} onComplete={onComplete} />
+      <KanbanCard card={card} onComplete={onComplete} onHelp={onHelp} />
     </div>
   );
 };

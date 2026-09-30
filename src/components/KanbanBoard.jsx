@@ -63,6 +63,7 @@ const KanbanBoard = () => {
     markSolved,
     unsolve,
     completeReview,
+    completeReviewWithHelp,
     uncompleteReview,
     restoreEntry,
     restoreEntries,
@@ -182,6 +183,23 @@ const KanbanBoard = () => {
       id: Date.now(),
       message: `Completed ${item.stage}`,
       undo: () => restoreEntry(list, item.problem.id, before),
+    });
+  };
+
+  // Completing a review saying how much help it needed (from the card's
+  // "Needed help…" dialog). The message says what happens next, with Undo.
+  const completeWithHelp = (card, option) => {
+    const list = selectedList;
+    const before = listProgress[card.problem.id];
+    completeReviewWithHelp(
+      card.problem.id,
+      Number(card.stage.slice(1)) - 1,
+      option.help
+    );
+    setNotice({
+      id: Date.now(),
+      message: option.message,
+      undo: () => restoreEntry(list, card.problem.id, before),
     });
   };
 
@@ -327,6 +345,7 @@ const KanbanBoard = () => {
                     key={card.problem.id}
                     card={card}
                     onComplete={completeFromQueue}
+                    onHelp={completeWithHelp}
                   />
                 ))}
               </SortableContext>
@@ -336,6 +355,7 @@ const KanbanBoard = () => {
                   key={card.problem.id}
                   card={card}
                   onComplete={completeFromQueue}
+                  onHelp={completeWithHelp}
                 />
               ))
             )}

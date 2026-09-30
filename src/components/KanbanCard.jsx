@@ -1,6 +1,7 @@
 import { Calendar, Check, ExternalLink } from "lucide-react";
 import KanbanCardMenu from "./KanbanCardMenu";
 import KanbanCardNote from "./KanbanCardNote";
+import KanbanCardHelp from "./KanbanCardHelp";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { problemLabel } from "../lib/lists";
 import { completeButtonFor } from "../lib/board";
@@ -14,8 +15,9 @@ import {
 // One problem on the board: title (opens the problem), difficulty, topics and,
 // for problems waiting for a review, the review (R1..R5) with its due date in
 // the same colors as the tracker, and a button to complete that review
-// (`onComplete(card)`; no button when it is not given).
-const KanbanCard = ({ card, onComplete }) => {
+// (`onComplete(card)`; no button when it is not given). With `onHelp(card,
+// option)` a "Needed help…" link offers the other outcomes of that review.
+const KanbanCard = ({ card, onComplete, onHelp }) => {
   const { problem, stage, nextDue, urgency } = card;
   const completeButton = onComplete ? completeButtonFor(card) : null;
 
@@ -85,6 +87,13 @@ const KanbanCard = ({ card, onComplete }) => {
           <Check size={14} />
           {completeButton.label}
         </button>
+      )}
+      {completeButton && onHelp && (
+        <KanbanCardHelp
+          card={card}
+          index={completeButton.index}
+          onChoose={(option) => onHelp(card, option)}
+        />
       )}
     </article>
   );
