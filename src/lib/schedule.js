@@ -78,3 +78,14 @@ export const canUncompleteReview = (prob, index) =>
   isReviewIndex(index) &&
   Boolean(prob?.reviews?.[index]) &&
   !prob.reviews.slice(index + 1).some(Boolean);
+
+// Going back to review `index` erases it and every review after it, so that
+// review is the next one to do again. Possible for any review that is done.
+export const canRewindTo = (prob, index) =>
+  Boolean(prob?.solved) && isReviewIndex(index) && Boolean(prob.reviews?.[index]);
+
+// The done reviews (0-based indexes) that going back to `index` erases.
+export const reviewsErasedBy = (prob, index) =>
+  canRewindTo(prob, index)
+    ? prob.reviews.map((done, i) => (done && i >= index ? i : -1)).filter((i) => i >= 0)
+    : [];

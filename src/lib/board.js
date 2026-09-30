@@ -5,6 +5,7 @@ import {
   canUncompleteReview,
   getSchedule,
 } from "./schedule";
+import { rewindConfirm } from "./rewind";
 import { getStatus } from "./status";
 import { getUrgency } from "./urgencyStyles";
 
@@ -228,6 +229,15 @@ export const getCardActions = (stage, entry = {}) => {
       index: last,
     });
   }
+  // Going back further than one review: the nearest first
+  for (let i = last - 1; i >= 0; i--) {
+    actions.push({
+      type: "rewind",
+      label: `Go back to R${i + 1}`,
+      index: i,
+      confirm: rewindConfirm(entry, i),
+    });
+  }
   actions.push({
     type: "unsolve",
     label: "Unsolve",
@@ -250,6 +260,8 @@ export const runCardAction = (action, problemId, actions) => {
       return actions.completeReview(problemId, action.index);
     case "undoReview":
       return actions.uncompleteReview(problemId, action.index);
+    case "rewind":
+      return actions.rewindReviews(problemId, action.index);
     case "unsolve":
       return actions.unsolve(problemId);
     default:
