@@ -92,6 +92,16 @@ export const uncompleteReview = (progress, list, problemId, index) => {
   });
 };
 
+// Puts a problem's saved entry back as it was (used by "Undo"). `entry` is
+// undefined when the problem had no saved progress, and then it is removed.
+// Only that problem changes.
+export const restoreEntry = (progress, list, problemId, entry) => {
+  const listProgress = { ...(progress[list] || {}) };
+  if (entry === undefined) delete listProgress[problemId];
+  else listProgress[problemId] = entry;
+  return { ...progress, [list]: listProgress };
+};
+
 // Replaces everything with an imported file's content. Throws if the content
 // is not an object (for example "null" or a list), so nothing gets replaced.
 export const importData = (data) => {

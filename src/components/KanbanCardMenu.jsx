@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { MoreHorizontal } from "lucide-react";
 import { getCardActions, runCardAction } from "../lib/board";
 import { useProgress } from "../context/ProgressContext";
+import { useConfirm } from "../context/ConfirmContext";
 
 const MENU_WIDTH = 176;
 const MENU_ITEM_HEIGHT = 36;
@@ -12,6 +13,7 @@ const MENU_ITEM_HEIGHT = 36;
 const KanbanCardMenu = ({ card }) => {
   const { setStatus, markSolved, unsolve, completeReview, uncompleteReview } =
     useProgress();
+  const confirm = useConfirm();
   const [position, setPosition] = useState(null);
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
@@ -56,9 +58,9 @@ const KanbanCardMenu = ({ card }) => {
     };
   }, [position]);
 
-  const choose = (action) => {
+  const choose = async (action) => {
     close();
-    if (action.confirm && !window.confirm(action.confirm)) return;
+    if (action.confirm && !(await confirm(action.confirm))) return;
     runCardAction(action, card.problem.id, {
       setStatus,
       markSolved,

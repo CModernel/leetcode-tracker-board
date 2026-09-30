@@ -63,8 +63,12 @@ export const buildColumns = (problems, progress, today) => {
   return columns.map((column) => ({ ...column, count: column.cards.length }));
 };
 
-export const UNSOLVE_CONFIRM =
-  "Unsolve this problem? Its reviews and dates will be erased.";
+// What the confirmation dialog shows before reviews are erased.
+export const UNSOLVE_CONFIRM = {
+  title: "Reset this problem?",
+  message: "You'll lose its reviews and dates.",
+  confirmLabel: "Reset",
+};
 
 // Index of the last completed review, or -1 when none is done.
 const lastDoneReview = (entry) => {
@@ -131,4 +135,82 @@ export const runCardAction = (action, problemId, actions) => {
     default:
       return undefined;
   }
+};
+
+// Can a card be dropped on a column? Returns { allowed: true, action } with
+// an action that runCardAction understands (it may carry a `confirm`
+// question), or { allowed: false, reason }. `reason` is null when nothing
+// should be said (dropped on its own column). Rules, from where the card is:
+// - To Do / In Progress -> Reviewing: solve it (the schedule starts).
+// - To Do <-> In Progress: change the status only.
+// - Anything solved -> To Do / In Progress: unsolve, which erases reviews, so
+//   it asks first.
+// - Reviewing -> Mastered: only from R5 (completes the last review).
+// - Mastered -> Reviewing and To Do / In Progress -> Mastered: not allowed.
+//   Going back one review is done from the card menu.
+export const canDrop = (card, targetColumnId) => {
+  const from = columnOf(card.stage);
+  const reject = (reason) => ({ allowed: false, reason });
+  const allow = (action) => ({ allowed: true, action });
+
+  if (!COLUMNS.some((column) => column.id === targetColumnId)) {
+    return reject(null);
+  }
+  if (from === targetColumnId) return reject(null);
+
+  const solved = from === "reviewing" || from === "mastered";
+
+  switch (targetColumnId) {
+    case "todo":
+      return allow(
+        solved
+          ? { type: "unsolve", confirm: UNSOLVE_CONFIRM }
+          : { type: "backToTodo" }
+      );
+    case "in-progress":
+      return allow(
+        solved
+          ? { type: "start", confirm: UNSOLVE_CONFIRM }
+          : { type: "start" }
+      );
+    case "reviewing":
+      if (solved) {
+        return reject("Use the card menu to undo a review one at a time.");
+      }
+      return allow({ type: "markSolved" });
+    case "mastered":
+      if (from === "reviewing" && card.stage === "R5") {
+        return canCompleteReview(card.entry, 4)
+          ? allow({ type: "completeReview", index: 4 })
+          : reject("Complete the earlier reviews first.");
+      }
+      return reject(
+        from === "reviewing"
+          ? `Finish all five reviews first (this one is waiting for ${card.stage}).`
+          : "Solve it and finish all five reviews first."
+      );
+    default:
+      return reject(null);
+  }
+};
+
+// Drops a card on a column. Runs the action through the shared progress
+// actions (the ones the table uses) and asks first when the action erases
+// reviews. `confirm` gets the question and returns true or false, or a
+// promise of one (the confirmation dialog). Returns a promise of
+// { status, reason? } with status "moved",
+// "cancelled" (the person said no), "rejected" (with the reason) or "ignored"
+// (same column, nothing to say).
+export const applyDrop = async (card, targetColumnId, actions, confirm) => {
+  const result = canDrop(card, targetColumnId);
+  if (!result.allowed) {
+    return result.reason
+      ? { status: "rejected", reason: result.reason }
+      : { status: "ignored" };
+  }
+  if (result.action.confirm && !(await confirm(result.action.confirm))) {
+    return { status: "cancelled" };
+  }
+  runCardAction(result.action, card.problem.id, actions);
+  return { status: "moved" };
 };

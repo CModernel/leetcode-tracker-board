@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   COLUMNS,
   UNSOLVE_CONFIRM,
+  applyDrop,
   buildColumns,
+  canDrop,
   getCardActions,
   getNextDue,
   getStage,
@@ -286,5 +288,226 @@ describe("runCardAction", () => {
 
   it("does nothing for an unknown action", () => {
     expect(run({ type: "explode" })).toEqual([]);
+  });
+});
+
+describe("canDrop", () => {
+  const card = (stage, entry = {}) => ({ stage, entry });
+  const fromTodo = card("todo", {});
+  const fromProgress = card("in-progress", { status: "in-progress" });
+  const fromR1 = card("R1", solved(none));
+  const fromR3 = card("R3", solved([true, true, false, false, false]));
+  const fromR5 = card("R5", solved([true, true, true, true, false]));
+  const fromMastered = card("mastered", solved([true, true, true, true, true]));
+
+  const drop = (c, target) => canDrop(c, target);
+  const action = (c, target) => drop(c, target).action;
+
+  it("does nothing, silently, when dropped on its own column", () => {
+    for (const [c, column] of [
+      [fromTodo, "todo"],
+      [fromProgress, "in-progress"],
+      [fromR3, "reviewing"],
+      [fromMastered, "mastered"],
+    ]) {
+      expect(drop(c, column)).toEqual({ allowed: false, reason: null });
+    }
+  });
+
+  it("ignores a target that is not a column", () => {
+    expect(drop(fromTodo, "nowhere")).toEqual({ allowed: false, reason: null });
+    expect(drop(fromTodo, undefined)).toEqual({ allowed: false, reason: null });
+  });
+
+  it("moves between To Do and In Progress by changing the status only", () => {
+    expect(action(fromTodo, "in-progress")).toEqual({ type: "start" });
+    expect(action(fromProgress, "todo")).toEqual({ type: "backToTodo" });
+  });
+
+  it("solves a problem dropped on Reviewing, from To Do or In Progress", () => {
+    expect(action(fromTodo, "reviewing")).toEqual({ type: "markSolved" });
+    expect(action(fromProgress, "reviewing")).toEqual({ type: "markSolved" });
+  });
+
+  it("does not let an unsolved problem jump to Mastered", () => {
+    for (const c of [fromTodo, fromProgress]) {
+      const result = drop(c, "mastered");
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toBeTruthy();
+    }
+  });
+
+  it("completes the last review when a card at R5 is dropped on Mastered", () => {
+    expect(action(fromR5, "mastered")).toEqual({
+      type: "completeReview",
+      index: 4,
+    });
+  });
+
+  it("does not let a card before R5 reach Mastered, and says why", () => {
+    for (const c of [fromR1, fromR3]) {
+      const result = drop(c, "mastered");
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain(c.stage);
+    }
+  });
+
+  it("does not allow Mastered at R5 when the earlier reviews are not done", () => {
+    const odd = card("R5", solved([false, false, false, false, false]));
+    expect(drop(odd, "mastered").allowed).toBe(false);
+  });
+
+  it("asks before sending a solved problem back to To Do (it erases reviews)", () => {
+    for (const c of [fromR1, fromR3, fromR5, fromMastered]) {
+      expect(action(c, "todo")).toEqual({
+        type: "unsolve",
+        confirm: UNSOLVE_CONFIRM,
+      });
+    }
+  });
+
+  it("asks before sending a solved problem back to In Progress", () => {
+    for (const c of [fromR3, fromMastered]) {
+      expect(action(c, "in-progress")).toEqual({
+        type: "start",
+        confirm: UNSOLVE_CONFIRM,
+      });
+    }
+  });
+
+  it("does not move a mastered problem back to Reviewing", () => {
+    const result = drop(fromMastered, "reviewing");
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBeTruthy();
+  });
+
+  it("asks for confirmation only when reviews would be erased", () => {
+    const allCards = [fromTodo, fromProgress, fromR1, fromR3, fromR5, fromMastered];
+    for (const c of allCards) {
+      for (const column of COLUMNS) {
+        const result = drop(c, column.id);
+        if (!result.allowed) continue;
+        const fromSolved = c.stage === "mastered" || c.stage.startsWith("R");
+        const erases = fromSolved && ["todo", "in-progress"].includes(column.id);
+        expect(Boolean(result.action.confirm)).toBe(erases);
+      }
+    }
+  });
+
+  it("only returns actions that runCardAction understands", () => {
+    const known = ["start", "backToTodo", "markSolved", "completeReview", "unsolve"];
+    for (const c of [fromTodo, fromProgress, fromR1, fromR5, fromMastered]) {
+      for (const column of COLUMNS) {
+        const result = drop(c, column.id);
+        if (result.allowed) expect(known).toContain(result.action.type);
+      }
+    }
+  });
+
+  it("gives a reason for every rejection except the silent ones", () => {
+    for (const c of [fromTodo, fromProgress, fromR1, fromR5, fromMastered]) {
+      for (const column of COLUMNS) {
+        const result = drop(c, column.id);
+        if (!result.allowed && result.reason !== null) {
+          expect(result.reason.length).toBeGreaterThan(5);
+        }
+      }
+    }
+  });
+});
+
+describe("applyDrop", () => {
+  const makeActions = () => {
+    const calls = [];
+    const record = (name) => (...args) => calls.push([name, ...args]);
+    return {
+      calls,
+      actions: {
+        setStatus: record("setStatus"),
+        markSolved: record("markSolved"),
+        completeReview: record("completeReview"),
+        uncompleteReview: record("uncompleteReview"),
+        unsolve: record("unsolve"),
+      },
+    };
+  };
+  const card = (stage, entry = {}) => ({ problem: { id: 7 }, stage, entry });
+  const yes = () => true;
+  const no = () => false;
+
+  it("runs the action for an allowed move", async () => {
+    const { calls, actions } = makeActions();
+    expect(await applyDrop(card("todo"), "in-progress", actions, yes)).toEqual({
+      status: "moved",
+    });
+    expect(calls).toEqual([["setStatus", 7, "in-progress"]]);
+  });
+
+  it("solves a problem dropped on Reviewing", async () => {
+    const { calls, actions } = makeActions();
+    await applyDrop(card("in-progress"), "reviewing", actions, yes);
+    expect(calls).toEqual([["markSolved", 7]]);
+  });
+
+  it("completes R5 when a card at R5 is dropped on Mastered", async () => {
+    const { calls, actions } = makeActions();
+    const entry = solved([true, true, true, true, false]);
+    await applyDrop(card("R5", entry), "mastered", actions, yes);
+    expect(calls).toEqual([["completeReview", 7, 4]]);
+  });
+
+  it("asks first when reviews would be erased, and runs it on yes", async () => {
+    const { calls, actions } = makeActions();
+    const questions = [];
+    const ask = async (q) => (questions.push(q), true);
+    const entry = solved([true, false, false, false, false]);
+    expect(await applyDrop(card("R2", entry), "todo", actions, ask)).toEqual({
+      status: "moved",
+    });
+    expect(questions).toEqual([UNSOLVE_CONFIRM]);
+    expect(calls).toEqual([["unsolve", 7]]);
+  });
+
+  it("does nothing when the person says no", async () => {
+    const { calls, actions } = makeActions();
+    const entry = solved([true, false, false, false, false]);
+    expect(await applyDrop(card("R2", entry), "todo", actions, no)).toEqual({
+      status: "cancelled",
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("does not ask when nothing is erased", async () => {
+    const { actions } = makeActions();
+    const ask = () => {
+      throw new Error("should not ask");
+    };
+    const result = await applyDrop(card("todo"), "reviewing", actions, ask);
+    expect(result.status).toBe("moved");
+  });
+
+  it("waits for a confirmation that answers later (the dialog)", async () => {
+    const { calls, actions } = makeActions();
+    const entry = solved([true, false, false, false, false]);
+    const later = () => new Promise((resolve) => setTimeout(() => resolve(true), 5));
+    const pending = applyDrop(card("R2", entry), "todo", actions, later);
+    expect(calls).toEqual([]); // nothing runs before the answer
+    expect((await pending).status).toBe("moved");
+    expect(calls).toEqual([["unsolve", 7]]);
+  });
+
+  it("rejects a move that is not allowed, with the reason, and changes nothing", async () => {
+    const { calls, actions } = makeActions();
+    const result = await applyDrop(card("todo"), "mastered", actions, yes);
+    expect(result.status).toBe("rejected");
+    expect(result.reason).toBeTruthy();
+    expect(calls).toEqual([]);
+  });
+
+  it("ignores a drop on the same column or outside the columns", async () => {
+    const { calls, actions } = makeActions();
+    expect(await applyDrop(card("todo"), "todo", actions, yes)).toEqual({ status: "ignored" });
+    expect(await applyDrop(card("todo"), "nowhere", actions, yes)).toEqual({ status: "ignored" });
+    expect(calls).toEqual([]);
   });
 });

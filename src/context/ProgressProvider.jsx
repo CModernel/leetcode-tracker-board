@@ -77,6 +77,8 @@ export const ProgressProvider = ({ children }) => {
       ),
     unsolve: (problemId) =>
       setProgress((prev) => reducers.unsolve(prev, selectedList, problemId)),
+    restoreEntry: (list, problemId, entry) =>
+      setProgress((prev) => reducers.restoreEntry(prev, list, problemId, entry)),
     setStatus: (problemId, status) =>
       setProgress((prev) =>
         reducers.setStatus(prev, selectedList, problemId, status, localToday())
