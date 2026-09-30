@@ -34,6 +34,15 @@ A second view of the same progress, at `/board`. Anything you do in the board ch
 - **Due count in the tab title**, for example `(3) CodeTrack Pro`
 - The list and filters at the top apply to both views
 
+### 📝 Notes
+
+One short note per problem (up to 300 characters), to read before a review: the key idea, or what made it hard. It is for notes and explanations, not for code.
+
+- **Tracker**: turn on **Show notes** for a Notes column, then click a note (or **Add note**) to edit it in place. **Ctrl/Cmd+Enter** or leaving the field saves, **Escape** discards. The choice of showing the column is remembered.
+- **Board**: the note icon on each card opens the note in a dialog to read or edit it.
+- Both views share the same note. It is kept when you unsolve or move a problem, and it is included in the export/import file.
+- Reading a note never changes the review schedule.
+
 ### 💾 Data Persistence
 
 - **Local Storage**: All progress automatically saved to browser's local storage
@@ -142,6 +151,7 @@ These are the dates when every review is done on time. If you do a review late, 
 ## 📋 Roadmap
 
 - [x] Dark mode support
+- [x] Notes per problem
 - [x] Kanban board synchronized with the tracker
 - [ ] Custom problem sets
 - [ ] Study streaks tracking
