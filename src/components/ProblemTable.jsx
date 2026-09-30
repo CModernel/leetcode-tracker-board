@@ -13,8 +13,9 @@ import {
   getSchedule,
   formatShortDate,
   canCompleteReview,
-  canUncompleteReview,
+  canRewindTo,
 } from "../lib/schedule";
+import { rewindConfirm } from "../lib/rewind";
 import { filterProblems } from "../lib/filters";
 import {
   getUrgency,
@@ -25,6 +26,7 @@ import { SHOW_NOTES_KEY, parseShowNotes } from "../lib/preferences";
 import NoteCell from "./NoteCell";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { useProgress } from "../context/ProgressContext";
+import { useConfirm } from "../context/ConfirmContext";
 
 const ProblemTable = ({
   problems,
@@ -35,9 +37,10 @@ const ProblemTable = ({
     markSolved,
     unsolve,
     completeReview,
-    uncompleteReview,
     setNote,
+    rewindReviews,
   } = useProgress();
+  const confirm = useConfirm();
   const today = localToday();
 
   // The Notes column can be hidden to keep the table narrow; the choice is
@@ -57,6 +60,15 @@ const ProblemTable = ({
     } catch (error) {
       console.error("Error saving the notes choice:", error);
     }
+  };
+
+  // A done review can be undone at any time. Going back more than one review
+  // asks first, because it erases the later ones too.
+  const toggleReview = async (problemId, prob, idx) => {
+    if (!prob.reviews?.[idx]) return completeReview(problemId, idx);
+    const question = rewindConfirm(prob, idx);
+    if (question && !(await confirm(question))) return;
+    rewindReviews(problemId, idx);
   };
 
   const filteredProblems = filterProblems(problems, progress, filters, today);
@@ -237,7 +249,7 @@ const ProblemTable = ({
                         {nextReviews.map((date, idx) => {
                           const isDone = Boolean(prob.reviews?.[idx]);
                           const canToggle = isDone
-                            ? canUncompleteReview(prob, idx)
+                            ? canRewindTo(prob, idx)
                             : canCompleteReview(prob, idx);
                           const urgency = getUrgency(
                             prob.reviews?.[idx],
@@ -251,11 +263,7 @@ const ProblemTable = ({
                               className="flex flex-col items-center"
                             >
                               <button
-                                onClick={() =>
-                                  isDone
-                                    ? uncompleteReview(problem.id, idx)
-                                    : completeReview(problem.id, idx)
-                                }
+                                onClick={() => toggleReview(problem.id, prob, idx)}
                                 disabled={!canToggle}
                                 className={`px-2 py-1 rounded text-xs border min-w-[50px] transition-colors ${urgencyButtonStyles[urgency]} ${
                                   canToggle
@@ -264,11 +272,11 @@ const ProblemTable = ({
                                 }`}
                                 title={
                                   canToggle
-                                    ? `Review ${idx + 1} - Due: ${formatShortDate(
-                                        date
-                                      )}`
-                                    : isDone
-                                    ? "Undo the later reviews first"
+                                    ? isDone
+                                      ? `Go back to R${idx + 1}`
+                                      : `Review ${idx + 1} - Due: ${formatShortDate(
+                                          date
+                                        )}`
                                     : `Complete R${idx} first`
                                 }
                               >

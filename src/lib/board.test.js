@@ -228,17 +228,45 @@ describe("getCardActions", () => {
     expect(actions.map((a) => a.type)).toEqual([
       "completeReview",
       "undoReview",
+      "rewind",
       "unsolve",
     ]);
     expect(actions[0]).toMatchObject({ label: "Complete R3", index: 2 });
     expect(actions[1]).toMatchObject({ label: "Undo R2", index: 1 });
+    expect(actions[2]).toMatchObject({ label: "Go back to R1", index: 0 });
   });
 
-  it("offers only undo and unsolve when mastered", () => {
+  it("offers going back further only with two or more reviews done", () => {
+    expect(types("R2", solved([true, false, false, false, false]))).not.toContain("rewind");
+    const three = getCardActions("R4", solved([true, true, true, false, false]));
+    expect(three.filter((a) => a.type === "rewind").map((a) => a.label)).toEqual([
+      "Go back to R2",
+      "Go back to R1",
+    ]);
+  });
+
+  it("asks before going back more than one review, never for one", () => {
+    const entry = solved([true, true, true, false, false]);
+    const [toR2, toR1] = getCardActions("R4", entry).filter((a) => a.type === "rewind");
+    expect(toR2.confirm).toMatchObject({ title: "Go back to R2?", message: "R2 and R3 and their dates will be erased." });
+    expect(toR1.confirm.message).toBe("R1, R2 and R3 and their dates will be erased.");
+    // "Undo R3" is going back one review: no question
+    expect(getCardActions("R4", entry).find((a) => a.type === "undoReview").confirm).toBeUndefined();
+  });
+
+  it("offers undo, going back and unsolve when mastered", () => {
     const entry = solved([true, true, true, true, true]);
     const actions = getCardActions("mastered", entry);
-    expect(actions.map((a) => a.type)).toEqual(["undoReview", "unsolve"]);
+    expect(actions.map((a) => a.type)).toEqual([
+      "undoReview",
+      "rewind",
+      "rewind",
+      "rewind",
+      "rewind",
+      "unsolve",
+    ]);
     expect(actions[0]).toMatchObject({ label: "Undo R5", index: 4 });
+    expect(actions[4]).toMatchObject({ label: "Go back to R1", index: 0 });
   });
 
   it("asks for confirmation before unsolving, and only then", () => {
@@ -1171,5 +1199,15 @@ describe("emptyMessage", () => {
 
   it("falls back for an unknown column", () => {
     expect(emptyMessage("nope", false)).toBe("Nothing here.");
+  });
+});
+
+describe("runCardAction rewind", () => {
+  it("goes back through the shared action", () => {
+    const calls = [];
+    runCardAction({ type: "rewind", index: 1 }, "p1", {
+      rewindReviews: (...args) => calls.push(args),
+    });
+    expect(calls).toEqual([["p1", 1]]);
   });
 });
