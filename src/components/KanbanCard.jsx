@@ -3,7 +3,11 @@ import KanbanCardMenu from "./KanbanCardMenu";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { problemLabel } from "../lib/lists";
 import { formatShortDate } from "../lib/schedule";
-import { urgencyButtonStyles, urgencyTextStyles } from "../lib/urgencyStyles";
+import {
+  urgencyButtonStyles,
+  urgencyStripeStyles,
+  urgencyTextStyles,
+} from "../lib/urgencyStyles";
 
 // One problem on the board: title (opens the problem), difficulty, topics and,
 // for problems waiting for a review, the review (R1..R5) with its due date in
@@ -12,7 +16,11 @@ const KanbanCard = ({ card }) => {
   const { problem, stage, nextDue, urgency } = card;
 
   return (
-    <article className="bg-white dark:bg-gray-700 rounded-lg shadow p-3 transition-colors">
+    <article
+      className={`bg-white dark:bg-gray-700 rounded-lg shadow p-3 transition-colors ${
+        urgencyStripeStyles[urgency ?? "none"]
+      }`}
+    >
       <div className="flex items-start justify-between gap-1">
         <a
           href={problem.url}

@@ -9,6 +9,7 @@ import {
   buildUrgencyColumns,
   canDrop,
   cardForColumn,
+  countByUrgency,
   getCardActions,
   getNextDue,
   getStage,
@@ -978,5 +979,61 @@ describe("a card shown in another column while a move waits", () => {
     moveCardInColumns(columns, 4, "todo");
     expect(reviewing.stage).toBe("R3");
     expect(columns[1].cards[0]).toBe(reviewing);
+  });
+});
+
+describe("countByUrgency and column urgency counts", () => {
+  const card = (urgency) => ({ urgency });
+
+  it("counts overdue, today and upcoming cards, ignoring cards without a review", () => {
+    expect(
+      countByUrgency([card("overdue"), card("overdue"), card("today"), card("upcoming"), card(null)])
+    ).toEqual({ overdue: 2, today: 1, upcoming: 1 });
+    expect(countByUrgency([])).toEqual({ overdue: 0, today: 0, upcoming: 0 });
+  });
+
+  const list = [1, 2, 3, 4, 5].map((id) => ({ id }));
+  const progress = {
+    1: solved(none, { solvedDate: "2026-09-01" }), // overdue
+    2: solved(none, { solvedDate: "2026-09-10" }), // overdue
+    3: solved(none, { solvedDate: "2026-09-28" }), // due today
+    4: solved(none, { solvedDate: today }), // tomorrow
+    5: { status: "in-progress", solved: false },
+  };
+
+  it("gives Reviewing its overdue and due-today numbers", () => {
+    const reviewing = buildColumns(list, progress, today).find((c) => c.id === "reviewing");
+    expect(reviewing.urgencyCounts).toEqual({ overdue: 2, today: 1, upcoming: 1 });
+  });
+
+  it("matches the Due Today number of the stats: overdue + today", () => {
+    const reviewing = buildColumns(list, progress, today).find((c) => c.id === "reviewing");
+    expect(reviewing.urgencyCounts.overdue + reviewing.urgencyCounts.today).toBe(
+      computeStats(list, progress, today).dueToday
+    );
+  });
+
+  it("has zero counts in the other stage columns", () => {
+    const columns = buildColumns(list, progress, today);
+    for (const id of ["todo", "in-progress", "mastered"]) {
+      expect(columns.find((c) => c.id === id).urgencyCounts).toEqual({
+        overdue: 0,
+        today: 0,
+        upcoming: 0,
+      });
+    }
+  });
+
+  it("counts in the urgency view match each column's size", () => {
+    const columns = buildUrgencyColumns(list, progress, today);
+    expect(columns.find((c) => c.id === "overdue").urgencyCounts.overdue).toBe(2);
+    expect(columns.find((c) => c.id === "today").urgencyCounts.today).toBe(1);
+    expect(columns.find((c) => c.id === "this-week").urgencyCounts.upcoming).toBe(1);
+  });
+
+  it("follows a card shown in another column while a move waits", () => {
+    const moved = moveCardInColumns(buildColumns(list, progress, today), 1, "todo");
+    expect(moved.find((c) => c.id === "reviewing").urgencyCounts.overdue).toBe(1);
+    expect(moved.find((c) => c.id === "todo").urgencyCounts.overdue).toBe(0);
   });
 });

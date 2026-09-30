@@ -58,6 +58,14 @@ const makeCard = (problem, entry, today) => {
   };
 };
 
+// How many cards are overdue, due today or upcoming (cards without a review
+// to wait for are not counted).
+export const countByUrgency = (cards) => {
+  const counts = { overdue: 0, today: 0, upcoming: 0 };
+  for (const card of cards) if (card.urgency) counts[card.urgency] += 1;
+  return counts;
+};
+
 // Sorting inside a column. Sorting is stable, so cards that tie keep the order
 // of the problem list.
 const byNextDue = (a, b) =>
@@ -114,6 +122,7 @@ export const buildColumns = (problems, progress, today) => {
       ? [...column.cards].sort(sorters[column.id])
       : column.cards,
     count: column.cards.length,
+    urgencyCounts: countByUrgency(column.cards),
   }));
 };
 
@@ -150,6 +159,7 @@ export const buildUrgencyColumns = (problems, progress, today) => {
     ...column,
     cards: [...column.cards].sort(byNextDue),
     count: column.cards.length,
+    urgencyCounts: countByUrgency(column.cards),
   }));
 };
 
@@ -379,11 +389,11 @@ export const moveCardInColumns = (columns, cardId, targetColumnId) => {
   return columns.map((column) => {
     if (column.id === source.id) {
       const cards = column.cards.filter((c) => c !== found);
-      return { ...column, cards, count: cards.length };
+      return { ...column, cards, count: cards.length, urgencyCounts: countByUrgency(cards) };
     }
     if (column.id === target.id) {
       const cards = [...column.cards, card];
-      return { ...column, cards, count: cards.length };
+      return { ...column, cards, count: cards.length, urgencyCounts: countByUrgency(cards) };
     }
     return column;
   });

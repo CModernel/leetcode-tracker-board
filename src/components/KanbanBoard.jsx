@@ -259,6 +259,12 @@ const KanbanBoard = () => {
             id={column.id}
             title={column.title}
             count={column.count}
+            urgencyCounts={
+              !byUrgency && column.id === "reviewing"
+                ? column.urgencyCounts
+                : undefined
+            }
+            tone={byUrgency ? column.id : undefined}
             droppable={!byUrgency}
             highlight={overColumnId === column.id}
           >
