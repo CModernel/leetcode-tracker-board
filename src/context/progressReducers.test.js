@@ -98,6 +98,7 @@ describe("setStatus", () => {
     const next = setStatus(solvedState(), LIST, 1, "in-progress", "2026-10-09");
     expect(entry(next)).toEqual({
       status: "in-progress",
+      startedAt: "2026-10-09",
       solved: false,
       solvedDate: null,
       reviews: noReviews,
@@ -369,5 +370,51 @@ describe("restoreEntry", () => {
     const before = { [LIST]: {} };
     const after = markSolved(before, LIST, 3, "2026-10-01");
     expect(restoreEntry(after, LIST, 3, before[LIST][3])).toEqual(before);
+  });
+});
+
+describe("setStatus and startedAt", () => {
+  const entry = (state, id = 1) => state[LIST][id];
+
+  it("saves when a problem was started", () => {
+    const next = setStatus({}, LIST, 1, "in-progress", "2026-10-01", "2026-10-01T09:30:00.000Z");
+    expect(entry(next).startedAt).toBe("2026-10-01T09:30:00.000Z");
+  });
+
+  it("uses today when no timestamp is given", () => {
+    const next = setStatus({}, LIST, 1, "in-progress", "2026-10-01");
+    expect(entry(next).startedAt).toBe("2026-10-01");
+  });
+
+  it("starts again with a new time after going back to todo", () => {
+    let state = setStatus({}, LIST, 1, "in-progress", "2026-10-01", "2026-10-01T09:00:00.000Z");
+    state = setStatus(state, LIST, 1, "todo", "2026-10-02", "2026-10-02T09:00:00.000Z");
+    expect(entry(state).startedAt).toBeUndefined();
+    state = setStatus(state, LIST, 1, "in-progress", "2026-10-03", "2026-10-03T09:00:00.000Z");
+    expect(entry(state).startedAt).toBe("2026-10-03T09:00:00.000Z");
+  });
+
+  it("keeps the first start time when it is already in progress", () => {
+    const started = setStatus({}, LIST, 1, "in-progress", "2026-10-01", "2026-10-01T09:00:00.000Z");
+    const again = setStatus(started, LIST, 1, "in-progress", "2026-10-05", "2026-10-05T09:00:00.000Z");
+    expect(again).toBe(started);
+  });
+
+  it("gets a new start time when a solved problem is moved back to in progress", () => {
+    const next = setStatus(solvedState(), LIST, 1, "in-progress", "2026-10-09", "2026-10-09T10:00:00.000Z");
+    expect(entry(next).startedAt).toBe("2026-10-09T10:00:00.000Z");
+    expect(entry(next).solved).toBe(false);
+  });
+
+  it("does not add startedAt for other statuses", () => {
+    expect(entry(setStatus({}, LIST, 1, "todo", "2026-10-01"))).not.toHaveProperty("startedAt");
+    expect(entry(markSolved({}, LIST, 1, "2026-10-01"))).not.toHaveProperty("startedAt");
+  });
+
+  it("is restored by restoreEntry, so Undo brings the old position back", () => {
+    const before = setStatus({}, LIST, 1, "in-progress", "2026-10-01", "2026-10-01T09:00:00.000Z");
+    const moved = setStatus(before, LIST, 1, "todo", "2026-10-02");
+    const restored = restoreEntry(moved, LIST, 1, entry(before));
+    expect(entry(restored).startedAt).toBe("2026-10-01T09:00:00.000Z");
   });
 });

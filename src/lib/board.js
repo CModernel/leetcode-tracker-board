@@ -63,6 +63,14 @@ const makeCard = (problem, entry, today) => {
 const byNextDue = (a, b) =>
   a.nextDue < b.nextDue ? -1 : a.nextDue > b.nextDue ? 1 : 0;
 
+// In Progress: the one started first on top, the latest at the bottom.
+// Problems without a start time (started before it was saved) go first.
+const byStartedAt = (a, b) => {
+  const startA = a.entry.startedAt || "";
+  const startB = b.entry.startedAt || "";
+  return startA < startB ? -1 : startA > startB ? 1 : 0;
+};
+
 // Most recently mastered first (the date of the last review). Problems
 // without that date go last.
 const byMasteredDate = (a, b) => {
@@ -76,8 +84,9 @@ const byMasteredDate = (a, b) => {
 
 // The four columns with a card per problem. `progress` is the selected list's
 // progress ({ [problemId]: entry }); `today` is "YYYY-MM-DD". Cards keep the
-// order of `problems` in To Do and In Progress; Reviewing is by next due date
-// (the most urgent on top) and Mastered has the most recent on top. `urgency`
+// order of `problems` in To Do; In Progress is by start time (the latest at the
+// bottom), Reviewing by next due date (the most urgent on top) and Mastered
+// has the most recent on top. `urgency`
 // is set only for problems waiting for a review: "overdue", "today" or
 // "upcoming".
 export const buildColumns = (problems, progress, today) => {
@@ -86,7 +95,11 @@ export const buildColumns = (problems, progress, today) => {
     const card = makeCard(problem, progress[problem.id] || {}, today);
     columns.find((column) => column.id === columnOf(card.stage)).cards.push(card);
   }
-  const sorters = { reviewing: byNextDue, mastered: byMasteredDate };
+  const sorters = {
+    "in-progress": byStartedAt,
+    reviewing: byNextDue,
+    mastered: byMasteredDate,
+  };
   return columns.map((column) => ({
     ...column,
     cards: sorters[column.id]

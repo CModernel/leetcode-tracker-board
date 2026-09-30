@@ -113,6 +113,17 @@ describe("statuses", () => {
     });
   });
 
+  it("keeps startedAt and adds nothing to problems saved before it existed", () => {
+    const withDate = migrated({
+      solved: false,
+      status: "in-progress",
+      startedAt: "2026-10-01T09:00:00.000Z",
+    });
+    expect(withDate.startedAt).toBe("2026-10-01T09:00:00.000Z");
+    const without = migrated({ solved: false, status: "in-progress" });
+    expect(without).not.toHaveProperty("startedAt");
+  });
+
   it("is safe to run again", () => {
     const once = migrate(v2Data());
     expect(migrate(once)).toEqual(once);

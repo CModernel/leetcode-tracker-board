@@ -730,3 +730,49 @@ describe("order inside the columns", () => {
     expect(urgency).toEqual([4, 5, 3, 6]);
   });
 });
+
+describe("order of In Progress", () => {
+  const list = [1, 2, 3, 4].map((id) => ({ id }));
+  const inProgress = (startedAt) => ({
+    status: "in-progress",
+    solved: false,
+    ...(startedAt ? { startedAt } : {}),
+  });
+  const ids = (progress) =>
+    buildColumns(list, progress, today)
+      .find((c) => c.id === "in-progress")
+      .cards.map((card) => card.problem.id);
+
+  it("puts the one started first on top and the latest at the bottom", () => {
+    expect(
+      ids({
+        1: inProgress("2026-10-03T09:00:00.000Z"),
+        2: inProgress("2026-10-01T09:00:00.000Z"),
+        3: inProgress("2026-10-02T09:00:00.000Z"),
+      })
+    ).toEqual([2, 3, 1]);
+  });
+
+  it("tells apart two problems started the same day", () => {
+    expect(
+      ids({
+        1: inProgress("2026-10-01T15:00:00.000Z"),
+        2: inProgress("2026-10-01T09:00:00.000Z"),
+      })
+    ).toEqual([2, 1]);
+  });
+
+  it("puts problems without a start time first, in list order", () => {
+    expect(
+      ids({
+        1: inProgress("2026-10-01T09:00:00.000Z"),
+        3: inProgress(),
+        4: inProgress(),
+      })
+    ).toEqual([3, 4, 1]);
+  });
+
+  it("keeps the list order when nothing has a start time (old data)", () => {
+    expect(ids({ 2: inProgress(), 1: inProgress(), 4: inProgress() })).toEqual([1, 2, 4]);
+  });
+});
