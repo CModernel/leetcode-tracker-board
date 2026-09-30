@@ -32,6 +32,7 @@ import {
   buildReviewQueue,
   buildUrgencyColumns,
   cardForColumn,
+  emptyMessage,
   moveCardInColumns,
   reorderIds,
   resolveDrop,
@@ -93,6 +94,7 @@ const KanbanBoard = () => {
     { ...filters, dueToday: false },
     today
   );
+  const filtered = problems.length < getProblems(selectedList).length;
   const queue = buildReviewQueue(problems, listProgress, today);
   const columns = byUrgency
     ? buildUrgencyColumns(problems, listProgress, today)
@@ -309,6 +311,11 @@ const KanbanBoard = () => {
             tone={byUrgency ? column.id : undefined}
             droppable={!byUrgency}
             highlight={overColumnId === column.id}
+            empty={
+              column.cards.length === 0
+                ? emptyMessage(column.id, filtered)
+                : undefined
+            }
           >
             {!byUrgency && column.id === "in-progress" ? (
               <SortableContext

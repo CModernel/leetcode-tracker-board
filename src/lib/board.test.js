@@ -13,6 +13,7 @@ import {
   cardForColumn,
   completeButtonFor,
   countByUrgency,
+  emptyMessage,
   getCardActions,
   getNextDue,
   getStage,
@@ -1154,5 +1155,21 @@ describe("completeButtonFor", () => {
 
   it("has a hint that explains why early is less effective", () => {
     expect(EARLY_HINT).toContain("before the due date");
+  });
+});
+
+describe("emptyMessage", () => {
+  it("has a message for every column of both views", () => {
+    for (const { id } of [...COLUMNS, ...URGENCY_COLUMNS]) {
+      expect(emptyMessage(id, false)).not.toBe("Nothing here.");
+    }
+  });
+
+  it("says the filters hide problems when some are filtered out", () => {
+    expect(emptyMessage("todo", true)).toBe("No problems match the filters.");
+  });
+
+  it("falls back for an unknown column", () => {
+    expect(emptyMessage("nope", false)).toBe("Nothing here.");
   });
 });

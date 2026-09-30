@@ -16,6 +16,23 @@ export const COLUMNS = [
   { id: "mastered", title: "Mastered" },
 ];
 
+// Text for a column with no cards. When filters hide problems the message says
+// so, because the column may not really be empty.
+const EMPTY_MESSAGES = {
+  todo: "Nothing left to start.",
+  "in-progress": "Nothing in progress. Drag a card here to start it.",
+  reviewing: "No reviews pending.",
+  mastered: "Nothing mastered yet.",
+  overdue: "Nothing overdue.",
+  today: "Nothing due today.",
+  "this-week": "Nothing due this week.",
+  later: "Nothing due later.",
+};
+export const emptyMessage = (columnId, filtered) =>
+  filtered
+    ? "No problems match the filters."
+    : EMPTY_MESSAGES[columnId] ?? "Nothing here.";
+
 // Index (0..4) of the first review not done, or -1 when all five are done.
 const firstPendingReview = (entry) => {
   for (let i = 0; i < 5; i++) if (!entry.reviews?.[i]) return i;
