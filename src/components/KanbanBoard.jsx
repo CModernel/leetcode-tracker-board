@@ -29,6 +29,7 @@ import {
   applyDrop,
   buildColumns,
   buildUrgencyColumns,
+  cardForColumn,
   moveCardInColumns,
   reorderIds,
   resolveDrop,
@@ -280,7 +281,10 @@ const KanbanBoard = () => {
       <DragOverlay>
         {activeCard ? (
           <div className="cursor-grabbing shadow-xl rotate-2">
-            <KanbanCard card={activeCard} />
+            {/* Dragged over To Do or In Progress it shows without the review */}
+            <KanbanCard
+              card={byUrgency ? activeCard : cardForColumn(activeCard, overColumnId)}
+            />
           </div>
         ) : null}
       </DragOverlay>

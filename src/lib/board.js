@@ -350,6 +350,14 @@ export const resolveDrop = (overId, columns) => {
     : { columnId: null, overCardId: null };
 };
 
+// How a card looks in a column it is only being shown in (dragged over it, or
+// waiting for a confirmation): in To Do, In Progress and Mastered it has no
+// review to wait for, so no review stage or date. A new card; nothing saved.
+export const cardForColumn = (card, columnId) =>
+  ["todo", "in-progress", "mastered"].includes(columnId)
+    ? { ...card, stage: columnId, nextDue: null, urgency: null }
+    : card;
+
 // The columns as they look while a move waits for a confirmation: the card is
 // already in the column it was dropped on (at the bottom), and the counts
 // follow it. Only for showing; nothing is saved. Unknown ids change nothing.
@@ -357,10 +365,11 @@ export const moveCardInColumns = (columns, cardId, targetColumnId) => {
   const source = columns.find((c) => c.cards.some((card) => card.problem.id === cardId));
   const target = columns.find((c) => c.id === targetColumnId);
   if (!source || !target || source.id === target.id) return columns;
-  const card = source.cards.find((c) => c.problem.id === cardId);
+  const found = source.cards.find((c) => c.problem.id === cardId);
+  const card = cardForColumn(found, target.id);
   return columns.map((column) => {
     if (column.id === source.id) {
-      const cards = column.cards.filter((c) => c !== card);
+      const cards = column.cards.filter((c) => c !== found);
       return { ...column, cards, count: cards.length };
     }
     if (column.id === target.id) {

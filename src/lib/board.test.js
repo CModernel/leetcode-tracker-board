@@ -8,6 +8,7 @@ import {
   buildColumns,
   buildUrgencyColumns,
   canDrop,
+  cardForColumn,
   getCardActions,
   getNextDue,
   getStage,
@@ -918,5 +919,63 @@ describe("moveCardInColumns", () => {
   it("keeps the total number of cards", () => {
     const next = moveCardInColumns(columns, 2, "reviewing");
     expect(next.reduce((sum, c) => sum + c.count, 0)).toBe(4);
+  });
+});
+
+describe("cardForColumn", () => {
+  const waiting = {
+    problem: { id: 1 },
+    entry: {},
+    stage: "R3",
+    nextDue: "2026-10-05",
+    urgency: "overdue",
+  };
+
+  it("drops the review stage and date in To Do, In Progress and Mastered", () => {
+    for (const column of ["todo", "in-progress", "mastered"]) {
+      expect(cardForColumn(waiting, column)).toEqual({
+        ...waiting,
+        stage: column,
+        nextDue: null,
+        urgency: null,
+      });
+    }
+  });
+
+  it("keeps the card as it is in Reviewing and in other columns", () => {
+    expect(cardForColumn(waiting, "reviewing")).toBe(waiting);
+    expect(cardForColumn(waiting, "overdue")).toBe(waiting);
+  });
+
+  it("does not change the original card", () => {
+    const before = { ...waiting };
+    cardForColumn(waiting, "todo");
+    expect(waiting).toEqual(before);
+  });
+});
+
+describe("a card shown in another column while a move waits", () => {
+  const reviewing = {
+    problem: { id: 4 },
+    entry: {},
+    stage: "R3",
+    nextDue: "2026-10-05",
+    urgency: "overdue",
+  };
+  const columns = [
+    { id: "todo", title: "To Do", cards: [], count: 0 },
+    { id: "reviewing", title: "Reviewing", cards: [reviewing], count: 1 },
+  ];
+
+  it("has no review stage or date in To Do", () => {
+    const shown = moveCardInColumns(columns, 4, "todo")
+      .find((c) => c.id === "todo").cards[0];
+    expect(shown).toMatchObject({ stage: "todo", nextDue: null, urgency: null });
+  });
+
+  it("leaves the card in the original data untouched", () => {
+    moveCardInColumns(columns, 4, "todo");
+    expect(reviewing.stage).toBe("R3");
+    expect(columns[1].cards[0]).toBe(reviewing);
   });
 });
