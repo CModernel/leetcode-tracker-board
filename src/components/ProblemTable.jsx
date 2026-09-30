@@ -1,4 +1,13 @@
- import { CheckCircle2, Circle, Calendar, ExternalLink, Minus } from "lucide-react";
+import { useState } from "react";
+import {
+  CheckCircle2,
+  Circle,
+  Calendar,
+  ExternalLink,
+  Minus,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import {
   localToday,
   getSchedule,
@@ -12,6 +21,8 @@ import {
   urgencyButtonStyles,
   urgencyTextStyles,
 } from "../lib/urgencyStyles";
+import { SHOW_NOTES_KEY, parseShowNotes } from "../lib/preferences";
+import NoteCell from "./NoteCell";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { useProgress } from "../context/ProgressContext";
 
@@ -19,17 +30,60 @@ const ProblemTable = ({
   problems,
   progress,
 }) => {
-  const { filters, markSolved, unsolve, completeReview, uncompleteReview } =
-    useProgress();
+  const {
+    filters,
+    markSolved,
+    unsolve,
+    completeReview,
+    uncompleteReview,
+    setNote,
+  } = useProgress();
   const today = localToday();
+
+  // The Notes column can be hidden to keep the table narrow; the choice is
+  // remembered in the browser.
+  const [showNotes, setShowNotes] = useState(() => {
+    try {
+      return parseShowNotes(localStorage.getItem(SHOW_NOTES_KEY));
+    } catch {
+      return false;
+    }
+  });
+  const toggleNotes = () => {
+    const next = !showNotes;
+    setShowNotes(next);
+    try {
+      localStorage.setItem(SHOW_NOTES_KEY, String(next));
+    } catch (error) {
+      console.error("Error saving the notes choice:", error);
+    }
+  };
 
   const filteredProblems = filterProblems(problems, progress, filters, today);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 transition-colors">
-      <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">
-        Problems
-      </h2>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+          Problems
+        </h2>
+        <button
+          onClick={toggleNotes}
+          aria-pressed={showNotes}
+          className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            showNotes
+              ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+              : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600"
+          }`}
+        >
+          {showNotes ? (
+            <EyeOff size={16} aria-hidden="true" />
+          ) : (
+            <Eye size={16} aria-hidden="true" />
+          )}
+          {showNotes ? "Hide notes" : "Show notes"}
+        </button>
+      </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">
@@ -55,6 +109,11 @@ const ProblemTable = ({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[200px]">
                 Reviews & Due Dates
               </th>
+              {showNotes && (
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[220px]">
+                  Notes
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -231,6 +290,15 @@ const ProblemTable = ({
                       </span>
                     )}
                   </td>
+                  {showNotes && (
+                    <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 align-top">
+                      <NoteCell
+                        note={prob.note}
+                        label={problem.title}
+                        onSave={(text) => setNote(problem.id, text)}
+                      />
+                    </td>
+                  )}
                 </tr>
               );
             })}

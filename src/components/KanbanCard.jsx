@@ -1,5 +1,6 @@
 import { Calendar, Check, ExternalLink } from "lucide-react";
 import KanbanCardMenu from "./KanbanCardMenu";
+import KanbanCardNote from "./KanbanCardNote";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { problemLabel } from "../lib/lists";
 import { completeButtonFor } from "../lib/board";
@@ -35,7 +36,10 @@ const KanbanCard = ({ card, onComplete }) => {
           <span className="line-clamp-2">{problemLabel(problem)}</span>
           <ExternalLink size={12} className="flex-shrink-0 mt-1" />
         </a>
-        <KanbanCardMenu card={card} />
+        <div className="flex flex-shrink-0 items-center">
+          <KanbanCardNote problem={problem} note={card.entry?.note} />
+          <KanbanCardMenu card={card} />
+        </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span

@@ -392,3 +392,84 @@ describe("board and tracker share the same data", () => {
     ).toBe("NeetCode 150");
   });
 });
+
+describe("notes are shared between the table and the board", () => {
+  const showNotes = (view) =>
+    fireEvent.click(view.tracker().getByRole("button", { name: /show notes/i }));
+  const cardNote = (view) =>
+    within(view.card()).getByRole("button", { name: /(add|edit) note/i });
+  const editOnBoard = (view, text) => {
+    fireEvent.click(cardNote(view));
+    fireEvent.change(screen.getByRole("textbox", { name: /note for two sum/i }), {
+      target: { value: text },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  };
+
+  it("a note written in the table shows on the card", () => {
+    const view = renderBoth();
+    showNotes(view);
+    fireEvent.click(within(view.row()).getByRole("button", { name: /add note/i }));
+    const field = within(view.row()).getByRole("textbox");
+    fireEvent.change(field, { target: { value: "Use a hash map" } });
+    fireEvent.blur(field);
+    const button = cardNote(view);
+    expect(button.getAttribute("aria-label")).toBe("Edit note");
+    expect(button.getAttribute("title")).toBe("Use a hash map");
+  });
+
+  it("a note written on the card shows in the table", () => {
+    const view = renderBoth();
+    showNotes(view);
+    editOnBoard(view, "Two pointers");
+    expect(within(view.row()).getByText("Two pointers")).toBeTruthy();
+  });
+
+  it("the card offers to add a note when there is none", () => {
+    const view = renderBoth();
+    expect(cardNote(view).getAttribute("aria-label")).toBe("Add note");
+  });
+
+  it("the dialog opens with the current note and Cancel keeps it", () => {
+    const view = renderBoth();
+    editOnBoard(view, "keep");
+    fireEvent.click(cardNote(view));
+    const field = screen.getByRole("textbox", { name: /note for two sum/i });
+    expect(field.value).toBe("keep");
+    fireEvent.change(field, { target: { value: "discard me" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("textbox", { name: /note for two sum/i })).toBeNull();
+    expect(cardNote(view).getAttribute("title")).toBe("keep");
+  });
+
+  it("Ctrl+Enter saves and emptying the text removes the note", () => {
+    const view = renderBoth();
+    editOnBoard(view, "first");
+    fireEvent.click(cardNote(view));
+    const field = screen.getByRole("textbox", { name: /note for two sum/i });
+    fireEvent.change(field, { target: { value: "" } });
+    fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });
+    expect(cardNote(view).getAttribute("aria-label")).toBe("Add note");
+  });
+
+  it("the note stays when the problem moves, is solved and unsolved", () => {
+    const view = renderBoth();
+    editOnBoard(view, "remember");
+    view.menu("Mark as solved");
+    expect(cardNote(view).getAttribute("title")).toBe("remember");
+    view.menu("Complete R1");
+    fireEvent.click(within(view.row()).getByText("Solved"));
+    // un-solving from the table keeps it
+    expect(cardNote(view).getAttribute("title")).toBe("remember");
+  });
+
+  it("typing in the dialog does not start a drag (keys stay in the dialog)", () => {
+    const view = renderBoth();
+    fireEvent.click(cardNote(view));
+    const field = screen.getByRole("textbox", { name: /note for two sum/i });
+    fireEvent.keyDown(field, { key: " ", code: "Space" });
+    fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+    expect(field).toBeTruthy();
+    expect(screen.queryByText(/dragging|picked up/i)).toBeNull();
+  });
+});
