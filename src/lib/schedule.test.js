@@ -4,12 +4,14 @@ import {
   GAPS,
   addDays,
   canCompleteReview,
+  canRewindTo,
   canUncompleteReview,
   daysBetween,
   formatShortDate,
   getSchedule,
   isDue,
   localToday,
+  reviewsErasedBy,
 } from "./schedule";
 
 // A few popular zones: behind UTC (Los Angeles, New York), equal to it in winter
@@ -429,5 +431,33 @@ describe.each(ZONES)("daysBetween in %s", (zone) => {
       const start = utcAddDays("2026-01-01", day);
       expect(daysBetween(start, utcAddDays(start, 7))).toBe(7);
     }
+  });
+});
+
+describe("going back to an earlier review", () => {
+  const prob = (reviews) => ({ solved: true, reviews });
+
+  it("is possible for any review that is done", () => {
+    const p = prob([true, true, true, false, false]);
+    expect([0, 1, 2].map((i) => canRewindTo(p, i))).toEqual([true, true, true]);
+    expect([3, 4].map((i) => canRewindTo(p, i))).toEqual([false, false]);
+  });
+
+  it("is not possible for an unsolved problem or a bad index", () => {
+    expect(canRewindTo({ solved: false, reviews: [true] }, 0)).toBe(false);
+    expect(canRewindTo(prob([true, false, false, false, false]), -1)).toBe(false);
+    expect(canRewindTo(prob([true, false, false, false, false]), 5)).toBe(false);
+    expect(canRewindTo(undefined, 0)).toBe(false);
+  });
+
+  it("lists the done reviews it erases", () => {
+    const p = prob([true, true, true, false, false]);
+    expect(reviewsErasedBy(p, 0)).toEqual([0, 1, 2]);
+    expect(reviewsErasedBy(p, 2)).toEqual([2]);
+    expect(reviewsErasedBy(p, 3)).toEqual([]);
+  });
+
+  it("only counts reviews that are done in old out-of-order data", () => {
+    expect(reviewsErasedBy(prob([true, false, false, true, false]), 0)).toEqual([0, 3]);
   });
 });

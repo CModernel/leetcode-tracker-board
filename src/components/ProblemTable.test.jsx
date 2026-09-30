@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { ProgressProvider } from "../context/ProgressProvider";
+import { ConfirmProvider } from "../context/ConfirmProvider";
 import LeetCodeTracker from "../pages/LeetCodeTracker";
 import { NOTE_MAX_LENGTH } from "../lib/notes";
 import { SHOW_NOTES_KEY } from "../lib/preferences";
@@ -19,7 +20,9 @@ const withNote = (note) =>
 const renderTracker = () =>
   render(
     <ProgressProvider>
-      <LeetCodeTracker />
+      <ConfirmProvider>
+        <LeetCodeTracker />
+      </ConfirmProvider>
     </ProgressProvider>
   );
 

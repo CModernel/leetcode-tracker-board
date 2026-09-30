@@ -473,3 +473,70 @@ describe("notes are shared between the table and the board", () => {
     expect(screen.queryByText(/dragging|picked up/i)).toBeNull();
   });
 });
+
+describe("going back more than one review", () => {
+  // Solved with R1, R2 and R3 done, using the board menu (same data as the table)
+  const threeDone = () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    view.menu("Complete R1");
+    view.menu("Complete R2");
+    view.menu("Complete R3");
+    return view;
+  };
+  const rButton = (view, name) =>
+    within(view.row()).getByRole("button", { name });
+
+  it("in the table, going back one review asks nothing", () => {
+    const view = threeDone();
+    fireEvent.click(rButton(view, "R3"));
+    expect(screen.queryByRole("alertdialog")).toBe(null);
+    expect(within(view.card()).getByText("R3")).toBeTruthy();
+    expect(rButton(view, "R3").disabled).toBe(false);
+    expect(rButton(view, "R2").disabled).toBe(false);
+  });
+
+  it("in the table, an earlier review is enabled and asks before erasing the later ones", async () => {
+    const view = threeDone();
+    expect(rButton(view, "R1").disabled).toBe(false);
+    fireEvent.click(rButton(view, "R1"));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("Go back to R1?")).toBeTruthy();
+    expect(within(dialog).getByText(/R1, R2 and R3 and their dates will be erased/)).toBeTruthy();
+
+    // Cancel: nothing changes
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await act(async () => {});
+    expect(within(view.card()).getByText("R4")).toBeTruthy();
+
+    // Confirm: back at R1, in the table and on the board
+    fireEvent.click(rButton(view, "R1"));
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+    await act(async () => {});
+    expect(within(view.card()).getByText("R1")).toBeTruthy();
+    expect(rButton(view, "R2").disabled).toBe(true);
+    expect(view.columnOfCard()).toBe("Reviewing");
+  });
+
+  it("on the board, the menu offers going back and asks first", async () => {
+    const view = threeDone();
+    view.menu("Go back to R2");
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+    await act(async () => {});
+    // R1 is still done, R2 and R3 are not: R2 is the next review
+    expect(within(view.card()).getByText("R2")).toBeTruthy();
+    expect(rButton(view, "R2").disabled).toBe(false);
+    expect(rButton(view, "R3").disabled).toBe(true);
+  });
+
+  it("the board menu does not offer going back with only one review done", () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    view.menu("Complete R1");
+    const card = view.board().getByText("1 - Two Sum").closest("article");
+    fireEvent.click(within(card).getByLabelText("Card actions"));
+    expect(screen.queryByRole("menuitem", { name: /Go back to/ })).toBe(null);
+    expect(screen.getByRole("menuitem", { name: "Undo R1" })).toBeTruthy();
+  });
+});
