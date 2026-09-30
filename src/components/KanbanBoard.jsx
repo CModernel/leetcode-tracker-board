@@ -2,7 +2,9 @@ import { useCallback, useState } from "react";
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -11,6 +13,11 @@ import KanbanCard from "./KanbanCard";
 import DraggableKanbanCard from "./DraggableKanbanCard";
 import Toast from "./Toast";
 import { COLUMNS, applyDrop, buildColumns } from "../lib/board";
+import {
+  DRAG_INSTRUCTIONS,
+  dragAnnouncements,
+  moveToColumn,
+} from "../lib/keyboardDnd";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
 import { getProblems } from "../lib/lists";
@@ -36,10 +43,33 @@ const KanbanBoard = () => {
   const [notice, setNotice] = useState(null);
   const closeNotice = useCallback(() => setNotice(null), []);
 
-  // A small movement starts a drag, so clicks on the title link and on the
-  // "⋯" menu keep working.
+  // Mouse: a small movement starts a drag, so clicks on the title link and on
+  // the "⋯" menu keep working. Touch: a short press-and-hold starts it, so a
+  // swipe still scrolls the board. Keyboard: arrow keys jump between columns.
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: (event, { context, currentCoordinates }) => {
+        const direction =
+          event.code === "ArrowRight" ? 1 : event.code === "ArrowLeft" ? -1 : 0;
+        if (!direction || !context.collisionRect) return undefined;
+        event.preventDefault();
+        const columnRects = context.droppableContainers
+          .getEnabled()
+          .map((container) => ({
+            id: container.id,
+            rect: context.droppableRects.get(container.id),
+          }))
+          .filter((column) => column.rect);
+        return (
+          moveToColumn(direction, context.collisionRect, columnRects) ||
+          currentCoordinates
+        );
+      },
+    })
   );
 
   const today = localToday();
@@ -57,6 +87,13 @@ const KanbanBoard = () => {
     .find((card) => card.problem.id === activeId);
 
   const stopDragging = () => setActiveId(null);
+
+  const cardTitle = (id) =>
+    columns
+      .flatMap((column) => column.cards)
+      .find((card) => card.problem.id === id)?.problem.title ?? "card";
+  const columnTitle = (id) =>
+    COLUMNS.find((column) => column.id === id)?.title ?? "column";
 
   // Dropping a card runs the same progress actions as the table and the card
   // menu, so the tracker shows the change too. A drop that is not allowed
@@ -91,6 +128,10 @@ const KanbanBoard = () => {
   return (
     <DndContext
       sensors={sensors}
+      accessibility={{
+        announcements: dragAnnouncements(cardTitle, columnTitle),
+        screenReaderInstructions: { draggable: DRAG_INSTRUCTIONS },
+      }}
       onDragStart={(event) => setActiveId(event.active.id)}
       onDragEnd={handleDragEnd}
       onDragCancel={stopDragging}
