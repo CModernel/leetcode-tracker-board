@@ -34,6 +34,22 @@ describe("Toast", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("has no action button unless one is given", () => {
+    render(<Toast message="Hi" onClose={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Undo" })).toBe(null);
+  });
+
+  it("runs the action and closes when its button is pressed", () => {
+    const onClose = vi.fn();
+    const onAction = vi.fn();
+    render(
+      <Toast message="Moved" onClose={onClose} actionLabel="Undo" onAction={onAction} />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("does not close after it is removed", () => {
     const onClose = vi.fn();
     const { unmount } = render(<Toast message="Hi" onClose={onClose} />);

@@ -10,7 +10,7 @@ import KanbanColumn from "./KanbanColumn";
 import KanbanCard from "./KanbanCard";
 import DraggableKanbanCard from "./DraggableKanbanCard";
 import Toast from "./Toast";
-import { applyDrop, buildColumns } from "../lib/board";
+import { COLUMNS, applyDrop, buildColumns } from "../lib/board";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
 import { getProblems } from "../lib/lists";
@@ -27,10 +27,12 @@ const KanbanBoard = () => {
     unsolve,
     completeReview,
     uncompleteReview,
+    restoreEntry,
   } = useProgress();
   const confirm = useConfirm();
   const [activeId, setActiveId] = useState(null);
-  // Why the last drop was not allowed; a new id shows it again
+  // Message after a drop (why it was not allowed, or "Moved to..." with Undo);
+  // a new id shows it again
   const [notice, setNotice] = useState(null);
   const closeNotice = useCallback(() => setNotice(null), []);
 
@@ -65,6 +67,9 @@ const KanbanBoard = () => {
       .flatMap((column) => column.cards)
       .find((c) => c.problem.id === active.id);
     if (!card || !over) return;
+    // What this problem looked like, to bring it back on Undo
+    const list = selectedList;
+    const before = listProgress[card.problem.id];
     const result = await applyDrop(
       card,
       over.id,
@@ -73,6 +78,13 @@ const KanbanBoard = () => {
     );
     if (result.status === "rejected") {
       setNotice({ id: Date.now(), message: result.reason });
+    } else if (result.status === "moved") {
+      const column = COLUMNS.find((c) => c.id === over.id);
+      setNotice({
+        id: Date.now(),
+        message: `Moved to ${column.title}`,
+        undo: () => restoreEntry(list, card.problem.id, before),
+      });
     }
   };
 
@@ -109,6 +121,9 @@ const KanbanBoard = () => {
           key={notice.id}
           message={notice.message}
           onClose={closeNotice}
+          duration={notice.undo ? 6000 : 4000}
+          actionLabel={notice.undo ? "Undo" : undefined}
+          onAction={notice.undo}
         />
       )}
     </DndContext>

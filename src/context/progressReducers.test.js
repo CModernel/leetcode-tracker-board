@@ -6,6 +6,7 @@ import {
   importData,
   markSolved,
   parseSelectedList,
+  restoreEntry,
   setStatus,
   uncompleteReview,
   unsolve,
@@ -326,5 +327,47 @@ describe("parseSelectedList", () => {
     expect(parseSelectedList(null)).toBe(DEFAULT_LIST);
     expect(parseSelectedList("")).toBe(DEFAULT_LIST);
     expect(parseSelectedList("Some old list")).toBe(DEFAULT_LIST);
+  });
+});
+
+describe("restoreEntry", () => {
+  it("puts the saved entry back", () => {
+    const before = solvedState()[LIST][1];
+    const changed = unsolve(solvedState(), LIST, 1);
+    const restored = restoreEntry(changed, LIST, 1, before);
+    expect(restored[LIST][1]).toEqual(before);
+  });
+
+  it("removes the problem when it had no saved progress", () => {
+    const moved = markSolved({ [LIST]: {} }, LIST, 5, "2026-10-01");
+    const restored = restoreEntry(moved, LIST, 5, undefined);
+    expect(restored[LIST]).toEqual({});
+  });
+
+  it("only changes that problem", () => {
+    const state = solvedState();
+    const other = markSolved(state, LIST, 2, "2026-10-02");
+    const restored = restoreEntry(other, LIST, 1, undefined);
+    expect(restored[LIST][2]).toBe(other[LIST][2]);
+    expect(restored[OTHER]).toBe(state[OTHER]);
+    expect(restored[LIST][1]).toBeUndefined();
+  });
+
+  it("works when the list has no progress yet", () => {
+    const entry = { status: "todo", solved: false };
+    expect(restoreEntry({}, LIST, 1, entry)[LIST][1]).toBe(entry);
+    expect(restoreEntry({}, LIST, 1, undefined)[LIST]).toEqual({});
+  });
+
+  it("does not mutate the previous state", () => {
+    const state = solvedState();
+    restoreEntry(state, LIST, 1, undefined);
+    expect(state[LIST][1]).toBeTruthy();
+  });
+
+  it("undoes a drop that solved and started the schedule", () => {
+    const before = { [LIST]: {} };
+    const after = markSolved(before, LIST, 3, "2026-10-01");
+    expect(restoreEntry(after, LIST, 3, before[LIST][3])).toEqual(before);
   });
 });
