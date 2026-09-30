@@ -1,6 +1,6 @@
-# 🧠 CodeTrack Pro - LeetCode Progress Tracker
+# 🧠 CodeTrack Pro - LeetCode Tracker & Board
 
-A modern, interactive web application to track your progress through the famous LeetCode problems with built-in spaced repetition system for long-term retention.
+A modern, interactive web application to track your progress through the famous LeetCode problems, as a table or as a Kanban board, with built-in spaced repetition system for long-term retention.
 
 ![LeetCode Tracker](https://img.shields.io/badge/React-18.2.0-blue.svg)
 ![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4.0-38B2AC.svg)
