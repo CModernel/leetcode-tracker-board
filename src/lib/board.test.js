@@ -3,6 +3,7 @@ import {
   COLUMNS,
   UNSOLVE_CONFIRM,
   buildColumns,
+  canDrop,
   getCardActions,
   getNextDue,
   getStage,
@@ -286,5 +287,130 @@ describe("runCardAction", () => {
 
   it("does nothing for an unknown action", () => {
     expect(run({ type: "explode" })).toEqual([]);
+  });
+});
+
+describe("canDrop", () => {
+  const card = (stage, entry = {}) => ({ stage, entry });
+  const fromTodo = card("todo", {});
+  const fromProgress = card("in-progress", { status: "in-progress" });
+  const fromR1 = card("R1", solved(none));
+  const fromR3 = card("R3", solved([true, true, false, false, false]));
+  const fromR5 = card("R5", solved([true, true, true, true, false]));
+  const fromMastered = card("mastered", solved([true, true, true, true, true]));
+
+  const drop = (c, target) => canDrop(c, target);
+  const action = (c, target) => drop(c, target).action;
+
+  it("does nothing, silently, when dropped on its own column", () => {
+    for (const [c, column] of [
+      [fromTodo, "todo"],
+      [fromProgress, "in-progress"],
+      [fromR3, "reviewing"],
+      [fromMastered, "mastered"],
+    ]) {
+      expect(drop(c, column)).toEqual({ allowed: false, reason: null });
+    }
+  });
+
+  it("ignores a target that is not a column", () => {
+    expect(drop(fromTodo, "nowhere")).toEqual({ allowed: false, reason: null });
+    expect(drop(fromTodo, undefined)).toEqual({ allowed: false, reason: null });
+  });
+
+  it("moves between To Do and In Progress by changing the status only", () => {
+    expect(action(fromTodo, "in-progress")).toEqual({ type: "start" });
+    expect(action(fromProgress, "todo")).toEqual({ type: "backToTodo" });
+  });
+
+  it("solves a problem dropped on Reviewing, from To Do or In Progress", () => {
+    expect(action(fromTodo, "reviewing")).toEqual({ type: "markSolved" });
+    expect(action(fromProgress, "reviewing")).toEqual({ type: "markSolved" });
+  });
+
+  it("does not let an unsolved problem jump to Mastered", () => {
+    for (const c of [fromTodo, fromProgress]) {
+      const result = drop(c, "mastered");
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toBeTruthy();
+    }
+  });
+
+  it("completes the last review when a card at R5 is dropped on Mastered", () => {
+    expect(action(fromR5, "mastered")).toEqual({
+      type: "completeReview",
+      index: 4,
+    });
+  });
+
+  it("does not let a card before R5 reach Mastered, and says why", () => {
+    for (const c of [fromR1, fromR3]) {
+      const result = drop(c, "mastered");
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain(c.stage);
+    }
+  });
+
+  it("does not allow Mastered at R5 when the earlier reviews are not done", () => {
+    const odd = card("R5", solved([false, false, false, false, false]));
+    expect(drop(odd, "mastered").allowed).toBe(false);
+  });
+
+  it("asks before sending a solved problem back to To Do (it erases reviews)", () => {
+    for (const c of [fromR1, fromR3, fromR5, fromMastered]) {
+      expect(action(c, "todo")).toEqual({
+        type: "unsolve",
+        confirm: UNSOLVE_CONFIRM,
+      });
+    }
+  });
+
+  it("asks before sending a solved problem back to In Progress", () => {
+    for (const c of [fromR3, fromMastered]) {
+      expect(action(c, "in-progress")).toEqual({
+        type: "start",
+        confirm: UNSOLVE_CONFIRM,
+      });
+    }
+  });
+
+  it("does not move a mastered problem back to Reviewing", () => {
+    const result = drop(fromMastered, "reviewing");
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBeTruthy();
+  });
+
+  it("asks for confirmation only when reviews would be erased", () => {
+    const allCards = [fromTodo, fromProgress, fromR1, fromR3, fromR5, fromMastered];
+    for (const c of allCards) {
+      for (const column of COLUMNS) {
+        const result = drop(c, column.id);
+        if (!result.allowed) continue;
+        const fromSolved = c.stage === "mastered" || c.stage.startsWith("R");
+        const erases = fromSolved && ["todo", "in-progress"].includes(column.id);
+        expect(Boolean(result.action.confirm)).toBe(erases);
+      }
+    }
+  });
+
+  it("only returns actions that runCardAction understands", () => {
+    const known = ["start", "backToTodo", "markSolved", "completeReview", "unsolve"];
+    for (const c of [fromTodo, fromProgress, fromR1, fromR5, fromMastered]) {
+      for (const column of COLUMNS) {
+        const result = drop(c, column.id);
+        if (result.allowed) expect(known).toContain(result.action.type);
+      }
+    }
+  });
+
+  it("gives a reason for every rejection except the silent ones", () => {
+    for (const c of [fromTodo, fromProgress, fromR1, fromR5, fromMastered]) {
+      for (const column of COLUMNS) {
+        const result = drop(c, column.id);
+        if (!result.allowed && result.reason !== null) {
+          expect(result.reason.length).toBeGreaterThan(5);
+        }
+      }
+    }
   });
 });
