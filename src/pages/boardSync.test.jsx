@@ -23,18 +23,19 @@ const renderBoth = () => {
   );
   const tracker = () => within(screen.getByTestId("tracker"));
   const board = () => within(screen.getByTestId("board"));
-  const PROBLEM = "Two Sum";
+  const PROBLEM = "Two Sum"; // in the table
+  const CARD = "1 - Two Sum"; // on the board: number - title
   return {
     tracker,
     board,
     row: () => tracker().getByText(PROBLEM).closest("tr"),
     // The card of the problem, or null when it is not on the board
-    card: () => board().queryByText(PROBLEM)?.closest("article") ?? null,
+    card: () => board().queryByText(CARD)?.closest("article") ?? null,
     columnOfCard: () =>
-      board().queryByText(PROBLEM)?.closest("section")?.querySelector("h2")
+      board().queryByText(CARD)?.closest("section")?.querySelector("h2")
         ?.textContent ?? null,
     menu: (name) => {
-      const card = board().getByText(PROBLEM).closest("article");
+      const card = board().getByText(CARD).closest("article");
       fireEvent.click(within(card).getByLabelText("Card actions"));
       fireEvent.click(screen.getByRole("menuitem", { name }));
     },
@@ -166,7 +167,7 @@ describe("board and tracker share the same data", () => {
     expect(titles).toEqual(["Overdue", "Today", "This week", "Later"]);
     expect(view.columnOfCard()).toBe("This week");
     // A problem that was never started is not shown in this view
-    expect(view.board().queryByText("Contains Duplicate")).toBe(null);
+    expect(view.board().queryByText("2 - Contains Duplicate")).toBe(null);
 
     // Completing the review from the card still changes the tracker
     view.menu("Complete R1");
@@ -176,7 +177,7 @@ describe("board and tracker share the same data", () => {
     // Back to stages: everything is shown again
     fireEvent.click(view.board().getByRole("button", { name: "Stage" }));
     expect(view.columnOfCard()).toBe("Reviewing");
-    expect(view.board().getByText("Contains Duplicate")).toBeTruthy();
+    expect(view.board().getByText("2 - Contains Duplicate")).toBeTruthy();
   });
 
   it("the list chosen in one view applies to the other", () => {

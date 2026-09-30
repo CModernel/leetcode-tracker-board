@@ -6,7 +6,9 @@ import {
   importData,
   markSolved,
   parseSelectedList,
+  restoreEntries,
   restoreEntry,
+  setOrder,
   setStatus,
   uncompleteReview,
   unsolve,
@@ -416,5 +418,69 @@ describe("setStatus and startedAt", () => {
     const moved = setStatus(before, LIST, 1, "todo", "2026-10-02");
     const restored = restoreEntry(moved, LIST, 1, entry(before));
     expect(entry(restored).startedAt).toBe("2026-10-01T09:00:00.000Z");
+  });
+});
+
+describe("setOrder", () => {
+  const inProgress = (state, id) =>
+    setStatus(state, LIST, id, "in-progress", "2026-10-01", `2026-10-01T0${id}:00:00.000Z`);
+  const three = () => inProgress(inProgress(inProgress({}, 1), 2), 3);
+
+  it("gives each problem its position as order", () => {
+    const next = setOrder(three(), LIST, [3, 1, 2]);
+    expect(next[LIST][3].order).toBe(0);
+    expect(next[LIST][1].order).toBe(1);
+    expect(next[LIST][2].order).toBe(2);
+  });
+
+  it("keeps the rest of each entry", () => {
+    const state = three();
+    const next = setOrder(state, LIST, [2, 1, 3]);
+    expect(next[LIST][2]).toEqual({ ...state[LIST][2], order: 0 });
+  });
+
+  it("skips ids that have no saved progress", () => {
+    const next = setOrder(three(), LIST, [99, 1]);
+    expect(next[LIST][99]).toBeUndefined();
+    expect(next[LIST][1].order).toBe(1);
+  });
+
+  it("does not touch other problems or lists, or mutate the input", () => {
+    const state = { ...three(), [OTHER]: { 7: { solved: false } } };
+    const before = JSON.stringify(state);
+    const next = setOrder(state, LIST, [2, 1]);
+    expect(next[LIST][3]).toBe(state[LIST][3]);
+    expect(next[OTHER]).toBe(state[OTHER]);
+    expect(JSON.stringify(state)).toBe(before);
+  });
+
+  it("is dropped when the problem leaves In Progress and comes back", () => {
+    let state = setOrder(three(), LIST, [3, 2, 1]);
+    expect(state[LIST][3].order).toBe(0);
+    state = setStatus(state, LIST, 3, "todo", "2026-10-02");
+    expect(state[LIST][3]).not.toHaveProperty("order");
+    state = setStatus(state, LIST, 3, "in-progress", "2026-10-03", "2026-10-03T09:00:00.000Z");
+    expect(state[LIST][3]).not.toHaveProperty("order");
+  });
+});
+
+describe("restoreEntries", () => {
+  it("puts several entries back, including removing ones that did not exist", () => {
+    const before = setOrder(
+      setStatus(setStatus({}, LIST, 1, "in-progress", "2026-10-01"), LIST, 2, "in-progress", "2026-10-01"),
+      LIST,
+      [1, 2]
+    );
+    const changed = setOrder(before, LIST, [2, 1]);
+    const restored = restoreEntries(changed, LIST, { 1: before[LIST][1], 2: before[LIST][2] });
+    expect(restored).toEqual(before);
+
+    const added = markSolved(before, LIST, 3, "2026-10-05");
+    expect(restoreEntries(added, LIST, { 3: undefined })[LIST][3]).toBeUndefined();
+  });
+
+  it("does nothing with an empty snapshot", () => {
+    const state = solvedState();
+    expect(restoreEntries(state, LIST, {})).toBe(state);
   });
 });

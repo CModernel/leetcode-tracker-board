@@ -1,6 +1,7 @@
 import { Calendar, ExternalLink } from "lucide-react";
 import KanbanCardMenu from "./KanbanCardMenu";
 import { difficultyColor } from "../lib/difficultyStyles";
+import { problemLabel } from "../lib/lists";
 import { formatShortDate } from "../lib/schedule";
 import { urgencyButtonStyles, urgencyTextStyles } from "../lib/urgencyStyles";
 
@@ -20,7 +21,7 @@ const KanbanCard = ({ card }) => {
           className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline flex items-start gap-1"
           title={`Open ${problem.title}`}
         >
-          <span className="line-clamp-2">{problem.title}</span>
+          <span className="line-clamp-2">{problemLabel(problem)}</span>
           <ExternalLink size={12} className="flex-shrink-0 mt-1" />
         </a>
         <KanbanCardMenu card={card} />

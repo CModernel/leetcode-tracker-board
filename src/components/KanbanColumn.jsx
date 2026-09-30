@@ -2,14 +2,22 @@ import { useDroppable } from "@dnd-kit/core";
 
 // One board column and a place where cards can be dropped (unless `droppable`
 // is false). `count` is optional: nothing is shown until it is given.
-const KanbanColumn = ({ id, title, count, droppable = true, children }) => {
+// `highlight` marks the column while a card is over one of its cards.
+const KanbanColumn = ({
+  id,
+  title,
+  count,
+  droppable = true,
+  highlight = false,
+  children,
+}) => {
   const { setNodeRef, isOver } = useDroppable({ id, disabled: !droppable });
 
   return (
     <section
       ref={setNodeRef}
       className={`flex flex-col flex-shrink-0 w-[85%] snap-center md:w-auto md:flex-shrink bg-gray-100 dark:bg-gray-800 rounded-lg p-3 min-h-[200px] transition-colors ${
-        isOver ? "ring-2 ring-blue-400" : ""
+        isOver || highlight ? "ring-2 ring-blue-400" : ""
       }`}
     >
       <header className="flex items-center justify-between mb-3 px-1">

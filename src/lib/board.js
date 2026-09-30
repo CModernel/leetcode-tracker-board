@@ -63,9 +63,17 @@ const makeCard = (problem, entry, today) => {
 const byNextDue = (a, b) =>
   a.nextDue < b.nextDue ? -1 : a.nextDue > b.nextDue ? 1 : 0;
 
-// In Progress: the one started first on top, the latest at the bottom.
-// Problems without a start time (started before it was saved) go first.
-const byStartedAt = (a, b) => {
+// In Progress: problems with a manual `order` come first, by that order. The
+// rest follow by start time, the latest at the bottom; problems without a
+// start time (started before it was saved) go first among them.
+const byInProgressOrder = (a, b) => {
+  const orderA = a.entry.order;
+  const orderB = b.entry.order;
+  const hasA = typeof orderA === "number";
+  const hasB = typeof orderB === "number";
+  if (hasA && hasB) return orderA - orderB;
+  if (hasA) return -1;
+  if (hasB) return 1;
   const startA = a.entry.startedAt || "";
   const startB = b.entry.startedAt || "";
   return startA < startB ? -1 : startA > startB ? 1 : 0;
@@ -84,8 +92,8 @@ const byMasteredDate = (a, b) => {
 
 // The four columns with a card per problem. `progress` is the selected list's
 // progress ({ [problemId]: entry }); `today` is "YYYY-MM-DD". Cards keep the
-// order of `problems` in To Do; In Progress is by start time (the latest at the
-// bottom), Reviewing by next due date (the most urgent on top) and Mastered
+// order of `problems` in To Do; In Progress is by manual order and then by
+// start time (the latest at the bottom), Reviewing by next due date (the most urgent on top) and Mastered
 // has the most recent on top. `urgency`
 // is set only for problems waiting for a review: "overdue", "today" or
 // "upcoming".
@@ -96,7 +104,7 @@ export const buildColumns = (problems, progress, today) => {
     columns.find((column) => column.id === columnOf(card.stage)).cards.push(card);
   }
   const sorters = {
-    "in-progress": byStartedAt,
+    "in-progress": byInProgressOrder,
     reviewing: byNextDue,
     mastered: byMasteredDate,
   };
@@ -315,4 +323,29 @@ export const applyDrop = async (
   }
   runCardAction(result.action, card.problem.id, actions);
   return { status: "moved" };
+};
+
+// Moves `activeId` to the position `overId` has in `ids` (what dragging a card
+// over another one does). Returns a new list; the same order when either id is
+// missing or they are the same.
+export const reorderIds = (ids, activeId, overId) => {
+  const from = ids.indexOf(activeId);
+  const to = ids.indexOf(overId);
+  if (from === -1 || to === -1 || from === to) return ids;
+  const next = [...ids];
+  next.splice(from, 1);
+  next.splice(to, 0, activeId);
+  return next;
+};
+
+// Where a drop lands. `overId` is a column or, for cards that can be sorted,
+// another card. Returns { columnId, overCardId }: the column it is over (null
+// if none) and, when it is over a card, that card's id.
+export const resolveDrop = (overId, columns) => {
+  const column = columns.find((c) => c.id === overId);
+  if (column) return { columnId: column.id, overCardId: null };
+  const holder = columns.find((c) => c.cards.some((card) => card.problem.id === overId));
+  return holder
+    ? { columnId: holder.id, overCardId: overId }
+    : { columnId: null, overCardId: null };
 };

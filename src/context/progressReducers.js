@@ -67,8 +67,11 @@ export const setStatus = (
   const current = progress[list]?.[problemId];
   if (status === "solved") return markSolved(progress, list, problemId, today);
 
+  // A problem that (re)enters In Progress goes to the bottom, so any manual
+  // position from an earlier time in this column is dropped.
   const change = (entry) => {
     const next = { ...entry, status };
+    delete next.order;
     if (status === "in-progress") next.startedAt = now;
     else delete next.startedAt;
     return next;
@@ -115,6 +118,24 @@ export const restoreEntry = (progress, list, problemId, entry) => {
   else listProgress[problemId] = entry;
   return { ...progress, [list]: listProgress };
 };
+
+// Saves a manual order for problems (the In Progress column): each id gets its
+// position in `orderedIds` as `order`. Ids without saved progress are skipped.
+export const setOrder = (progress, list, orderedIds) => {
+  const listProgress = { ...(progress[list] || {}) };
+  orderedIds.forEach((id, position) => {
+    if (listProgress[id]) listProgress[id] = { ...listProgress[id], order: position };
+  });
+  return { ...progress, [list]: listProgress };
+};
+
+// restoreEntry for several problems at once. `snapshot` is { [id]: entry } with
+// `undefined` for problems that had no saved progress.
+export const restoreEntries = (progress, list, snapshot) =>
+  Object.entries(snapshot).reduce(
+    (state, [id, entry]) => restoreEntry(state, list, id, entry),
+    progress
+  );
 
 // Replaces everything with an imported file's content. Throws if the content
 // is not an object (for example "null" or a list), so nothing gets replaced.

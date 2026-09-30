@@ -77,6 +77,10 @@ export const ProgressProvider = ({ children }) => {
       ),
     unsolve: (problemId) =>
       setProgress((prev) => reducers.unsolve(prev, selectedList, problemId)),
+    reorder: (orderedIds) =>
+      setProgress((prev) => reducers.setOrder(prev, selectedList, orderedIds)),
+    restoreEntries: (list, snapshot) =>
+      setProgress((prev) => reducers.restoreEntries(prev, list, snapshot)),
     restoreEntry: (list, problemId, entry) =>
       setProgress((prev) => reducers.restoreEntry(prev, list, problemId, entry)),
     setStatus: (problemId, status) =>

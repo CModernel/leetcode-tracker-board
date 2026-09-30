@@ -11,6 +11,8 @@ import {
   getCardActions,
   getNextDue,
   getStage,
+  reorderIds,
+  resolveDrop,
   runCardAction,
   urgencyBucket,
 } from "./board";
@@ -774,5 +776,103 @@ describe("order of In Progress", () => {
 
   it("keeps the list order when nothing has a start time (old data)", () => {
     expect(ids({ 2: inProgress(), 1: inProgress(), 4: inProgress() })).toEqual([1, 2, 4]);
+  });
+});
+
+describe("In Progress with a manual order", () => {
+  const list = [1, 2, 3, 4].map((id) => ({ id }));
+  const item = (extra) => ({ status: "in-progress", solved: false, ...extra });
+  const ids = (progress) =>
+    buildColumns(list, progress, today)
+      .find((c) => c.id === "in-progress")
+      .cards.map((card) => card.problem.id);
+
+  it("follows the manual order over the start time", () => {
+    expect(
+      ids({
+        1: item({ order: 2, startedAt: "2026-10-01T01:00:00.000Z" }),
+        2: item({ order: 0, startedAt: "2026-10-01T02:00:00.000Z" }),
+        3: item({ order: 1, startedAt: "2026-10-01T03:00:00.000Z" }),
+      })
+    ).toEqual([2, 3, 1]);
+  });
+
+  it("puts a problem started after the reorder at the bottom", () => {
+    expect(
+      ids({
+        1: item({ order: 1, startedAt: "2026-10-01T01:00:00.000Z" }),
+        2: item({ order: 0, startedAt: "2026-10-01T02:00:00.000Z" }),
+        3: item({ startedAt: "2026-10-05T09:00:00.000Z" }),
+      })
+    ).toEqual([2, 1, 3]);
+  });
+
+  it("sorts several problems without an order by start time, after the ordered ones", () => {
+    expect(
+      ids({
+        1: item({ startedAt: "2026-10-07T09:00:00.000Z" }),
+        2: item({ startedAt: "2026-10-06T09:00:00.000Z" }),
+        3: item({ order: 0 }),
+      })
+    ).toEqual([3, 2, 1]);
+  });
+
+  it("does not use order in other columns", () => {
+    const columns = buildColumns(
+      list,
+      { 1: solved(none, { order: 5 }), 2: solved(none, { order: 0, solvedDate: "2026-09-01" }) },
+      today
+    );
+    // Reviewing stays by due date: 2 is overdue, 1 is due today
+    expect(columns.find((c) => c.id === "reviewing").cards.map((c) => c.problem.id)).toEqual([2, 1]);
+  });
+});
+
+describe("reorderIds", () => {
+  it("moves a card down to the position of the card it is dropped on", () => {
+    expect(reorderIds([1, 2, 3, 4], 1, 3)).toEqual([2, 3, 1, 4]);
+  });
+
+  it("moves a card up", () => {
+    expect(reorderIds([1, 2, 3, 4], 4, 2)).toEqual([1, 4, 2, 3]);
+  });
+
+  it("moves to the first and last positions", () => {
+    expect(reorderIds([1, 2, 3], 3, 1)).toEqual([3, 1, 2]);
+    expect(reorderIds([1, 2, 3], 1, 3)).toEqual([2, 3, 1]);
+  });
+
+  it("changes nothing when dropped on itself or with an unknown id", () => {
+    const ids = [1, 2, 3];
+    expect(reorderIds(ids, 2, 2)).toBe(ids);
+    expect(reorderIds(ids, 9, 2)).toBe(ids);
+    expect(reorderIds(ids, 2, 9)).toBe(ids);
+  });
+
+  it("does not mutate the list", () => {
+    const ids = [1, 2, 3];
+    reorderIds(ids, 1, 3);
+    expect(ids).toEqual([1, 2, 3]);
+  });
+});
+
+describe("resolveDrop", () => {
+  const columns = [
+    { id: "todo", cards: [{ problem: { id: 10 } }] },
+    { id: "in-progress", cards: [{ problem: { id: 20 } }, { problem: { id: 21 } }] },
+  ];
+
+  it("recognizes a column", () => {
+    expect(resolveDrop("in-progress", columns)).toEqual({ columnId: "in-progress", overCardId: null });
+  });
+
+  it("turns a card into its column and remembers the card", () => {
+    expect(resolveDrop(21, columns)).toEqual({ columnId: "in-progress", overCardId: 21 });
+    expect(resolveDrop(10, columns)).toEqual({ columnId: "todo", overCardId: 10 });
+  });
+
+  it("gives no column for something unknown", () => {
+    expect(resolveDrop("nowhere", columns)).toEqual({ columnId: null, overCardId: null });
+    expect(resolveDrop(99, columns)).toEqual({ columnId: null, overCardId: null });
   });
 });
