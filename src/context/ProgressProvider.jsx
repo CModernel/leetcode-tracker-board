@@ -138,6 +138,17 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.uncompleteReview(prev, selectedList, problemId, index)
       ),
+    recordAttempt: (problemId, review, help) =>
+      setProgress((prev) =>
+        reducers.recordAttempt(
+          prev,
+          selectedList,
+          problemId,
+          review,
+          help,
+          localToday()
+        )
+      ),
     rewindReviews: (problemId, index) =>
       setProgress((prev) =>
         reducers.rewindReviews(prev, selectedList, problemId, index)

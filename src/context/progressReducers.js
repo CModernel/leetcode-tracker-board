@@ -3,10 +3,11 @@ import {
   canRewindTo,
   canUncompleteReview,
 } from "../lib/schedule";
+import { attemptsOf, isHelp } from "../lib/attempts";
 import { isStatus } from "../lib/status";
 
 // Pure functions that return the next `progress` object. `progress` is
-// { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates, note? } } }.
+// { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates, note?, attempts? } } }.
 // `today` is passed in ("YYYY-MM-DD") so these stay easy to test.
 
 export const emptyProgress = () => ({
@@ -141,6 +142,21 @@ export const rewindReviews = (progress, list, problemId, index) => {
     for (let i = index; i < reviews.length; i++) delete dates[`review${i + 1}`];
     return { ...current, reviews, dates };
   });
+};
+
+// Adds an attempt to the problem's history: which review (0..4) was tried, how
+// much help it needed (see HELP) and on what day. Only a solved problem has
+// reviews, so anything else does nothing, and so does an invalid review or
+// help. Existing attempts are never changed or removed by this or by any other
+// action except "Clear all".
+export const recordAttempt = (progress, list, problemId, review, help, today) => {
+  const current = progress[list]?.[problemId];
+  const validReview = Number.isInteger(review) && review >= 0 && review < 5;
+  if (!current?.solved || !validReview || !isHelp(help)) return progress;
+  return updateEntry(progress, list, problemId, (entry) => ({
+    ...entry,
+    attempts: [...attemptsOf(entry), { date: today, review, help }],
+  }));
 };
 
 // Puts a problem's saved entry back as it was (used by "Undo"). `entry` is

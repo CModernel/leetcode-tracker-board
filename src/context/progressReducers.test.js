@@ -7,6 +7,7 @@ import {
   markSolved,
   parseSelectedList,
   restoreEntries,
+  recordAttempt,
   restoreEntry,
   setNote,
   rewindReviews,
@@ -622,5 +623,73 @@ describe("rewindReviews", () => {
     expect(next[LIST][1].note).toBe("remember");
     expect(next[LIST][2]).toBe(start[LIST][2]);
     expect(next[OTHER]).toBe(start[OTHER]);
+  });
+});
+
+describe("recordAttempt", () => {
+  const attempt = (review, help, date = "2026-10-06") => ({ date, review, help });
+
+  it("adds an attempt with its date to a solved problem", () => {
+    const start = solvedState();
+    const next = recordAttempt(start, LIST, 1, 2, 1, "2026-10-06");
+    expect(next[LIST][1].attempts).toEqual([attempt(2, 1)]);
+    expect(next[LIST][1].reviews).toBe(start[LIST][1].reviews);
+    expect(next[OTHER]).toBe(start[OTHER]);
+  });
+
+  it("keeps the attempts in order", () => {
+    let state = recordAttempt(solvedState(), LIST, 1, 2, 1, "2026-10-06");
+    state = recordAttempt(state, LIST, 1, 2, 0, "2026-10-08");
+    expect(state[LIST][1].attempts).toEqual([
+      attempt(2, 1, "2026-10-06"),
+      attempt(2, 0, "2026-10-08"),
+    ]);
+  });
+
+  it("does nothing for a problem that is not solved or has no entry", () => {
+    const todo = { [LIST]: { 1: { status: "todo", solved: false, reviews: noReviews, dates: {} } } };
+    expect(recordAttempt(todo, LIST, 1, 0, 0, "2026-10-06")).toBe(todo);
+    expect(recordAttempt(todo, LIST, 99, 0, 0, "2026-10-06")).toBe(todo);
+  });
+
+  it("ignores an invalid review or help level", () => {
+    const start = solvedState();
+    for (const [review, help] of [[-1, 0], [5, 0], [1.5, 0], ["1", 0], [1, 3], [1, -1], [1, "0"], [1, undefined]]) {
+      expect(recordAttempt(start, LIST, 1, review, help, "2026-10-06")).toBe(start);
+    }
+  });
+
+  it("starts a new list when the saved value is not a list", () => {
+    const start = solvedState();
+    start[LIST][1].attempts = "broken";
+    expect(recordAttempt(start, LIST, 1, 0, 0, "2026-10-06")[LIST][1].attempts).toEqual([attempt(0, 0)]);
+  });
+
+  it("is never erased by undoing, rewinding, unsolving or moving the problem", () => {
+    let state = recordAttempt(solvedState(), LIST, 1, 1, 0, "2026-10-05");
+    const history = state[LIST][1].attempts;
+    state = uncompleteReview(state, LIST, 1, 1);
+    expect(state[LIST][1].attempts).toBe(history);
+    state = completeReview(state, LIST, 1, 1, "2026-10-06");
+    state = rewindReviews(state, LIST, 1, 0);
+    expect(state[LIST][1].attempts).toBe(history);
+    state = unsolve(state, LIST, 1);
+    expect(state[LIST][1].attempts).toBe(history);
+    state = setStatus(state, LIST, 1, "in-progress", "2026-10-10");
+    expect(state[LIST][1].attempts).toBe(history);
+    state = markSolved(state, LIST, 1, "2026-10-11");
+    expect(state[LIST][1].attempts).toBe(history);
+  });
+
+  it("is brought back by Undo together with the entry", () => {
+    const before = solvedState()[LIST][1];
+    const after = recordAttempt(solvedState(), LIST, 1, 2, 1, "2026-10-06");
+    expect(restoreEntry(after, LIST, 1, before)[LIST][1]).not.toHaveProperty("attempts");
+  });
+
+  it("is cleared only by Clear all", () => {
+    const state = recordAttempt(solvedState(), LIST, 1, 2, 1, "2026-10-06");
+    expect(clearAll()[LIST]).toEqual({});
+    expect(state[LIST][1].attempts).toHaveLength(1);
   });
 });
