@@ -200,6 +200,15 @@ describe("importing a file", () => {
     expect(migrate(JSON.parse(fileText)).progress).toEqual(v3Data());
   });
 
+  it("keeps notes when importing, loading and saving", () => {
+    const data = v3Data();
+    data["Blind 75"][1].note = "Use a hash map";
+    data["Blind 75"][2] = { status: "todo", solved: false, reviews: [], dates: {}, note: "todo note" };
+    expect(migrate(JSON.parse(JSON.stringify(data))).progress).toEqual(data);
+    const saved = serializeProgress(data);
+    expect(parseStored(saved)).toEqual(data);
+  });
+
   it("rejects a file that is not progress data", () => {
     expect(() => migrate(JSON.parse("[1, 2]"))).toThrow();
     expect(() => migrate(JSON.parse("null"))).toThrow();
