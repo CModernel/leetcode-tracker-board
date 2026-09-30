@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StickyNote } from "lucide-react";
+import { FileText } from "lucide-react";
 import NoteDialog from "./NoteDialog";
 import { useProgress } from "../context/ProgressContext";
 
@@ -22,7 +22,7 @@ const KanbanCardNote = ({ problem, note }) => {
             : "text-gray-400 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600"
         }`}
       >
-        <StickyNote size={16} fill={note ? "currentColor" : "none"} fillOpacity={0.2} />
+        <FileText size={16} fill={note ? "currentColor" : "none"} fillOpacity={0.2} />
       </button>
       {open && (
         <NoteDialog

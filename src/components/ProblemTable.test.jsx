@@ -131,6 +131,30 @@ describe("editing a note in the table", () => {
     expect(savedNote()).toBe("second");
   });
 
+  it("saves with the Save button", () => {
+    openEditor();
+    fireEvent.change(field(), { target: { value: "via button" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(savedNote()).toBe("via button");
+    expect(screen.queryByRole("textbox", { name: /note for two sum/i })).toBeNull();
+  });
+
+  it("discards with the Cancel button", () => {
+    openEditor();
+    fireEvent.change(field(), { target: { value: "never saved" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(savedNote()).toBe("Use a hash map");
+    expect(within(row()).getByText("Use a hash map")).toBeTruthy();
+  });
+
+  it("the buttons keep the focus in the field, so pressing one does not save by losing it", () => {
+    openEditor();
+    for (const name of ["Save", "Cancel"]) {
+      const notCancelled = fireEvent.mouseDown(screen.getByRole("button", { name }));
+      expect(notCancelled).toBe(false); // preventDefault was called
+    }
+  });
+
   it("does not save with Enter alone (it adds a line)", () => {
     openEditor();
     fireEvent.change(field(), { target: { value: "changed" } });
