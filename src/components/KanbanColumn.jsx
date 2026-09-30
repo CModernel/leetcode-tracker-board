@@ -6,7 +6,8 @@ import { urgencyBadgeStyles } from "../lib/urgencyStyles";
 // `highlight` marks the column while a card is over one of its cards.
 // `urgencyCounts` ({ overdue, today }) adds a red and a yellow number for the
 // cards that are overdue or due today. `tone` colors the main count
-// ("overdue" red, "today" yellow) in the by-urgency view.
+// ("overdue" red, "today" yellow) in the by-urgency view. `empty` is the text
+// shown instead of the cards when there are none.
 const KanbanColumn = ({
   id,
   title,
@@ -15,6 +16,7 @@ const KanbanColumn = ({
   tone,
   droppable = true,
   highlight = false,
+  empty,
   children,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id, disabled: !droppable });
@@ -58,7 +60,13 @@ const KanbanColumn = ({
         </div>
       </header>
       <div className="flex flex-col gap-2 max-h-[70vh] overflow-y-auto">
-        {children}
+        {empty ? (
+          <p className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 px-3 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+            {empty}
+          </p>
+        ) : (
+          children
+        )}
       </div>
     </section>
   );

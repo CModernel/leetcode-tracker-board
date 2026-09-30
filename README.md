@@ -1,6 +1,6 @@
-# 🧠 CodeTrack Pro - LeetCode Progress Tracker
+# 🧠 CodeTrack Pro - LeetCode Tracker & Board
 
-A modern, interactive web application to track your progress through the famous LeetCode problems with built-in spaced repetition system for long-term retention.
+A modern, interactive web application to track your progress through the famous LeetCode problems, as a table or as a Kanban board, with built-in spaced repetition system for long-term retention.
 
 ![LeetCode Tracker](https://img.shields.io/badge/React-18.2.0-blue.svg)
 ![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4.0-38B2AC.svg)
@@ -18,9 +18,21 @@ A modern, interactive web application to track your progress through the famous 
 ### 🔄 Spaced Repetition System
 
 - **Scientifically-Based Intervals**: Review problems at optimal intervals (1, 3, 7, 14, 30 days)
-- **Smart Review Scheduling**: Automatic calculation of review due dates
+- **Smart Review Scheduling**: Automatic calculation of review due dates. Reviews must be done in order, and a late review moves the next ones back
 - **Due Today Filter**: Quickly see which problems need review today
 - **Visual Review Status**: Color-coded review buttons showing completion status
+
+### 🗂️ Kanban Board
+
+A second view of the same progress, at `/board`. Anything you do in the board changes the tracker table, and the other way around.
+
+- **Four columns**: To Do, In Progress, Reviewing and Mastered
+- **Drag & drop** (mouse, touch or keyboard) to start a problem, solve it or move it back, with a confirmation before reviews are erased and an **Undo** message
+- **Reorder** the cards inside In Progress
+- **Group by urgency**: Overdue, Today, This week and Later, to run a review session
+- **Review today**: a list of the reviews due, and a **Complete** button on every card
+- **Due count in the tab title**, for example `(3) CodeTrack Pro`
+- The list and filters at the top apply to both views
 
 ### 💾 Data Persistence
 
@@ -97,6 +109,8 @@ Every push to `master` is built and deployed to GitHub Pages automatically via G
 - **R4**: Review after 14 days (2 weeks)
 - **R5**: Review after 30 days (1 month)
 
+These are the dates when every review is done on time. If you do a review late, the next one is counted from the day you really did it.
+
 ### Color Coding
 
 - 🟢 **Green**: Review completed
@@ -130,7 +144,7 @@ Every push to `master` is built and deployed to GitHub Pages automatically via G
 ## 📋 Roadmap
 
 - [x] Dark mode support
-- [ ] Kanban board with auto-repetition schedule
+- [x] Kanban board with auto-repetition schedule
 - [ ] Notes per task for better retrieval
 - [ ] Show/hide solution (if attached)
 - [ ] Cloud data persistence
@@ -146,6 +160,9 @@ A: Yes, since data is stored in localStorage. Use the export feature to backup y
 
 **Q: Can I access my progress from different devices?**
 A: Not currently, but cloud data persistence is being planned as a future feature.
+
+**Q: Will I get a reminder when a review is due?**
+A: Not yet. The app only works while its tab is open: the number of due reviews shows in the tab title, and the board has a "Review today" list.
 
 **Q: Can I add custom problems?**
 A: Not currently, but this feature is planned for future releases.
