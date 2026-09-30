@@ -180,6 +180,78 @@ describe("board and tracker share the same data", () => {
     expect(view.board().getByText("2 - Contains Duplicate")).toBeTruthy();
   });
 
+  describe("Complete button on the cards", () => {
+    it("has no button on a card in To Do or In Progress", () => {
+      const view = renderBoth();
+      expect(within(view.card()).queryByRole("button", { name: /Complete/ })).toBe(null);
+      view.menu("Start");
+      expect(within(view.card()).queryByRole("button", { name: /Complete/ })).toBe(null);
+    });
+
+    it("says early for a review that is not due yet, and completing it moves the card on", async () => {
+      const view = renderBoth();
+      view.menu("Mark as solved"); // R1 is due tomorrow
+      const button = within(view.card()).getByRole("button", { name: "Complete R1 early" });
+      expect(button.title).toMatch(/before the due date/);
+      fireEvent.click(button);
+      expect(within(view.card()).getByText("R2")).toBeTruthy();
+      expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
+      expect(screen.getByText("Completed R1")).toBeTruthy();
+    });
+
+    it("can be undone from the message", () => {
+      const view = renderBoth();
+      view.menu("Mark as solved");
+      fireEvent.click(within(view.card()).getByRole("button", { name: "Complete R1 early" }));
+      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+      expect(within(view.card()).getByRole("button", { name: "Complete R1 early" })).toBeTruthy();
+      expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(true);
+    });
+
+    it("is a plain Complete button, without early, when the review is overdue", () => {
+      localStorage.setItem(
+        "leetcode-progress-v3",
+        JSON.stringify({
+          version: 3,
+          progress: {
+            "Blind 75": {
+              "blind75-1": {
+                status: "solved",
+                solved: true,
+                solvedDate: "2020-01-01",
+                reviews: [false, false, false, false, false],
+                dates: {},
+              },
+            },
+          },
+        })
+      );
+      const view = renderBoth();
+      const button = within(view.card()).getByRole("button", { name: "Complete R1" });
+      expect(button.title).toBe("");
+    });
+
+    it("goes through all five reviews with the button, ending in Mastered", () => {
+      const view = renderBoth();
+      view.menu("Mark as solved");
+      for (const n of [1, 2, 3, 4, 5]) {
+        fireEvent.click(
+          within(view.card()).getByRole("button", { name: new RegExp(`^Complete R${n}`) })
+        );
+      }
+      expect(view.columnOfCard()).toBe("Mastered");
+      expect(within(view.card()).queryByRole("button", { name: /Complete/ })).toBe(null);
+    });
+
+    it("also works in the by-urgency view", () => {
+      const view = renderBoth();
+      view.menu("Mark as solved");
+      fireEvent.click(view.board().getByRole("button", { name: "Urgency" }));
+      fireEvent.click(within(view.card()).getByRole("button", { name: "Complete R1 early" }));
+      expect(within(view.card()).getByText("R2")).toBeTruthy();
+    });
+  });
+
   describe("Review today", () => {
     // Two Sum solved long ago: its R1 is overdue
     const withOverdueReview = () =>
@@ -248,6 +320,65 @@ describe("board and tracker share the same data", () => {
       expect(checkbox.checked).toBe(true);
       // Other problems are still on the board
       expect(view.board().getByText("2 - Contains Duplicate")).toBeTruthy();
+    });
+  });
+
+  describe("tab title", () => {
+    const overdue = () =>
+      localStorage.setItem(
+        "leetcode-progress-v3",
+        JSON.stringify({
+          version: 3,
+          progress: {
+            "Blind 75": {
+              "blind75-1": {
+                status: "solved",
+                solved: true,
+                solvedDate: "2020-01-01",
+                reviews: [false, false, false, false, false],
+                dates: {},
+              },
+            },
+          },
+        })
+      );
+
+    it("shows how many reviews are due, and the plain title when none", () => {
+      document.title = "CodeTrack Pro";
+      overdue();
+      const view = renderBoth();
+      expect(document.title).toBe("(1) CodeTrack Pro");
+      // Completing the review in the table clears the number
+      fireEvent.click(within(view.row()).getByRole("button", { name: "R1" }));
+      expect(document.title).toBe("CodeTrack Pro");
+      // Undoing it brings the number back
+      fireEvent.click(within(view.row()).getByRole("button", { name: "R1" }));
+      expect(document.title).toBe("(1) CodeTrack Pro");
+    });
+
+    it("has no number when nothing is due", () => {
+      document.title = "CodeTrack Pro";
+      renderBoth();
+      expect(document.title).toBe("CodeTrack Pro");
+    });
+
+    it("gives the plain title back when the app closes", () => {
+      document.title = "CodeTrack Pro";
+      overdue();
+      renderBoth();
+      expect(document.title).toBe("(1) CodeTrack Pro");
+      cleanup();
+      expect(document.title).toBe("CodeTrack Pro");
+    });
+
+    it("counts the selected list", () => {
+      document.title = "CodeTrack Pro";
+      overdue();
+      const view = renderBoth();
+      fireEvent.change(view.tracker().getByTitle("Select a problem list"), {
+        target: { value: "NeetCode 150" },
+      });
+      expect(document.title).toBe("CodeTrack Pro"); // nothing due in that list
     });
   });
 

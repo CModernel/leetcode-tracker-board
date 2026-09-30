@@ -409,3 +409,22 @@ export const buildReviewQueue = (problems, progress, today) =>
     .filter((card) => card.urgency === "overdue" || card.urgency === "today")
     .sort(byNextDue)
     .map((card) => ({ ...card, daysLate: daysBetween(card.nextDue, today) }));
+
+export const EARLY_HINT =
+  "Reviewing before the due date is easier and helps your long-term memory less.";
+
+// The button on a card that is waiting for a review: "Complete R3" when it is
+// overdue or due today, "Complete R3 early" when it is not due yet. Null when
+// the card has no review to complete.
+export const completeButtonFor = (card) => {
+  if (!card.urgency || !card.stage.startsWith("R")) return null;
+  const index = Number(card.stage.slice(1)) - 1;
+  if (!canCompleteReview(card.entry, index)) return null;
+  const early = card.urgency === "upcoming";
+  return {
+    index,
+    early,
+    label: early ? `Complete ${card.stage} early` : `Complete ${card.stage}`,
+    hint: early ? EARLY_HINT : undefined,
+  };
+};

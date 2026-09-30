@@ -170,8 +170,8 @@ const KanbanBoard = () => {
   // Column the card being dragged is over (also when over one of its cards)
   const overColumnId = overId === DONE_ZONE ? null : resolveDrop(overId, columns).columnId;
 
-  // Completing a review from the queue: same action as everywhere else, with
-  // Undo like the moves.
+  // Completing a review from a card or from the queue: same action as
+  // everywhere else, with Undo like the moves.
   const completeFromQueue = (item) => {
     const list = selectedList;
     const before = listProgress[item.problem.id];
@@ -316,12 +316,20 @@ const KanbanBoard = () => {
                 strategy={verticalListSortingStrategy}
               >
                 {column.cards.map((card) => (
-                  <SortableKanbanCard key={card.problem.id} card={card} />
+                  <SortableKanbanCard
+                    key={card.problem.id}
+                    card={card}
+                    onComplete={completeFromQueue}
+                  />
                 ))}
               </SortableContext>
             ) : (
               column.cards.map((card) => (
-                <DraggableKanbanCard key={card.problem.id} card={card} />
+                <DraggableKanbanCard
+                  key={card.problem.id}
+                  card={card}
+                  onComplete={completeFromQueue}
+                />
               ))
             )}
           </KanbanColumn>
@@ -334,6 +342,7 @@ const KanbanBoard = () => {
             {/* Dragged over To Do or In Progress it shows without the review */}
             <KanbanCard
               card={byUrgency ? activeCard : cardForColumn(activeCard, overColumnId)}
+              onComplete={() => {}}
             />
           </div>
         ) : null}

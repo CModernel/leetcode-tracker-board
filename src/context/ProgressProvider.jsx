@@ -1,6 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ProgressContext } from "./ProgressContext";
 import { localToday } from "../lib/schedule";
+import { getProblems } from "../lib/lists";
+import { computeStats } from "../lib/stats";
+import { titleWithCount } from "../lib/title";
 import * as reducers from "./progressReducers";
 import { DEFAULT_FILTERS, applyFilter } from "../lib/filters";
 import {
@@ -52,6 +55,29 @@ export const ProgressProvider = ({ children }) => {
       console.error("Error saving selected list to localStorage:", error);
     }
   }, [selectedList]);
+
+  // The reviews due show in the browser tab title: "(3) CodeTrack Pro". The
+  // date is checked every minute so the number changes at midnight too.
+  const [today, setToday] = useState(localToday);
+  useEffect(() => {
+    const timer = setInterval(() => setToday(localToday()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+  const baseTitle = useRef(document.title);
+  const dueCount = computeStats(
+    getProblems(selectedList),
+    progress[selectedList] || {},
+    today
+  ).dueToday;
+  useEffect(() => {
+    document.title = titleWithCount(baseTitle.current, dueCount);
+  }, [dueCount]);
+  useEffect(() => {
+    const base = baseTitle.current;
+    return () => {
+      document.title = base;
+    };
+  }, []);
 
   // Keep several open tabs in sync: the browser fires "storage" in the other
   // tabs when one of them saves. Applying the same text does not re-fire it.

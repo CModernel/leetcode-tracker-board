@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   COLUMNS,
   DONE_ZONE,
+  EARLY_HINT,
   UNSOLVE_CONFIRM,
   URGENCY_COLUMNS,
   applyDrop,
@@ -10,6 +11,7 @@ import {
   buildUrgencyColumns,
   canDrop,
   cardForColumn,
+  completeButtonFor,
   countByUrgency,
   getCardActions,
   getNextDue,
@@ -1099,5 +1101,58 @@ describe("buildReviewQueue", () => {
     const before = JSON.stringify(progress);
     buildReviewQueue(list, progress, today);
     expect(JSON.stringify(progress)).toBe(before);
+  });
+});
+
+describe("completeButtonFor", () => {
+  const cardFor = (entry) => buildColumns([{ id: 1 }], { 1: entry }, today)
+    .flatMap((c) => c.cards)[0];
+
+  it("is a plain Complete button when the review is due today", () => {
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-28" })));
+    expect(button).toEqual({ index: 0, early: false, label: "Complete R1", hint: undefined });
+  });
+
+  it("is a plain Complete button when the review is overdue", () => {
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-01" })));
+    expect(button).toMatchObject({ early: false, label: "Complete R1" });
+  });
+
+  it("says early, with the hint, when the review is not due yet", () => {
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: today })));
+    expect(button).toEqual({
+      index: 0,
+      early: true,
+      label: "Complete R1 early",
+      hint: EARLY_HINT,
+    });
+  });
+
+  it("is for the review the card waits for, not always R1", () => {
+    const entry = solved([true, true, false, false, false], {
+      solvedDate: "2026-08-01",
+      dates: { review1: "2026-08-02", review2: "2026-08-05" },
+    });
+    expect(completeButtonFor(cardFor(entry))).toMatchObject({ index: 2, label: "Complete R3" });
+  });
+
+  it("is null for To Do, In Progress and Mastered", () => {
+    expect(completeButtonFor(cardFor({}))).toBe(null);
+    expect(completeButtonFor(cardFor({ status: "in-progress", solved: false }))).toBe(null);
+    expect(completeButtonFor(cardFor(solved([true, true, true, true, true])))).toBe(null);
+  });
+
+  it("is null for a card shown in another column (no review to complete)", () => {
+    const waiting = cardFor(solved(none, { solvedDate: today }));
+    expect(completeButtonFor(cardForColumn(waiting, "todo"))).toBe(null);
+  });
+
+  it("follows the review order: null when the review cannot be completed", () => {
+    const odd = { ...cardFor(solved(none, { solvedDate: today })), stage: "R3" };
+    expect(completeButtonFor(odd)).toBe(null);
+  });
+
+  it("has a hint that explains why early is less effective", () => {
+    expect(EARLY_HINT).toContain("before the due date");
   });
 });
