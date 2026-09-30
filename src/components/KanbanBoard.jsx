@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -9,6 +9,7 @@ import {
 import KanbanColumn from "./KanbanColumn";
 import KanbanCard from "./KanbanCard";
 import DraggableKanbanCard from "./DraggableKanbanCard";
+import Toast from "./Toast";
 import { applyDrop, buildColumns } from "../lib/board";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
@@ -27,6 +28,9 @@ const KanbanBoard = () => {
     uncompleteReview,
   } = useProgress();
   const [activeId, setActiveId] = useState(null);
+  // Why the last drop was not allowed; a new id shows it again
+  const [notice, setNotice] = useState(null);
+  const closeNotice = useCallback(() => setNotice(null), []);
 
   // A small movement starts a drag, so clicks on the title link and on the
   // "⋯" menu keep working.
@@ -51,20 +55,23 @@ const KanbanBoard = () => {
   const stopDragging = () => setActiveId(null);
 
   // Dropping a card runs the same progress actions as the table and the card
-  // menu, so the tracker shows the change too. Drops that are not allowed
-  // just send the card back to its column.
+  // menu, so the tracker shows the change too. A drop that is not allowed
+  // sends the card back to its column and says why.
   const handleDragEnd = ({ active, over }) => {
     stopDragging();
     const card = columns
       .flatMap((column) => column.cards)
       .find((c) => c.problem.id === active.id);
     if (!card || !over) return;
-    applyDrop(
+    const result = applyDrop(
       card,
       over.id,
       { setStatus, markSolved, unsolve, completeReview, uncompleteReview },
       (question) => window.confirm(question)
     );
+    if (result.status === "rejected") {
+      setNotice({ id: Date.now(), message: result.reason });
+    }
   };
 
   return (
@@ -95,6 +102,13 @@ const KanbanBoard = () => {
           </div>
         ) : null}
       </DragOverlay>
+      {notice && (
+        <Toast
+          key={notice.id}
+          message={notice.message}
+          onClose={closeNotice}
+        />
+      )}
     </DndContext>
   );
 };
