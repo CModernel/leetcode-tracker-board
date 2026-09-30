@@ -9,14 +9,23 @@ import {
 import KanbanColumn from "./KanbanColumn";
 import KanbanCard from "./KanbanCard";
 import DraggableKanbanCard from "./DraggableKanbanCard";
-import { buildColumns } from "../lib/board";
+import { applyDrop, buildColumns } from "../lib/board";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
 import { getProblems } from "../lib/lists";
 import { useProgress } from "../context/ProgressContext";
 
 const KanbanBoard = () => {
-  const { progress, selectedList, filters } = useProgress();
+  const {
+    progress,
+    selectedList,
+    filters,
+    setStatus,
+    markSolved,
+    unsolve,
+    completeReview,
+    uncompleteReview,
+  } = useProgress();
   const [activeId, setActiveId] = useState(null);
 
   // A small movement starts a drag, so clicks on the title link and on the
@@ -39,15 +48,30 @@ const KanbanBoard = () => {
     .flatMap((column) => column.cards)
     .find((card) => card.problem.id === activeId);
 
-  // For now dropping only ends the drag: the card goes back to its column and
-  // nothing changes. Moving problems on drop comes in a later step.
   const stopDragging = () => setActiveId(null);
+
+  // Dropping a card runs the same progress actions as the table and the card
+  // menu, so the tracker shows the change too. Drops that are not allowed
+  // just send the card back to its column.
+  const handleDragEnd = ({ active, over }) => {
+    stopDragging();
+    const card = columns
+      .flatMap((column) => column.cards)
+      .find((c) => c.problem.id === active.id);
+    if (!card || !over) return;
+    applyDrop(
+      card,
+      over.id,
+      { setStatus, markSolved, unsolve, completeReview, uncompleteReview },
+      (question) => window.confirm(question)
+    );
+  };
 
   return (
     <DndContext
       sensors={sensors}
       onDragStart={(event) => setActiveId(event.active.id)}
-      onDragEnd={stopDragging}
+      onDragEnd={handleDragEnd}
       onDragCancel={stopDragging}
     >
       <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 md:grid md:grid-cols-2 lg:grid-cols-4 md:overflow-visible md:snap-none md:pb-0">

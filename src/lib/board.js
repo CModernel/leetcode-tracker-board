@@ -189,3 +189,23 @@ export const canDrop = (card, targetColumnId) => {
       return reject(null);
   }
 };
+
+// Drops a card on a column. Runs the action through the shared progress
+// actions (the ones the table uses) and asks first when the action erases
+// reviews. `confirm` is a function that returns true or false (for example
+// window.confirm). Returns { status, reason? } with status "moved",
+// "cancelled" (the person said no), "rejected" (with the reason) or "ignored"
+// (same column, nothing to say).
+export const applyDrop = (card, targetColumnId, actions, confirm) => {
+  const result = canDrop(card, targetColumnId);
+  if (!result.allowed) {
+    return result.reason
+      ? { status: "rejected", reason: result.reason }
+      : { status: "ignored" };
+  }
+  if (result.action.confirm && !confirm(result.action.confirm)) {
+    return { status: "cancelled" };
+  }
+  runCardAction(result.action, card.problem.id, actions);
+  return { status: "moved" };
+};

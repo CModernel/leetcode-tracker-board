@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   COLUMNS,
   UNSOLVE_CONFIRM,
+  applyDrop,
   buildColumns,
   canDrop,
   getCardActions,
@@ -412,5 +413,90 @@ describe("canDrop", () => {
         }
       }
     }
+  });
+});
+
+describe("applyDrop", () => {
+  const makeActions = () => {
+    const calls = [];
+    const record = (name) => (...args) => calls.push([name, ...args]);
+    return {
+      calls,
+      actions: {
+        setStatus: record("setStatus"),
+        markSolved: record("markSolved"),
+        completeReview: record("completeReview"),
+        uncompleteReview: record("uncompleteReview"),
+        unsolve: record("unsolve"),
+      },
+    };
+  };
+  const card = (stage, entry = {}) => ({ problem: { id: 7 }, stage, entry });
+  const yes = () => true;
+  const no = () => false;
+
+  it("runs the action for an allowed move", () => {
+    const { calls, actions } = makeActions();
+    expect(applyDrop(card("todo"), "in-progress", actions, yes)).toEqual({
+      status: "moved",
+    });
+    expect(calls).toEqual([["setStatus", 7, "in-progress"]]);
+  });
+
+  it("solves a problem dropped on Reviewing", () => {
+    const { calls, actions } = makeActions();
+    applyDrop(card("in-progress"), "reviewing", actions, yes);
+    expect(calls).toEqual([["markSolved", 7]]);
+  });
+
+  it("completes R5 when a card at R5 is dropped on Mastered", () => {
+    const { calls, actions } = makeActions();
+    const entry = solved([true, true, true, true, false]);
+    applyDrop(card("R5", entry), "mastered", actions, yes);
+    expect(calls).toEqual([["completeReview", 7, 4]]);
+  });
+
+  it("asks first when reviews would be erased, and runs it on yes", () => {
+    const { calls, actions } = makeActions();
+    const questions = [];
+    const ask = (q) => (questions.push(q), true);
+    const entry = solved([true, false, false, false, false]);
+    expect(applyDrop(card("R2", entry), "todo", actions, ask)).toEqual({
+      status: "moved",
+    });
+    expect(questions).toEqual([UNSOLVE_CONFIRM]);
+    expect(calls).toEqual([["unsolve", 7]]);
+  });
+
+  it("does nothing when the person says no", () => {
+    const { calls, actions } = makeActions();
+    const entry = solved([true, false, false, false, false]);
+    expect(applyDrop(card("R2", entry), "todo", actions, no)).toEqual({
+      status: "cancelled",
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("does not ask when nothing is erased", () => {
+    const { actions } = makeActions();
+    const ask = () => {
+      throw new Error("should not ask");
+    };
+    expect(() => applyDrop(card("todo"), "reviewing", actions, ask)).not.toThrow();
+  });
+
+  it("rejects a move that is not allowed, with the reason, and changes nothing", () => {
+    const { calls, actions } = makeActions();
+    const result = applyDrop(card("todo"), "mastered", actions, yes);
+    expect(result.status).toBe("rejected");
+    expect(result.reason).toBeTruthy();
+    expect(calls).toEqual([]);
+  });
+
+  it("ignores a drop on the same column or outside the columns", () => {
+    const { calls, actions } = makeActions();
+    expect(applyDrop(card("todo"), "todo", actions, yes)).toEqual({ status: "ignored" });
+    expect(applyDrop(card("todo"), "nowhere", actions, yes)).toEqual({ status: "ignored" });
+    expect(calls).toEqual([]);
   });
 });
