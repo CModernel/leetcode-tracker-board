@@ -22,6 +22,7 @@ import {
   urgencyTextStyles,
 } from "../lib/urgencyStyles";
 import { SHOW_NOTES_KEY, parseShowNotes } from "../lib/preferences";
+import NoteCell from "./NoteCell";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { useProgress } from "../context/ProgressContext";
 
@@ -29,8 +30,14 @@ const ProblemTable = ({
   problems,
   progress,
 }) => {
-  const { filters, markSolved, unsolve, completeReview, uncompleteReview } =
-    useProgress();
+  const {
+    filters,
+    markSolved,
+    unsolve,
+    completeReview,
+    uncompleteReview,
+    setNote,
+  } = useProgress();
   const today = localToday();
 
   // The Notes column can be hidden to keep the table narrow; the choice is
@@ -285,18 +292,11 @@ const ProblemTable = ({
                   </td>
                   {showNotes && (
                     <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 align-top">
-                      {prob.note ? (
-                        <p
-                          className="line-clamp-3 whitespace-pre-wrap break-words"
-                          title={prob.note}
-                        >
-                          {prob.note}
-                        </p>
-                      ) : (
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
-                          No note
-                        </span>
-                      )}
+                      <NoteCell
+                        note={prob.note}
+                        label={problem.title}
+                        onSave={(text) => setNote(problem.id, text)}
+                      />
                     </td>
                   )}
                 </tr>
