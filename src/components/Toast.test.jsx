@@ -62,6 +62,18 @@ describe("Toast", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("is a plain message by default and amber with an extra icon as a warning", () => {
+    const { rerender } = render(<Toast message="Moved" onClose={() => {}} />);
+    expect(screen.getByRole("status").dataset.variant).toBe("info");
+    // Only the icon of the close button
+    expect(screen.getByRole("status").querySelectorAll("svg")).toHaveLength(1);
+    rerender(<Toast message="Not allowed" variant="warning" onClose={() => {}} />);
+    const toast = screen.getByRole("status");
+    expect(toast.dataset.variant).toBe("warning");
+    // The warning icon plus the close button's
+    expect(toast.querySelectorAll("svg")).toHaveLength(2);
+  });
+
   it("has no action button unless one is given", () => {
     render(<Toast message="Hi" onClose={() => {}} />);
     expect(screen.queryByRole("button", { name: "Undo" })).toBe(null);

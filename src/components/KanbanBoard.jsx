@@ -47,6 +47,8 @@ import { useConfirm } from "../context/ConfirmContext";
 
 // How long "Moved to ... Undo" stays: short, so it does not get in the way
 const UNDO_TOAST_MS = 3000;
+// A message saying why something was not allowed takes longer to read
+const WARNING_TOAST_MS = 5000;
 
 const KanbanBoard = () => {
   const {
@@ -217,7 +219,7 @@ const KanbanBoard = () => {
       setPendingMove(null);
     }
     if (result.status === "rejected") {
-      setNotice({ id: Date.now(), message: result.reason });
+      setNotice({ id: Date.now(), message: result.reason, variant: "warning" });
     } else if (result.status === "moved") {
       setNotice({
         id: Date.now(),
@@ -293,7 +295,8 @@ const KanbanBoard = () => {
           key={notice.id}
           message={notice.message}
           onClose={closeNotice}
-          duration={notice.undo ? UNDO_TOAST_MS : 4000}
+          variant={notice.variant}
+          duration={notice.undo ? UNDO_TOAST_MS : WARNING_TOAST_MS}
           actionLabel={notice.undo ? "Undo" : undefined}
           onAction={notice.undo}
         />

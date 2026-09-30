@@ -229,6 +229,15 @@ export const runCardAction = (action, problemId, actions) => {
   }
 };
 
+// "R3, R4 and R5": the reviews left from `stage` (like "R3") to R5.
+const remainingReviews = (stage) => {
+  const left = [];
+  for (let n = Number(stage.slice(1)); n <= 5; n++) left.push(`R${n}`);
+  return left.length === 1
+    ? left[0]
+    : `${left.slice(0, -1).join(", ")} and ${left[left.length - 1]}`;
+};
+
 // Can a card be dropped on a column? Returns { allowed: true, action } with
 // an action that runCardAction understands (it may carry a `confirm`
 // question), or { allowed: false, reason }. `reason` is null when nothing
@@ -279,7 +288,7 @@ export const canDrop = (card, targetColumnId, groupBy = "stage") => {
       );
     case "reviewing":
       if (solved) {
-        return reject("Use the card menu to undo a review one at a time.");
+        return reject("Use the ⋯ menu on the card to undo reviews one at a time.");
       }
       return allow({ type: "markSolved" });
     case "mastered":
@@ -290,8 +299,8 @@ export const canDrop = (card, targetColumnId, groupBy = "stage") => {
       }
       return reject(
         from === "reviewing"
-          ? `Finish all five reviews first (this one is waiting for ${card.stage}).`
-          : "Solve it and finish all five reviews first."
+          ? `This one is waiting for ${card.stage}. Complete ${remainingReviews(card.stage)} first.`
+          : "Solve it first, then complete all five reviews (R1 to R5)."
       );
     default:
       return reject(null);

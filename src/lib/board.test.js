@@ -341,7 +341,7 @@ describe("canDrop", () => {
     for (const c of [fromTodo, fromProgress]) {
       const result = drop(c, "mastered");
       expect(result.allowed).toBe(false);
-      expect(result.reason).toBeTruthy();
+      expect(result.reason).toBe("Solve it first, then complete all five reviews (R1 to R5).");
     }
   });
 
@@ -352,12 +352,13 @@ describe("canDrop", () => {
     });
   });
 
-  it("does not let a card before R5 reach Mastered, and says why", () => {
-    for (const c of [fromR1, fromR3]) {
-      const result = drop(c, "mastered");
-      expect(result.allowed).toBe(false);
-      expect(result.reason).toContain(c.stage);
-    }
+  it("does not let a card before R5 reach Mastered, and says which reviews are left", () => {
+    const say = (c) => drop(c, "mastered").reason;
+    expect(drop(fromR1, "mastered").allowed).toBe(false);
+    expect(say(fromR1)).toBe("This one is waiting for R1. Complete R1, R2, R3, R4 and R5 first.");
+    expect(say(fromR3)).toBe("This one is waiting for R3. Complete R3, R4 and R5 first.");
+    const fromR4 = card("R4", solved([true, true, true, false, false]));
+    expect(say(fromR4)).toBe("This one is waiting for R4. Complete R4 and R5 first.");
   });
 
   it("does not allow Mastered at R5 when the earlier reviews are not done", () => {
@@ -386,7 +387,7 @@ describe("canDrop", () => {
   it("does not move a mastered problem back to Reviewing", () => {
     const result = drop(fromMastered, "reviewing");
     expect(result.allowed).toBe(false);
-    expect(result.reason).toBeTruthy();
+    expect(result.reason).toContain("menu on the card");
   });
 
   it("asks for confirmation only when reviews would be erased", () => {
