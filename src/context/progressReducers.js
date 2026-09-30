@@ -1,9 +1,12 @@
 import {
+  GAPS,
+  addDays,
   canCompleteReview,
   canRewindTo,
   canUncompleteReview,
+  isDateString,
 } from "../lib/schedule";
-import { attemptsOf, isHelp } from "../lib/attempts";
+import { HELP, REPEAT_DAYS, attemptsOf, isHelp } from "../lib/attempts";
 import { isStatus } from "../lib/status";
 
 // Pure functions that return the next `progress` object. `progress` is
@@ -166,6 +169,57 @@ export const recordAttempt = (progress, list, problemId, review, help, today) =>
     ...entry,
     attempts: [...attemptsOf(entry), { date: today, review, help }],
   }));
+};
+
+// Chooses the due date of a pending review (see `dueOverride` in getSchedule).
+// Does nothing unless the problem is solved, the review is not done yet and
+// `date` is a real day.
+export const setDueOverride = (progress, list, problemId, review, date) => {
+  const current = progress[list]?.[problemId];
+  const pending =
+    current?.solved &&
+    Number.isInteger(review) &&
+    review >= 0 &&
+    review < GAPS.length &&
+    !current.reviews?.[review];
+  if (!pending || !isDateString(date)) return progress;
+  return updateEntry(progress, list, problemId, (entry) => ({
+    ...entry,
+    dueOverride: { review, date },
+  }));
+};
+
+// Completes the next review saying how much help it needed. Every outcome is
+// written in the attempt history. What happens to the calendar:
+// - HELP.ALONE: the review is done, as with completeReview.
+// - HELP.NOTE: it is not done; the same review comes back in REPEAT_DAYS days.
+// - HELP.SOLUTION: one step back. The previous review is pending again, due
+//   after its own gap counted from today (R4 -> R3 in 4 days). At R1 there is
+//   nothing before it, so R1 comes back tomorrow. Not a full reset.
+// Only the next pending review can be completed (see canCompleteReview);
+// anything else, or an unknown help level, does nothing.
+export const completeReviewWithHelp = (
+  progress,
+  list,
+  problemId,
+  index,
+  help,
+  today
+) => {
+  if (!isHelp(help)) return progress;
+  if (!canCompleteReview(progress[list]?.[problemId], index)) return progress;
+
+  let next = progress;
+  if (help === HELP.ALONE) {
+    next = completeReview(next, list, problemId, index, today);
+  } else if (help === HELP.NOTE) {
+    next = setDueOverride(next, list, problemId, index, addDays(today, REPEAT_DAYS));
+  } else {
+    const back = Math.max(index - 1, 0);
+    if (index > 0) next = rewindReviews(next, list, problemId, back);
+    next = setDueOverride(next, list, problemId, back, addDays(today, GAPS[back]));
+  }
+  return recordAttempt(next, list, problemId, index, help, today);
 };
 
 // Puts a problem's saved entry back as it was (used by "Undo"). `entry` is

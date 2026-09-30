@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clearAll,
   completeReview,
+  completeReviewWithHelp,
   DEFAULT_LIST,
   importData,
   markSolved,
@@ -9,6 +10,7 @@ import {
   restoreEntries,
   recordAttempt,
   restoreEntry,
+  setDueOverride,
   setNote,
   rewindReviews,
   setOrder,
@@ -16,6 +18,8 @@ import {
   uncompleteReview,
   unsolve,
 } from "./progressReducers";
+import { getSchedule } from "../lib/schedule";
+import { HELP } from "../lib/attempts";
 
 const LIST = "NeetCode 150";
 const OTHER = "Blind 75";
@@ -742,5 +746,222 @@ describe("a chosen due date (dueOverride) follows its review", () => {
     const next = completeReview(withOverride(R1done, 1), LIST, 1, 1, "2026-10-07");
     expect(next[LIST][1].note).toBe("keep");
     expect(next[LIST][1].solvedDate).toBe("2026-10-01");
+  });
+});
+
+describe("setDueOverride", () => {
+  const solved2 = () => ({
+    [LIST]: {
+      1: {
+        status: "solved",
+        solved: true,
+        solvedDate: "2026-10-01",
+        reviews: [true, true, false, false, false],
+        dates: { initial: "2026-10-01", review1: "2026-10-02", review2: "2026-10-04" },
+      },
+    },
+  });
+
+  it("sets the date of a pending review", () => {
+    const next = setDueOverride(solved2(), LIST, 1, 2, "2026-10-06");
+    expect(next[LIST][1].dueOverride).toEqual({ review: 2, date: "2026-10-06" });
+    expect(getSchedule(next[LIST][1])[2]).toBe("2026-10-06");
+  });
+
+  it("replaces an earlier choice", () => {
+    let state = setDueOverride(solved2(), LIST, 1, 2, "2026-10-06");
+    state = setDueOverride(state, LIST, 1, 3, "2026-10-20");
+    expect(state[LIST][1].dueOverride).toEqual({ review: 3, date: "2026-10-20" });
+  });
+
+  it("does nothing for a review that is done, a bad index, a bad date or an unsolved problem", () => {
+    const start = solved2();
+    expect(setDueOverride(start, LIST, 1, 1, "2026-10-06")).toBe(start);
+    expect(setDueOverride(start, LIST, 1, 5, "2026-10-06")).toBe(start);
+    expect(setDueOverride(start, LIST, 1, -1, "2026-10-06")).toBe(start);
+    expect(setDueOverride(start, LIST, 1, 2, "2026-02-30")).toBe(start);
+    expect(setDueOverride(start, LIST, 1, 2, undefined)).toBe(start);
+    expect(setDueOverride(start, LIST, 99, 2, "2026-10-06")).toBe(start);
+    const todo = { [LIST]: { 1: { status: "todo", solved: false, reviews: noReviews, dates: {} } } };
+    expect(setDueOverride(todo, LIST, 1, 0, "2026-10-06")).toBe(todo);
+  });
+});
+
+describe("completeReviewWithHelp", () => {
+  // Solved on 2026-10-01 with the first `done` reviews completed on time:
+  // R1 10-02, R2 10-04, R3 10-08, R4 10-15, R5 10-31
+  const DUE = ["2026-10-02", "2026-10-04", "2026-10-08", "2026-10-15", "2026-10-31"];
+  const after = (done) => ({
+    [LIST]: {
+      1: {
+        status: "solved",
+        solved: true,
+        solvedDate: "2026-10-01",
+        reviews: noReviews.map((_, i) => i < done),
+        dates: {
+          initial: "2026-10-01",
+          ...Object.fromEntries(DUE.slice(0, done).map((d, i) => [`review${i + 1}`, d])),
+        },
+        note: "keep",
+      },
+    },
+  });
+  const TODAY = "2026-10-20"; // late for every review: the date rules show clearly
+  const entry = (state) => state[LIST][1];
+  const pendingReview = (state) => entry(state).reviews.indexOf(false); // 0-based, -1 none
+  const dueOf = (state, i) => getSchedule(entry(state))[i];
+
+  describe("solved alone", () => {
+    it.each([0, 1, 2, 3, 4])("at R%i-index completes it like completeReview", (index) => {
+      const next = completeReviewWithHelp(after(index), LIST, 1, index, HELP.ALONE, TODAY);
+      const plain = completeReview(after(index), LIST, 1, index, TODAY);
+      const { attempts, ...rest } = entry(next);
+      expect(rest).toEqual(entry(plain));
+      expect(attempts).toEqual([{ date: TODAY, review: index, help: 0 }]);
+    });
+
+    it("completing R5 leaves no review pending", () => {
+      const next = completeReviewWithHelp(after(4), LIST, 1, 4, HELP.ALONE, TODAY);
+      expect(pendingReview(next)).toBe(-1);
+    });
+  });
+
+  describe("needed the note", () => {
+    it.each([0, 1, 2, 3, 4])("at index %i repeats the same review in 2 days", (index) => {
+      const next = completeReviewWithHelp(after(index), LIST, 1, index, HELP.NOTE, TODAY);
+      expect(pendingReview(next)).toBe(index);
+      expect(entry(next).reviews).toEqual(after(index)[LIST][1].reviews);
+      expect(dueOf(next, index)).toBe("2026-10-22");
+      expect(entry(next).attempts).toEqual([{ date: TODAY, review: index, help: 1 }]);
+    });
+
+    it("moves the later reviews after the repeated one", () => {
+      const next = completeReviewWithHelp(after(2), LIST, 1, 2, HELP.NOTE, TODAY);
+      // R3 10-22, R4 = +7, R5 = +16
+      expect(getSchedule(entry(next)).slice(2)).toEqual(["2026-10-22", "2026-10-29", "2026-11-14"]);
+    });
+
+    it("keeps the dates of the reviews already done", () => {
+      const next = completeReviewWithHelp(after(3), LIST, 1, 3, HELP.NOTE, TODAY);
+      expect(entry(next).dates).toEqual(after(3)[LIST][1].dates);
+    });
+  });
+
+  describe("needed the solution", () => {
+    it("at R4 goes back to R3, due in R3's gap (4 days) from today", () => {
+      const next = completeReviewWithHelp(after(3), LIST, 1, 3, HELP.SOLUTION, TODAY);
+      expect(pendingReview(next)).toBe(2);
+      expect(dueOf(next, 2)).toBe("2026-10-24");
+      expect(entry(next).dates.review3).toBeUndefined();
+      expect(entry(next).dates.review2).toBe("2026-10-04");
+    });
+
+    it("at R3 goes back to R2 in 2 days", () => {
+      const next = completeReviewWithHelp(after(2), LIST, 1, 2, HELP.SOLUTION, TODAY);
+      expect(pendingReview(next)).toBe(1);
+      expect(dueOf(next, 1)).toBe("2026-10-22");
+    });
+
+    it("at R2 goes back to R1 in 1 day", () => {
+      const next = completeReviewWithHelp(after(1), LIST, 1, 1, HELP.SOLUTION, TODAY);
+      expect(pendingReview(next)).toBe(0);
+      expect(dueOf(next, 0)).toBe("2026-10-21");
+    });
+
+    it("at R1 stays at R1, due tomorrow", () => {
+      const next = completeReviewWithHelp(after(0), LIST, 1, 0, HELP.SOLUTION, TODAY);
+      expect(pendingReview(next)).toBe(0);
+      expect(dueOf(next, 0)).toBe("2026-10-21");
+    });
+
+    it("at R5 goes back to R4 in 7 days and is not mastered", () => {
+      const next = completeReviewWithHelp(after(4), LIST, 1, 4, HELP.SOLUTION, TODAY);
+      expect(pendingReview(next)).toBe(3);
+      expect(dueOf(next, 3)).toBe("2026-10-27");
+    });
+
+    it("is one step back, not a reset: earlier reviews and the solved date stay", () => {
+      const next = completeReviewWithHelp(after(3), LIST, 1, 3, HELP.SOLUTION, TODAY);
+      expect(entry(next).reviews).toEqual([true, true, false, false, false]);
+      expect(entry(next).solved).toBe(true);
+      expect(entry(next).solvedDate).toBe("2026-10-01");
+    });
+
+    it.each([0, 1, 2, 3, 4])("at index %i writes the attempt for the review that was tried", (index) => {
+      const next = completeReviewWithHelp(after(index), LIST, 1, index, HELP.SOLUTION, TODAY);
+      expect(entry(next).attempts).toEqual([{ date: TODAY, review: index, help: 2 }]);
+    });
+  });
+
+  describe("after the outcome", () => {
+    it("the repeated review can be done alone and then the schedule goes on", () => {
+      let state = completeReviewWithHelp(after(2), LIST, 1, 2, HELP.NOTE, TODAY);
+      state = completeReviewWithHelp(state, LIST, 1, 2, HELP.ALONE, "2026-10-22");
+      expect(entry(state).reviews).toEqual([true, true, true, false, false]);
+      expect(entry(state)).not.toHaveProperty("dueOverride");
+      expect(dueOf(state, 3)).toBe("2026-10-29"); // 10-22 + 7
+      expect(entry(state).attempts.map((a) => a.help)).toEqual([1, 0]);
+    });
+
+    it("after a step back, the review before it must be done first", () => {
+      let state = completeReviewWithHelp(after(3), LIST, 1, 3, HELP.SOLUTION, TODAY);
+      expect(completeReviewWithHelp(state, LIST, 1, 3, HELP.ALONE, TODAY)).toBe(state);
+      state = completeReviewWithHelp(state, LIST, 1, 2, HELP.ALONE, "2026-10-24");
+      expect(pendingReview(state)).toBe(3);
+      expect(dueOf(state, 3)).toBe("2026-10-31"); // 10-24 + 7
+    });
+
+    it("the history grows with every attempt and is never erased by a step back", () => {
+      let state = completeReviewWithHelp(after(3), LIST, 1, 3, HELP.SOLUTION, TODAY);
+      state = completeReviewWithHelp(state, LIST, 1, 2, HELP.ALONE, "2026-10-24");
+      expect(entry(state).attempts).toEqual([
+        { date: TODAY, review: 3, help: 2 },
+        { date: "2026-10-24", review: 2, help: 0 },
+      ]);
+    });
+
+    it("keeps the note", () => {
+      for (const help of [0, 1, 2]) {
+        expect(entry(completeReviewWithHelp(after(2), LIST, 1, 2, help, TODAY)).note).toBe("keep");
+      }
+    });
+  });
+
+  describe("what is not allowed", () => {
+    it("does nothing for a review that cannot be completed yet", () => {
+      const start = after(1);
+      for (const help of [0, 1, 2]) {
+        expect(completeReviewWithHelp(start, LIST, 1, 3, help, TODAY)).toBe(start);
+        expect(completeReviewWithHelp(start, LIST, 1, 0, help, TODAY)).toBe(start); // done
+      }
+    });
+
+    it("does nothing for an unknown help level or a bad review", () => {
+      const start = after(1);
+      expect(completeReviewWithHelp(start, LIST, 1, 1, 3, TODAY)).toBe(start);
+      expect(completeReviewWithHelp(start, LIST, 1, 1, undefined, TODAY)).toBe(start);
+      expect(completeReviewWithHelp(start, LIST, 1, 9, HELP.ALONE, TODAY)).toBe(start);
+    });
+
+    it("does nothing for a problem that is not solved or does not exist", () => {
+      const todo = { [LIST]: { 1: { status: "todo", solved: false, reviews: noReviews, dates: {} } } };
+      expect(completeReviewWithHelp(todo, LIST, 1, 0, HELP.ALONE, TODAY)).toBe(todo);
+      expect(completeReviewWithHelp(todo, LIST, 99, 0, HELP.NOTE, TODAY)).toBe(todo);
+    });
+
+    it("does not change other problems or lists", () => {
+      const start = after(2);
+      start[LIST][2] = { solved: false, reviews: noReviews, dates: {} };
+      start[OTHER] = { 7: { solved: true, solvedDate: "2026-09-01", reviews: noReviews, dates: {} } };
+      const next = completeReviewWithHelp(start, LIST, 1, 2, HELP.SOLUTION, TODAY);
+      expect(next[LIST][2]).toBe(start[LIST][2]);
+      expect(next[OTHER]).toBe(start[OTHER]);
+    });
+  });
+
+  it("is brought back by Undo together with the entry", () => {
+    const before = after(2)[LIST][1];
+    const done = completeReviewWithHelp(after(2), LIST, 1, 2, HELP.SOLUTION, TODAY);
+    expect(restoreEntry(done, LIST, 1, before)[LIST][1]).toEqual(before);
   });
 });
