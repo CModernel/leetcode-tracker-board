@@ -10,7 +10,7 @@ import { useProgress } from "../context/ProgressContext";
 
 // Everything above the problem list: list selector, spaced repetition help,
 // stats, export/import and filters. Shared by the tracker and the board.
-const TrackerHeader = ({ title }) => {
+const TrackerHeader = ({ title, showDueToday = true }) => {
   const { progress, selectedList, setSelectedList, filters, setFilter } =
     useProgress();
 
@@ -154,6 +154,7 @@ const TrackerHeader = ({ title }) => {
       filterDifficulty={filters.difficulty}
       setFilterDifficulty={(value) => setFilter("difficulty", value)}
       showOnlyDueToday={filters.dueToday}
+      showDueToday={showDueToday}
       setShowOnlyDueToday={(value) => setFilter("dueToday", value)}
     />
     </>

@@ -180,6 +180,77 @@ describe("board and tracker share the same data", () => {
     expect(view.board().getByText("2 - Contains Duplicate")).toBeTruthy();
   });
 
+  describe("Review today", () => {
+    // Two Sum solved long ago: its R1 is overdue
+    const withOverdueReview = () =>
+      localStorage.setItem(
+        "leetcode-progress-v3",
+        JSON.stringify({
+          version: 3,
+          progress: {
+            "Blind 75": {
+              "blind75-1": {
+                status: "solved",
+                solved: true,
+                solvedDate: "2020-01-01",
+                reviews: [false, false, false, false, false],
+                dates: { initial: "2020-01-01" },
+              },
+            },
+            "LeetCode 75": {},
+            "NeetCode 150": {},
+          },
+        })
+      );
+
+    it("counts the reviews due today on its button", () => {
+      withOverdueReview();
+      const view = renderBoth();
+      expect(
+        view.board().getByRole("button", { name: /Review today/ }).textContent
+      ).toContain("1");
+    });
+
+    it("lists what is due, and completing it empties the queue and updates the tracker", async () => {
+      withOverdueReview();
+      const view = renderBoth();
+      fireEvent.click(view.board().getByRole("button", { name: /Review today/ }));
+      const queue = within(screen.getByRole("region", { name: "Review today" }));
+      expect(queue.getByText("1 - Two Sum")).toBeTruthy();
+      expect(queue.getByText(/days late/)).toBeTruthy();
+
+      fireEvent.click(queue.getByRole("button", { name: "Complete R1" }));
+      expect(queue.getByText(/all caught up/)).toBeTruthy();
+      expect(
+        view.board().getByRole("button", { name: /Review today/ }).textContent
+      ).toContain("0");
+      // The tracker shows R2 as the next review to complete
+      expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
+      expect(within(view.card()).getByText("R2")).toBeTruthy();
+    });
+
+    it("can be undone from the message", async () => {
+      withOverdueReview();
+      const view = renderBoth();
+      fireEvent.click(view.board().getByRole("button", { name: /Review today/ }));
+      const queue = within(screen.getByRole("region", { name: "Review today" }));
+      fireEvent.click(queue.getByRole("button", { name: "Complete R1" }));
+      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+      expect(queue.getByRole("button", { name: "Complete R1" })).toBeTruthy();
+    });
+
+    it("has no Due Today filter on the board, and the tracker's filter does not empty the board", () => {
+      withOverdueReview();
+      const view = renderBoth();
+      expect(view.board().queryByLabelText("Show Only Due Today")).toBe(null);
+      const checkbox = view.tracker().getByLabelText("Show Only Due Today");
+      fireEvent.click(checkbox);
+      expect(checkbox.checked).toBe(true);
+      // Other problems are still on the board
+      expect(view.board().getByText("2 - Contains Duplicate")).toBeTruthy();
+    });
+  });
+
   it("the list chosen in one view applies to the other", () => {
     const view = renderBoth();
     fireEvent.change(view.tracker().getByTitle("Select a problem list"), {

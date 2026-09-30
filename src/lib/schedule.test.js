@@ -5,6 +5,7 @@ import {
   addDays,
   canCompleteReview,
   canUncompleteReview,
+  daysBetween,
   formatShortDate,
   getSchedule,
   isDue,
@@ -403,5 +404,30 @@ describe("review order", () => {
       }
       expect(canUncompleteReview(prob, 4)).toBe(true);
     });
+  });
+});
+
+describe.each(ZONES)("daysBetween in %s", (zone) => {
+  beforeEach(() => {
+    process.env.TZ = zone;
+  });
+
+  it("counts calendar days, forward and backward", () => {
+    expect(daysBetween("2026-09-29", "2026-09-29")).toBe(0);
+    expect(daysBetween("2026-09-29", "2026-10-02")).toBe(3);
+    expect(daysBetween("2026-10-02", "2026-09-29")).toBe(-3);
+  });
+
+  it("crosses month, year and leap day", () => {
+    expect(daysBetween("2026-01-31", "2026-02-01")).toBe(1);
+    expect(daysBetween("2026-12-25", "2027-01-04")).toBe(10);
+    expect(daysBetween("2024-02-28", "2024-03-01")).toBe(2);
+  });
+
+  it("is not affected by daylight saving changes", () => {
+    for (let day = 0; day < 366; day++) {
+      const start = utcAddDays("2026-01-01", day);
+      expect(daysBetween(start, utcAddDays(start, 7))).toBe(7);
+    }
   });
 });

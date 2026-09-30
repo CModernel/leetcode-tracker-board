@@ -1,6 +1,7 @@
 import {
   addDays,
   canCompleteReview,
+  daysBetween,
   canUncompleteReview,
   getSchedule,
 } from "./schedule";
@@ -398,3 +399,13 @@ export const moveCardInColumns = (columns, cardId, targetColumnId) => {
     return column;
   });
 };
+
+// The reviews to do today: problems whose next review is overdue or due today,
+// the one waiting longest first (ties keep the list order). Each item is a
+// card plus `daysLate` (0 when due today).
+export const buildReviewQueue = (problems, progress, today) =>
+  problems
+    .map((problem) => makeCard(problem, progress[problem.id] || {}, today))
+    .filter((card) => card.urgency === "overdue" || card.urgency === "today")
+    .sort(byNextDue)
+    .map((card) => ({ ...card, daysLate: daysBetween(card.nextDue, today) }));

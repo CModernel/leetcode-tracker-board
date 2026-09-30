@@ -5,7 +5,7 @@ const OPTIONS = [
 
 // Switches the board between columns by stage and columns by due date.
 const GroupByToggle = ({ value, onChange }) => (
-  <div className="flex items-center gap-2 mb-4">
+  <div className="flex items-center gap-2">
     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
       Group by
     </span>

@@ -22,12 +22,14 @@ import SortableKanbanCard from "./SortableKanbanCard";
 import Toast from "./Toast";
 import DoneDropZone from "./DoneDropZone";
 import GroupByToggle from "./GroupByToggle";
+import ReviewQueue from "./ReviewQueue";
 import {
   COLUMNS,
   DONE_ZONE,
   URGENCY_COLUMNS,
   applyDrop,
   buildColumns,
+  buildReviewQueue,
   buildUrgencyColumns,
   cardForColumn,
   moveCardInColumns,
@@ -41,6 +43,7 @@ import {
 } from "../lib/keyboardDnd";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
+import { urgencyBadgeStyles } from "../lib/urgencyStyles";
 import { getProblems } from "../lib/lists";
 import { useProgress } from "../context/ProgressContext";
 import { useConfirm } from "../context/ConfirmContext";
@@ -71,6 +74,7 @@ const KanbanBoard = () => {
   const byUrgency = groupBy === "urgency";
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
+  const [showQueue, setShowQueue] = useState(false);
   // A move that waits for the confirmation dialog: the card is shown in the
   // column it was dropped on meanwhile, and goes back if the answer is no
   const [pendingMove, setPendingMove] = useState(null);
@@ -81,13 +85,15 @@ const KanbanBoard = () => {
 
   const today = localToday();
   const listProgress = progress[selectedList] || {};
-  // Same filters as the tracker table, so both views show the same problems
+  // Same filters as the tracker table, so both views show the same problems.
+  // "Due today" is left out: the board has its own "Review today" queue.
   const problems = filterProblems(
     getProblems(selectedList),
     listProgress,
-    filters,
+    { ...filters, dueToday: false },
     today
   );
+  const queue = buildReviewQueue(problems, listProgress, today);
   const columns = byUrgency
     ? buildUrgencyColumns(problems, listProgress, today)
     : buildColumns(problems, listProgress, today);
@@ -163,6 +169,19 @@ const KanbanBoard = () => {
 
   // Column the card being dragged is over (also when over one of its cards)
   const overColumnId = overId === DONE_ZONE ? null : resolveDrop(overId, columns).columnId;
+
+  // Completing a review from the queue: same action as everywhere else, with
+  // Undo like the moves.
+  const completeFromQueue = (item) => {
+    const list = selectedList;
+    const before = listProgress[item.problem.id];
+    completeReview(item.problem.id, Number(item.stage.slice(1)) - 1);
+    setNotice({
+      id: Date.now(),
+      message: `Completed ${item.stage}`,
+      undo: () => restoreEntry(list, item.problem.id, before),
+    });
+  };
 
   // Dropping a card runs the same progress actions as the table and the card
   // menu, so the tracker shows the change too. A drop that is not allowed
@@ -245,7 +264,30 @@ const KanbanBoard = () => {
       onDragEnd={handleDragEnd}
       onDragCancel={stopDragging}
     >
-      <GroupByToggle value={groupBy} onChange={setGroupBy} />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <GroupByToggle value={groupBy} onChange={setGroupBy} />
+        <button
+          onClick={() => setShowQueue((open) => !open)}
+          aria-expanded={showQueue}
+          className="flex items-center gap-2 rounded-lg bg-gray-200 dark:bg-gray-700 px-3 py-1.5 text-sm font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+        >
+          Review today
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+              queue.length === 0
+                ? "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200"
+                : queue.some((item) => item.urgency === "overdue")
+                ? urgencyBadgeStyles.overdue
+                : urgencyBadgeStyles.today
+            }`}
+          >
+            {queue.length}
+          </span>
+        </button>
+      </div>
+      {showQueue && (
+        <ReviewQueue items={queue} onComplete={completeFromQueue} />
+      )}
       {byUrgency && (
         <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
           Problems waiting for a review, by due date. Drag a card to the green

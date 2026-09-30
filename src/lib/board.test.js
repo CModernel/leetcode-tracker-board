@@ -6,6 +6,7 @@ import {
   URGENCY_COLUMNS,
   applyDrop,
   buildColumns,
+  buildReviewQueue,
   buildUrgencyColumns,
   canDrop,
   cardForColumn,
@@ -1035,5 +1036,68 @@ describe("countByUrgency and column urgency counts", () => {
     const moved = moveCardInColumns(buildColumns(list, progress, today), 1, "todo");
     expect(moved.find((c) => c.id === "reviewing").urgencyCounts.overdue).toBe(1);
     expect(moved.find((c) => c.id === "todo").urgencyCounts.overdue).toBe(0);
+  });
+});
+
+describe("buildReviewQueue", () => {
+  const list = [1, 2, 3, 4, 5, 6].map((id) => ({ id }));
+  const progress = {
+    1: solved(none, { solvedDate: "2026-09-28" }), // due today (R1 = 09-29)
+    2: solved(none, { solvedDate: "2026-09-10" }), // due 09-11, 18 days late
+    3: solved(none, { solvedDate: "2026-09-20" }), // due 09-21, 8 days late
+    4: solved(none, { solvedDate: today }), // due tomorrow: not in the queue
+    5: { status: "in-progress", solved: false }, // not solved
+    6: solved([true, true, true, true, true]), // mastered
+  };
+  const queue = buildReviewQueue(list, progress, today);
+
+  it("has the reviews that are overdue or due today, the oldest first", () => {
+    expect(queue.map((item) => item.problem.id)).toEqual([2, 3, 1]);
+  });
+
+  it("leaves out upcoming reviews, unsolved and mastered problems", () => {
+    const ids = queue.map((item) => item.problem.id);
+    for (const left of [4, 5, 6]) expect(ids).not.toContain(left);
+  });
+
+  it("says how many days late each one is (0 for today)", () => {
+    expect(queue.map((item) => item.daysLate)).toEqual([18, 8, 0]);
+  });
+
+  it("keeps the stage, due date and urgency of each card", () => {
+    expect(queue[2]).toMatchObject({ stage: "R1", nextDue: "2026-09-29", urgency: "today" });
+    expect(queue[0]).toMatchObject({ urgency: "overdue" });
+  });
+
+  it("breaks ties by the list order", () => {
+    const tie = {
+      1: solved(none, { solvedDate: "2026-09-20" }),
+      2: solved(none, { solvedDate: "2026-09-20" }),
+    };
+    expect(buildReviewQueue(list, tie, today).map((i) => i.problem.id)).toEqual([1, 2]);
+  });
+
+  it("has as many items as the Due Today number of the stats", () => {
+    expect(queue).toHaveLength(computeStats(list, progress, today).dueToday);
+  });
+
+  it("empties as reviews are completed", () => {
+    const done = {
+      ...progress,
+      2: solved([true, false, false, false, false], { solvedDate: "2026-09-10", dates: { review1: today } }),
+    };
+    // R2 of problem 2 is due 2 days after today: no longer in the queue
+    expect(buildReviewQueue(list, done, today).map((i) => i.problem.id)).toEqual([3, 1]);
+  });
+
+  it("is empty when nothing is due", () => {
+    expect(buildReviewQueue(list, {}, today)).toEqual([]);
+    expect(buildReviewQueue([], {}, today)).toEqual([]);
+  });
+
+  it("does not change the progress it reads", () => {
+    const before = JSON.stringify(progress);
+    buildReviewQueue(list, progress, today);
+    expect(JSON.stringify(progress)).toBe(before);
   });
 });
