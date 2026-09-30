@@ -11,8 +11,14 @@ const MENU_ITEM_HEIGHT = 36;
 // The "⋯" menu of a card. It goes through the same progress actions as the
 // tracker table, so a change here shows in the table and the other way round.
 const KanbanCardMenu = ({ card }) => {
-  const { setStatus, markSolved, unsolve, completeReview, uncompleteReview } =
-    useProgress();
+  const {
+    setStatus,
+    markSolved,
+    unsolve,
+    completeReview,
+    uncompleteReview,
+    rewindReviews,
+  } = useProgress();
   const confirm = useConfirm();
   const [position, setPosition] = useState(null);
   const buttonRef = useRef(null);
@@ -67,6 +73,7 @@ const KanbanCardMenu = ({ card }) => {
       unsolve,
       completeReview,
       uncompleteReview,
+      rewindReviews,
     });
   };
 

@@ -1,4 +1,8 @@
-import { canCompleteReview, canUncompleteReview } from "../lib/schedule";
+import {
+  canCompleteReview,
+  canRewindTo,
+  canUncompleteReview,
+} from "../lib/schedule";
 import { isStatus } from "../lib/status";
 
 // Pure functions that return the next `progress` object. `progress` is
@@ -105,6 +109,19 @@ export const uncompleteReview = (progress, list, problemId, index) => {
     reviews[index] = false;
     const dates = { ...current.dates };
     delete dates[`review${index + 1}`];
+    return { ...current, reviews, dates };
+  });
+};
+
+// Goes back to review `index`: it and every later review are erased, with
+// their dates, so it is the next one to do. Reviews before it stay. Does
+// nothing when that review is not done.
+export const rewindReviews = (progress, list, problemId, index) => {
+  if (!canRewindTo(progress[list]?.[problemId], index)) return progress;
+  return updateEntry(progress, list, problemId, (current) => {
+    const reviews = current.reviews.map((done, i) => (i >= index ? false : done));
+    const dates = { ...current.dates };
+    for (let i = index; i < reviews.length; i++) delete dates[`review${i + 1}`];
     return { ...current, reviews, dates };
   });
 };

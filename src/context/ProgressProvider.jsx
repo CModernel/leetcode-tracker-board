@@ -134,6 +134,10 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.uncompleteReview(prev, selectedList, problemId, index)
       ),
+    rewindReviews: (problemId, index) =>
+      setProgress((prev) =>
+        reducers.rewindReviews(prev, selectedList, problemId, index)
+      ),
     // Old export files (plain progress) and v3 files both work
     importData: (data) => setProgress(migrate(data).progress),
     clearAll: () => setProgress(reducers.clearAll()),

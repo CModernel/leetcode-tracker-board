@@ -8,6 +8,7 @@ import {
   parseSelectedList,
   restoreEntries,
   restoreEntry,
+  rewindReviews,
   setOrder,
   setStatus,
   uncompleteReview,
@@ -482,5 +483,65 @@ describe("restoreEntries", () => {
   it("does nothing with an empty snapshot", () => {
     const state = solvedState();
     expect(restoreEntries(state, LIST, {})).toBe(state);
+  });
+});
+
+describe("rewindReviews", () => {
+  const threeDone = () => ({
+    [LIST]: {
+      1: {
+        status: "solved",
+        solved: true,
+        solvedDate: "2026-10-01",
+        reviews: [true, true, true, false, false],
+        dates: {
+          initial: "2026-10-01",
+          review1: "2026-10-02",
+          review2: "2026-10-05",
+          review3: "2026-10-12",
+        },
+      },
+    },
+  });
+
+  it("erases the review and the later ones with their dates", () => {
+    const next = rewindReviews(threeDone(), LIST, 1, 1);
+    expect(next[LIST][1].reviews).toEqual([true, false, false, false, false]);
+    expect(next[LIST][1].dates).toEqual({
+      initial: "2026-10-01",
+      review1: "2026-10-02",
+    });
+  });
+
+  it("goes back to the first review and keeps the solved date", () => {
+    const next = rewindReviews(threeDone(), LIST, 1, 0);
+    expect(next[LIST][1].reviews).toEqual(noReviews);
+    expect(next[LIST][1].dates).toEqual({ initial: "2026-10-01" });
+    expect(next[LIST][1].solvedDate).toBe("2026-10-01");
+    expect(next[LIST][1].solved).toBe(true);
+  });
+
+  it("going back one review is the same as undoing the last one", () => {
+    const start = threeDone();
+    expect(rewindReviews(start, LIST, 1, 2)).toEqual(uncompleteReview(start, LIST, 1, 2));
+  });
+
+  it("does nothing for a review that is not done, or a bad index", () => {
+    const start = threeDone();
+    expect(rewindReviews(start, LIST, 1, 3)).toBe(start);
+    expect(rewindReviews(start, LIST, 1, -1)).toBe(start);
+    expect(rewindReviews(start, LIST, 1, 9)).toBe(start);
+    expect(rewindReviews(start, LIST, 99, 0)).toBe(start);
+  });
+
+  it("keeps the note, the other problems and the other lists", () => {
+    const start = threeDone();
+    start[LIST][1].note = "remember";
+    start[LIST][2] = { solved: false, reviews: noReviews, dates: {} };
+    start[OTHER] = { 7: { solved: true, reviews: [true, false, false, false, false], dates: {} } };
+    const next = rewindReviews(start, LIST, 1, 0);
+    expect(next[LIST][1].note).toBe("remember");
+    expect(next[LIST][2]).toBe(start[LIST][2]);
+    expect(next[OTHER]).toBe(start[OTHER]);
   });
 });
