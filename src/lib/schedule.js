@@ -46,16 +46,36 @@ export const formatShortDate = (dateStr) => {
   });
 };
 
+// A real calendar day written "YYYY-MM-DD" ("2026-02-30" is not one).
+const isDateString = (value) => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  return formatDate(new Date(year, month - 1, day)) === value;
+};
+export { isDateString };
+
+// A chosen due date for a review, saved as `dueOverride: { review, date }`
+// (`review` is the 0-based index). It replaces the usual date of that review
+// while the review is still pending, for example to repeat it in two days. A
+// bad value (wrong index, not a date, review already done) is ignored.
+export const dueOverrideFor = (prob, index) => {
+  const override = prob?.dueOverride;
+  if (!override || override.review !== index) return null;
+  if (prob.reviews?.[index] || !isDateString(override.date)) return null;
+  return override.date;
+};
+
 // Review due dates that follow the real review dates: R1 is GAPS[0] days after
 // solving, and each next one is GAPS[n] days after the previous review was
 // completed (or after its projected due date while it is still pending).
-// On time this gives the same 1/3/7/14/30 days as INTERVALS.
+// On time this gives the same 1/3/7/14/30 days as INTERVALS. A pending review
+// with a chosen date (`dueOverride`) uses it, and the reviews after it follow.
 export const getSchedule = (prob) => {
   if (!prob?.solvedDate) return [];
   const schedule = [];
   let previous = prob.solvedDate;
   GAPS.forEach((gap, idx) => {
-    const due = addDays(previous, gap);
+    const due = dueOverrideFor(prob, idx) ?? addDays(previous, gap);
     schedule.push(due);
     const completedOn = prob.dates?.[`review${idx + 1}`];
     previous = prob.reviews?.[idx] && completedOn ? completedOn : due;

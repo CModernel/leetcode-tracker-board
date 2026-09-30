@@ -1211,3 +1211,16 @@ describe("runCardAction rewind", () => {
     expect(calls).toEqual([["p1", 1]]);
   });
 });
+
+describe("a chosen due date on the board", () => {
+  it("getNextDue and the urgency follow it", () => {
+    const entry = {
+      ...solved([true, false, false, false, false]),
+      solvedDate: "2026-10-01",
+      dates: { review1: "2026-10-02" },
+      dueOverride: { review: 1, date: "2026-10-09" },
+    };
+    expect(getNextDue(entry)).toBe("2026-10-09");
+    expect(getNextDue({ ...entry, dueOverride: undefined })).toBe("2026-10-04");
+  });
+});

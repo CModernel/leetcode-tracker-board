@@ -23,6 +23,15 @@ const emptyEntry = () => ({
   dates: {},
 });
 
+// A chosen due date (`dueOverride`) belongs to the review that was pending
+// when it was set. Whenever the reviews change, it is dropped so it can never
+// land on a different review later.
+const withoutOverride = (entry) => {
+  const { dueOverride, ...rest } = entry;
+  void dueOverride;
+  return rest;
+};
+
 const updateEntry = (progress, list, problemId, update) => {
   const listProgress = progress[list] || {};
   const current = listProgress[problemId] || emptyEntry();
@@ -46,7 +55,7 @@ export const markSolved = (progress, list, problemId, today) => {
 // Un-solving wipes the reviews and their dates.
 export const unsolve = (progress, list, problemId) =>
   updateEntry(progress, list, problemId, (current) => ({
-    ...current,
+    ...withoutOverride(current),
     status: "todo",
     solved: false,
     solvedDate: null,
@@ -95,7 +104,7 @@ export const completeReview = (progress, list, problemId, index, today) => {
     const reviews = [...current.reviews];
     reviews[index] = true;
     return {
-      ...current,
+      ...withoutOverride(current),
       reviews,
       dates: { ...current.dates, [`review${index + 1}`]: today },
     };
@@ -110,7 +119,7 @@ export const uncompleteReview = (progress, list, problemId, index) => {
     reviews[index] = false;
     const dates = { ...current.dates };
     delete dates[`review${index + 1}`];
-    return { ...current, reviews, dates };
+    return { ...withoutOverride(current), reviews, dates };
   });
 };
 
@@ -140,7 +149,7 @@ export const rewindReviews = (progress, list, problemId, index) => {
     const reviews = current.reviews.map((done, i) => (i >= index ? false : done));
     const dates = { ...current.dates };
     for (let i = index; i < reviews.length; i++) delete dates[`review${i + 1}`];
-    return { ...current, reviews, dates };
+    return { ...withoutOverride(current), reviews, dates };
   });
 };
 

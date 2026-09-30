@@ -7,8 +7,10 @@ import {
   canRewindTo,
   canUncompleteReview,
   daysBetween,
+  dueOverrideFor,
   formatShortDate,
   getSchedule,
+  isDateString,
   isDue,
   localToday,
   reviewsErasedBy,
@@ -459,5 +461,118 @@ describe("going back to an earlier review", () => {
 
   it("only counts reviews that are done in old out-of-order data", () => {
     expect(reviewsErasedBy(prob([true, false, false, true, false]), 0)).toEqual([0, 3]);
+  });
+});
+
+describe("isDateString", () => {
+  it("accepts real days and rejects everything else", () => {
+    expect(isDateString("2026-10-05")).toBe(true);
+    expect(isDateString("2028-02-29")).toBe(true);
+    for (const bad of ["2026-02-30", "2026-13-01", "2026-10-5", "10/05/2026", "", null, undefined, 20261005, "2026-10-05T10:00"]) {
+      expect(isDateString(bad)).toBe(false);
+    }
+  });
+});
+
+describe("getSchedule with a chosen due date (dueOverride)", () => {
+  const base = {
+    solved: true,
+    solvedDate: "2026-10-01",
+    reviews: [true, true, false, false, false],
+    dates: { review1: "2026-10-02", review2: "2026-10-04" },
+  };
+  const usual = getSchedule(base); // R3 2026-10-08, R4 10-15, R5 10-31
+
+  it("changes nothing without an override", () => {
+    expect(usual).toEqual([
+      "2026-10-02",
+      "2026-10-04",
+      "2026-10-08",
+      "2026-10-15",
+      "2026-10-31",
+    ]);
+  });
+
+  it("uses the chosen date for the pending review", () => {
+    const prob = { ...base, dueOverride: { review: 2, date: "2026-10-06" } };
+    expect(getSchedule(prob)[2]).toBe("2026-10-06");
+  });
+
+  it("moves the later reviews with it, counting their gaps from it", () => {
+    const prob = { ...base, dueOverride: { review: 2, date: "2026-10-06" } };
+    // R4 = R3 + 7, R5 = R4 + 16
+    expect(getSchedule(prob)).toEqual([
+      "2026-10-02",
+      "2026-10-04",
+      "2026-10-06",
+      "2026-10-13",
+      "2026-10-29",
+    ]);
+  });
+
+  it("can move a review later as well as earlier", () => {
+    const prob = { ...base, dueOverride: { review: 2, date: "2026-10-20" } };
+    expect(getSchedule(prob).slice(2)).toEqual(["2026-10-20", "2026-10-27", "2026-11-12"]);
+  });
+
+  it("does not touch the reviews that are done", () => {
+    const prob = { ...base, dueOverride: { review: 2, date: "2026-10-06" } };
+    expect(getSchedule(prob).slice(0, 2)).toEqual(usual.slice(0, 2));
+  });
+
+  it("ignores an override for a review that is already done", () => {
+    const prob = { ...base, dueOverride: { review: 1, date: "2026-12-01" } };
+    expect(getSchedule(prob)).toEqual(usual);
+  });
+
+  it("applies only to the review it names", () => {
+    const prob = { ...base, dueOverride: { review: 3, date: "2026-12-01" } };
+    const schedule = getSchedule(prob);
+    expect(schedule.slice(0, 3)).toEqual(usual.slice(0, 3));
+    expect(schedule[3]).toBe("2026-12-01");
+  });
+
+  it("ignores a bad override (not a date, wrong shape)", () => {
+    for (const dueOverride of [
+      { review: 2, date: "2026-02-30" },
+      { review: 2, date: "soon" },
+      { review: 2 },
+      { review: "2", date: "2026-10-06" },
+      "2026-10-06",
+      null,
+    ]) {
+      expect(getSchedule({ ...base, dueOverride })).toEqual(usual);
+    }
+  });
+
+  it("works for the first review", () => {
+    const prob = {
+      solved: true,
+      solvedDate: "2026-10-01",
+      reviews: [false, false, false, false, false],
+      dueOverride: { review: 0, date: "2026-10-09" },
+    };
+    expect(getSchedule(prob)).toEqual([
+      "2026-10-09",
+      "2026-10-11",
+      "2026-10-15",
+      "2026-10-22",
+      "2026-11-07",
+    ]);
+  });
+
+  it("makes isDue follow the chosen date", () => {
+    const prob = { ...base, dueOverride: { review: 2, date: "2026-10-06" } };
+    expect(isDue(prob, "2026-10-05")).toBe(false);
+    expect(isDue(prob, "2026-10-06")).toBe(true);
+    expect(isDue({ ...base }, "2026-10-06")).toBe(false);
+  });
+
+  it("dueOverrideFor returns the date only for the pending review it names", () => {
+    const prob = { ...base, dueOverride: { review: 2, date: "2026-10-06" } };
+    expect(dueOverrideFor(prob, 2)).toBe("2026-10-06");
+    expect(dueOverrideFor(prob, 1)).toBeNull();
+    expect(dueOverrideFor(prob, 3)).toBeNull();
+    expect(dueOverrideFor(undefined, 0)).toBeNull();
   });
 });

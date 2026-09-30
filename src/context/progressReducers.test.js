@@ -693,3 +693,54 @@ describe("recordAttempt", () => {
     expect(state[LIST][1].attempts).toHaveLength(1);
   });
 });
+
+describe("a chosen due date (dueOverride) follows its review", () => {
+  const withOverride = (reviews, review) => ({
+    [LIST]: {
+      1: {
+        status: "solved",
+        solved: true,
+        solvedDate: "2026-10-01",
+        reviews,
+        dates: { initial: "2026-10-01", review1: "2026-10-02" },
+        dueOverride: { review, date: "2026-10-09" },
+        note: "keep",
+      },
+    },
+  });
+  const R1done = [true, false, false, false, false];
+
+  it("is dropped when the review it names is completed", () => {
+    const next = completeReview(withOverride(R1done, 1), LIST, 1, 1, "2026-10-07");
+    expect(next[LIST][1]).not.toHaveProperty("dueOverride");
+    expect(next[LIST][1].reviews).toEqual([true, true, false, false, false]);
+  });
+
+  it("is dropped when a review is undone or the problem goes back", () => {
+    const two = [true, true, false, false, false];
+    expect(uncompleteReview(withOverride(two, 2), LIST, 1, 1)[LIST][1]).not.toHaveProperty("dueOverride");
+    expect(rewindReviews(withOverride(two, 2), LIST, 1, 0)[LIST][1]).not.toHaveProperty("dueOverride");
+  });
+
+  it("is dropped when the problem is unsolved", () => {
+    expect(unsolve(withOverride(R1done, 1), LIST, 1)[LIST][1]).not.toHaveProperty("dueOverride");
+  });
+
+  it("does not come back on a review later rewound to", () => {
+    let state = completeReview(withOverride(R1done, 1), LIST, 1, 1, "2026-10-07");
+    state = rewindReviews(state, LIST, 1, 1);
+    expect(state[LIST][1]).not.toHaveProperty("dueOverride");
+  });
+
+  it("changing the note or the attempts keeps it", () => {
+    let state = setNote(withOverride(R1done, 1), LIST, 1, "new note");
+    state = recordAttempt(state, LIST, 1, 1, 1, "2026-10-07");
+    expect(state[LIST][1].dueOverride).toEqual({ review: 1, date: "2026-10-09" });
+  });
+
+  it("the other fields of the entry stay", () => {
+    const next = completeReview(withOverride(R1done, 1), LIST, 1, 1, "2026-10-07");
+    expect(next[LIST][1].note).toBe("keep");
+    expect(next[LIST][1].solvedDate).toBe("2026-10-01");
+  });
+});
