@@ -11,6 +11,7 @@ import {
   getCardActions,
   getNextDue,
   getStage,
+  moveCardInColumns,
   reorderIds,
   resolveDrop,
   runCardAction,
@@ -874,5 +875,48 @@ describe("resolveDrop", () => {
   it("gives no column for something unknown", () => {
     expect(resolveDrop("nowhere", columns)).toEqual({ columnId: null, overCardId: null });
     expect(resolveDrop(99, columns)).toEqual({ columnId: null, overCardId: null });
+  });
+});
+
+describe("moveCardInColumns", () => {
+  const card = (id) => ({ problem: { id }, stage: "x", entry: {} });
+  const columns = [
+    { id: "todo", title: "To Do", cards: [card(1), card(2)], count: 2 },
+    { id: "in-progress", title: "In Progress", cards: [card(3)], count: 1 },
+    { id: "reviewing", title: "Reviewing", cards: [card(4)], count: 1 },
+  ];
+  const ids = (cols, id) => cols.find((c) => c.id === id).cards.map((c) => c.problem.id);
+
+  it("moves the card to the bottom of the target column", () => {
+    const next = moveCardInColumns(columns, 4, "in-progress");
+    expect(ids(next, "reviewing")).toEqual([]);
+    expect(ids(next, "in-progress")).toEqual([3, 4]);
+  });
+
+  it("updates the counts of both columns", () => {
+    const next = moveCardInColumns(columns, 1, "reviewing");
+    expect(next.map((c) => c.count)).toEqual([1, 1, 2]);
+  });
+
+  it("keeps the other columns as they are", () => {
+    const next = moveCardInColumns(columns, 4, "in-progress");
+    expect(next.find((c) => c.id === "todo")).toBe(columns[0]);
+  });
+
+  it("changes nothing for an unknown card or column, or the same column", () => {
+    expect(moveCardInColumns(columns, 99, "todo")).toBe(columns);
+    expect(moveCardInColumns(columns, 1, "nowhere")).toBe(columns);
+    expect(moveCardInColumns(columns, 1, "todo")).toBe(columns);
+  });
+
+  it("does not mutate the original columns", () => {
+    const before = JSON.stringify(columns);
+    moveCardInColumns(columns, 4, "todo");
+    expect(JSON.stringify(columns)).toBe(before);
+  });
+
+  it("keeps the total number of cards", () => {
+    const next = moveCardInColumns(columns, 2, "reviewing");
+    expect(next.reduce((sum, c) => sum + c.count, 0)).toBe(4);
   });
 });

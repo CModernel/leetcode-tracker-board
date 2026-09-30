@@ -349,3 +349,24 @@ export const resolveDrop = (overId, columns) => {
     ? { columnId: holder.id, overCardId: overId }
     : { columnId: null, overCardId: null };
 };
+
+// The columns as they look while a move waits for a confirmation: the card is
+// already in the column it was dropped on (at the bottom), and the counts
+// follow it. Only for showing; nothing is saved. Unknown ids change nothing.
+export const moveCardInColumns = (columns, cardId, targetColumnId) => {
+  const source = columns.find((c) => c.cards.some((card) => card.problem.id === cardId));
+  const target = columns.find((c) => c.id === targetColumnId);
+  if (!source || !target || source.id === target.id) return columns;
+  const card = source.cards.find((c) => c.problem.id === cardId);
+  return columns.map((column) => {
+    if (column.id === source.id) {
+      const cards = column.cards.filter((c) => c !== card);
+      return { ...column, cards, count: cards.length };
+    }
+    if (column.id === target.id) {
+      const cards = [...column.cards, card];
+      return { ...column, cards, count: cards.length };
+    }
+    return column;
+  });
+};

@@ -29,6 +29,7 @@ import {
   applyDrop,
   buildColumns,
   buildUrgencyColumns,
+  moveCardInColumns,
   reorderIds,
   resolveDrop,
 } from "../lib/board";
@@ -67,6 +68,9 @@ const KanbanBoard = () => {
   const byUrgency = groupBy === "urgency";
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
+  // A move that waits for the confirmation dialog: the card is shown in the
+  // column it was dropped on meanwhile, and goes back if the answer is no
+  const [pendingMove, setPendingMove] = useState(null);
   // Message after a drop (why it was not allowed, or "Moved to..." with Undo);
   // a new id shows it again
   const [notice, setNotice] = useState(null);
@@ -84,6 +88,9 @@ const KanbanBoard = () => {
   const columns = byUrgency
     ? buildUrgencyColumns(problems, listProgress, today)
     : buildColumns(problems, listProgress, today);
+  const shownColumns = pendingMove
+    ? moveCardInColumns(columns, pendingMove.cardId, pendingMove.targetId)
+    : columns;
   const activeCard = columns
     .flatMap((column) => column.cards)
     .find((card) => card.problem.id === activeId);
@@ -190,13 +197,24 @@ const KanbanBoard = () => {
 
     // What this problem looked like, to bring it back on Undo
     const before = listProgress[card.problem.id];
-    const result = await applyDrop(
-      card,
-      target,
-      { setStatus, markSolved, unsolve, completeReview, uncompleteReview },
-      confirm,
-      groupBy
-    );
+    // While the dialog is open the card already sits in the column it was
+    // dropped on. It stays until the move is done (yes) or undone (no).
+    const askAndShow = (question) => {
+      setPendingMove({ cardId: card.problem.id, targetId: target });
+      return confirm(question);
+    };
+    let result;
+    try {
+      result = await applyDrop(
+        card,
+        target,
+        { setStatus, markSolved, unsolve, completeReview, uncompleteReview },
+        askAndShow,
+        groupBy
+      );
+    } finally {
+      setPendingMove(null);
+    }
     if (result.status === "rejected") {
       setNotice({ id: Date.now(), message: result.reason });
     } else if (result.status === "moved") {
@@ -232,7 +250,7 @@ const KanbanBoard = () => {
         </p>
       )}
       <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 md:grid md:grid-cols-2 lg:grid-cols-4 md:overflow-visible md:snap-none md:pb-0">
-        {columns.map((column) => (
+        {shownColumns.map((column) => (
           <KanbanColumn
             key={column.id}
             id={column.id}
