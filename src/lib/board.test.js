@@ -130,10 +130,10 @@ describe("buildColumns", () => {
     expect(columns.map((c) => c.title)).toEqual(COLUMNS.map((c) => c.title));
   });
 
-  it("puts each problem in its column, keeping the list order", () => {
+  it("puts each problem in its column (Reviewing has the overdue one first)", () => {
     expect(ids("todo")).toEqual([1, 6]);
     expect(ids("in-progress")).toEqual([2]);
-    expect(ids("reviewing")).toEqual([3, 5]);
+    expect(ids("reviewing")).toEqual([5, 3]); // 5 is overdue, 3 is due today
     expect(ids("mastered")).toEqual([4]);
   });
 
@@ -153,7 +153,7 @@ describe("buildColumns", () => {
   });
 
   it("sets stage, next due date and urgency on the cards", () => {
-    const [dueToday, overdue] = byId("reviewing").cards;
+    const [overdue, dueToday] = byId("reviewing").cards;
     expect(dueToday).toMatchObject({
       stage: "R1",
       nextDue: "2026-09-29",
@@ -636,5 +636,97 @@ describe("canDrop by urgency", () => {
     const result = await applyDrop(waiting, DONE_ZONE, actions, () => true, "urgency");
     expect(result).toEqual({ status: "moved" });
     expect(calls).toEqual([[1, 1]]);
+  });
+});
+
+describe("order inside the columns", () => {
+  // Ids in list order: 1..8. Each entry decides the column and the order.
+  const list = [1, 2, 3, 4, 5, 6, 7, 8].map((id) => ({ id }));
+  const at = (solvedDate, reviews = none, dates = {}) =>
+    solved(reviews, { solvedDate, dates });
+
+  const progress = {
+    1: { status: "in-progress", solved: false },
+    2: { status: "in-progress", solved: false },
+    // Reviewing, next due dates: 3 -> 10-05, 4 -> 09-20, 5 -> 09-29, 6 -> 10-05
+    3: at("2026-10-04"),
+    4: at("2026-09-19"),
+    5: at("2026-09-28"),
+    6: at("2026-10-04"),
+    // Mastered, R5 done on: 7 -> 09-10, 8 -> 09-25
+    7: at("2026-08-01", [true, true, true, true, true], { review5: "2026-09-10" }),
+    8: at("2026-08-01", [true, true, true, true, true], { review5: "2026-09-25" }),
+  };
+  const ids = (columns, id) =>
+    columns.find((c) => c.id === id).cards.map((card) => card.problem.id);
+
+  it("keeps the list order in To Do and In Progress", () => {
+    const columns = buildColumns(list, progress, today);
+    expect(ids(columns, "in-progress")).toEqual([1, 2]);
+    const todo = buildColumns(list, {}, today);
+    expect(ids(todo, "todo")).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it("puts the most urgent review on top of Reviewing", () => {
+    const columns = buildColumns(list, progress, today);
+    // 4 is overdue (09-20), 5 is due today (09-29), then 3 and 6 (10-05)
+    expect(ids(columns, "reviewing")).toEqual([4, 5, 3, 6]);
+  });
+
+  it("breaks ties by the list order", () => {
+    const columns = buildColumns(list, progress, today);
+    const reviewing = ids(columns, "reviewing");
+    expect(reviewing.indexOf(3)).toBeLessThan(reviewing.indexOf(6));
+  });
+
+  it("sorts by the real next date, so a late review moves the card down", () => {
+    const late = {
+      ...progress,
+      // 4 was overdue; its R1 done today makes the next due 10-01
+      4: at("2026-09-19", [true, false, false, false, false], { review1: today }),
+    };
+    const columns = buildColumns(list, late, today);
+    expect(ids(columns, "reviewing")).toEqual([5, 4, 3, 6]);
+  });
+
+  it("puts the most recently mastered on top of Mastered", () => {
+    const columns = buildColumns(list, progress, today);
+    expect(ids(columns, "mastered")).toEqual([8, 7]);
+  });
+
+  it("puts mastered problems without a date last, in list order", () => {
+    const noDate = {
+      7: at("2026-08-01", [true, true, true, true, true], { review5: "2026-09-10" }),
+      8: at("2026-08-01", [true, true, true, true, true]),
+      6: at("2026-08-01", [true, true, true, true, true]),
+    };
+    const columns = buildColumns(list, noDate, today);
+    expect(ids(columns, "mastered")).toEqual([7, 6, 8]);
+  });
+
+  it("does not change the counts", () => {
+    const columns = buildColumns(list, progress, today);
+    expect(columns.map((c) => c.count)).toEqual(
+      columns.map((c) => c.cards.length)
+    );
+  });
+
+  it("sorts every urgency column by due date, the soonest on top", () => {
+    const columns = buildUrgencyColumns(list, {
+      // R1 due 10-03, 10-01, 10-06 (all this week), 10-02 (an R2 example below)
+      1: at("2026-10-02"),
+      2: at("2026-09-30"),
+      3: at("2026-10-05"),
+      4: at("2026-10-01", [true, false, false, false, false], { review1: "2026-10-02" }), // R2 due 10-04
+    }, today);
+    expect(ids(columns, "this-week")).toEqual([2, 1, 4, 3]);
+  });
+
+  it("orders the urgency view like the stage view for the same cards", () => {
+    const urgency = buildUrgencyColumns(list, progress, today).flatMap((c) =>
+      c.cards.map((card) => card.problem.id)
+    );
+    // overdue first, then today, then later ones
+    expect(urgency).toEqual([4, 5, 3, 6]);
   });
 });

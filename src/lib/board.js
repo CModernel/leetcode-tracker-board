@@ -58,17 +58,42 @@ const makeCard = (problem, entry, today) => {
   };
 };
 
+// Sorting inside a column. Sorting is stable, so cards that tie keep the order
+// of the problem list.
+const byNextDue = (a, b) =>
+  a.nextDue < b.nextDue ? -1 : a.nextDue > b.nextDue ? 1 : 0;
+
+// Most recently mastered first (the date of the last review). Problems
+// without that date go last.
+const byMasteredDate = (a, b) => {
+  const dateA = a.entry.dates?.review5;
+  const dateB = b.entry.dates?.review5;
+  if (dateA === dateB) return 0;
+  if (!dateA) return 1;
+  if (!dateB) return -1;
+  return dateA < dateB ? 1 : -1;
+};
+
 // The four columns with a card per problem. `progress` is the selected list's
 // progress ({ [problemId]: entry }); `today` is "YYYY-MM-DD". Cards keep the
-// order of `problems`. `urgency` is set only for problems waiting for a
-// review: "overdue", "today" or "upcoming".
+// order of `problems` in To Do and In Progress; Reviewing is by next due date
+// (the most urgent on top) and Mastered has the most recent on top. `urgency`
+// is set only for problems waiting for a review: "overdue", "today" or
+// "upcoming".
 export const buildColumns = (problems, progress, today) => {
   const columns = COLUMNS.map((column) => ({ ...column, cards: [] }));
   for (const problem of problems) {
     const card = makeCard(problem, progress[problem.id] || {}, today);
     columns.find((column) => column.id === columnOf(card.stage)).cards.push(card);
   }
-  return columns.map((column) => ({ ...column, count: column.cards.length }));
+  const sorters = { reviewing: byNextDue, mastered: byMasteredDate };
+  return columns.map((column) => ({
+    ...column,
+    cards: sorters[column.id]
+      ? [...column.cards].sort(sorters[column.id])
+      : column.cards,
+    count: column.cards.length,
+  }));
 };
 
 // What the confirmation dialog shows before reviews are erased.
@@ -88,8 +113,9 @@ export const urgencyBucket = (nextDue, today) => {
   return "later";
 };
 
-// Only problems waiting for a review, grouped by when it is due. Problems
-// that are not solved, or already mastered, are not shown.
+// Only problems waiting for a review, grouped by when it is due, the soonest
+// on top in each group. Problems that are not solved, or already mastered,
+// are not shown.
 export const buildUrgencyColumns = (problems, progress, today) => {
   const columns = URGENCY_COLUMNS.map((column) => ({ ...column, cards: [] }));
   for (const problem of problems) {
@@ -99,7 +125,11 @@ export const buildUrgencyColumns = (problems, progress, today) => {
       .find((column) => column.id === urgencyBucket(card.nextDue, today))
       .cards.push(card);
   }
-  return columns.map((column) => ({ ...column, count: column.cards.length }));
+  return columns.map((column) => ({
+    ...column,
+    cards: [...column.cards].sort(byNextDue),
+    count: column.cards.length,
+  }));
 };
 
 // Where a card is dropped to complete its review in the "by urgency" view.
