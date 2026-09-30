@@ -15,6 +15,7 @@ import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
 import { getProblems } from "../lib/lists";
 import { useProgress } from "../context/ProgressContext";
+import { useConfirm } from "../context/ConfirmContext";
 
 const KanbanBoard = () => {
   const {
@@ -27,6 +28,7 @@ const KanbanBoard = () => {
     completeReview,
     uncompleteReview,
   } = useProgress();
+  const confirm = useConfirm();
   const [activeId, setActiveId] = useState(null);
   // Why the last drop was not allowed; a new id shows it again
   const [notice, setNotice] = useState(null);
@@ -57,17 +59,17 @@ const KanbanBoard = () => {
   // Dropping a card runs the same progress actions as the table and the card
   // menu, so the tracker shows the change too. A drop that is not allowed
   // sends the card back to its column and says why.
-  const handleDragEnd = ({ active, over }) => {
+  const handleDragEnd = async ({ active, over }) => {
     stopDragging();
     const card = columns
       .flatMap((column) => column.cards)
       .find((c) => c.problem.id === active.id);
     if (!card || !over) return;
-    const result = applyDrop(
+    const result = await applyDrop(
       card,
       over.id,
       { setStatus, markSolved, unsolve, completeReview, uncompleteReview },
-      (question) => window.confirm(question)
+      confirm
     );
     if (result.status === "rejected") {
       setNotice({ id: Date.now(), message: result.reason });

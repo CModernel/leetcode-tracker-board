@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { ProgressProvider } from "../context/ProgressProvider";
+import { ConfirmProvider } from "../context/ConfirmProvider";
 import LeetCodeTracker from "./LeetCodeTracker";
 import BoardPage from "./BoardPage";
 
@@ -10,12 +11,14 @@ import BoardPage from "./BoardPage";
 const renderBoth = () => {
   render(
     <ProgressProvider>
-      <div data-testid="tracker">
-        <LeetCodeTracker />
-      </div>
-      <div data-testid="board">
-        <BoardPage />
-      </div>
+      <ConfirmProvider>
+        <div data-testid="tracker">
+          <LeetCodeTracker />
+        </div>
+        <div data-testid="board">
+          <BoardPage />
+        </div>
+      </ConfirmProvider>
     </ProgressProvider>
   );
   const tracker = () => within(screen.getByTestId("tracker"));
@@ -117,17 +120,22 @@ describe("board and tracker share the same data", () => {
     expect(view.columnOfCard()).toBe("To Do");
   });
 
-  it("unsolving on the board asks first and clears the table", () => {
+  it("unsolving on the board asks in a dialog first and clears the table", async () => {
     const view = renderBoth();
     view.menu("Mark as solved");
 
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    // Cancel: nothing changes
     view.menu("Unsolve");
-    expect(confirm).toHaveBeenCalledTimes(1);
-    expect(view.columnOfCard()).toBe("Reviewing"); // cancelled: nothing changed
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await act(async () => {});
+    expect(screen.queryByRole("alertdialog")).toBe(null);
+    expect(view.columnOfCard()).toBe("Reviewing");
 
-    confirm.mockReturnValue(true);
+    // Confirm: back to To Do, and not solved in the table
     view.menu("Unsolve");
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    await act(async () => {});
     expect(view.columnOfCard()).toBe("To Do");
     expect(within(view.row()).getByText("Not Solved")).toBeTruthy();
   });

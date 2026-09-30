@@ -63,8 +63,12 @@ export const buildColumns = (problems, progress, today) => {
   return columns.map((column) => ({ ...column, count: column.cards.length }));
 };
 
-export const UNSOLVE_CONFIRM =
-  "Unsolve this problem? Its reviews and dates will be erased.";
+// What the confirmation dialog shows before reviews are erased.
+export const UNSOLVE_CONFIRM = {
+  title: "Reset this problem?",
+  message: "You'll lose its reviews and dates.",
+  confirmLabel: "Reset",
+};
 
 // Index of the last completed review, or -1 when none is done.
 const lastDoneReview = (entry) => {
@@ -192,18 +196,19 @@ export const canDrop = (card, targetColumnId) => {
 
 // Drops a card on a column. Runs the action through the shared progress
 // actions (the ones the table uses) and asks first when the action erases
-// reviews. `confirm` is a function that returns true or false (for example
-// window.confirm). Returns { status, reason? } with status "moved",
+// reviews. `confirm` gets the question and returns true or false, or a
+// promise of one (the confirmation dialog). Returns a promise of
+// { status, reason? } with status "moved",
 // "cancelled" (the person said no), "rejected" (with the reason) or "ignored"
 // (same column, nothing to say).
-export const applyDrop = (card, targetColumnId, actions, confirm) => {
+export const applyDrop = async (card, targetColumnId, actions, confirm) => {
   const result = canDrop(card, targetColumnId);
   if (!result.allowed) {
     return result.reason
       ? { status: "rejected", reason: result.reason }
       : { status: "ignored" };
   }
-  if (result.action.confirm && !confirm(result.action.confirm)) {
+  if (result.action.confirm && !(await confirm(result.action.confirm))) {
     return { status: "cancelled" };
   }
   runCardAction(result.action, card.problem.id, actions);

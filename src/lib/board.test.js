@@ -435,68 +435,79 @@ describe("applyDrop", () => {
   const yes = () => true;
   const no = () => false;
 
-  it("runs the action for an allowed move", () => {
+  it("runs the action for an allowed move", async () => {
     const { calls, actions } = makeActions();
-    expect(applyDrop(card("todo"), "in-progress", actions, yes)).toEqual({
+    expect(await applyDrop(card("todo"), "in-progress", actions, yes)).toEqual({
       status: "moved",
     });
     expect(calls).toEqual([["setStatus", 7, "in-progress"]]);
   });
 
-  it("solves a problem dropped on Reviewing", () => {
+  it("solves a problem dropped on Reviewing", async () => {
     const { calls, actions } = makeActions();
-    applyDrop(card("in-progress"), "reviewing", actions, yes);
+    await applyDrop(card("in-progress"), "reviewing", actions, yes);
     expect(calls).toEqual([["markSolved", 7]]);
   });
 
-  it("completes R5 when a card at R5 is dropped on Mastered", () => {
+  it("completes R5 when a card at R5 is dropped on Mastered", async () => {
     const { calls, actions } = makeActions();
     const entry = solved([true, true, true, true, false]);
-    applyDrop(card("R5", entry), "mastered", actions, yes);
+    await applyDrop(card("R5", entry), "mastered", actions, yes);
     expect(calls).toEqual([["completeReview", 7, 4]]);
   });
 
-  it("asks first when reviews would be erased, and runs it on yes", () => {
+  it("asks first when reviews would be erased, and runs it on yes", async () => {
     const { calls, actions } = makeActions();
     const questions = [];
-    const ask = (q) => (questions.push(q), true);
+    const ask = async (q) => (questions.push(q), true);
     const entry = solved([true, false, false, false, false]);
-    expect(applyDrop(card("R2", entry), "todo", actions, ask)).toEqual({
+    expect(await applyDrop(card("R2", entry), "todo", actions, ask)).toEqual({
       status: "moved",
     });
     expect(questions).toEqual([UNSOLVE_CONFIRM]);
     expect(calls).toEqual([["unsolve", 7]]);
   });
 
-  it("does nothing when the person says no", () => {
+  it("does nothing when the person says no", async () => {
     const { calls, actions } = makeActions();
     const entry = solved([true, false, false, false, false]);
-    expect(applyDrop(card("R2", entry), "todo", actions, no)).toEqual({
+    expect(await applyDrop(card("R2", entry), "todo", actions, no)).toEqual({
       status: "cancelled",
     });
     expect(calls).toEqual([]);
   });
 
-  it("does not ask when nothing is erased", () => {
+  it("does not ask when nothing is erased", async () => {
     const { actions } = makeActions();
     const ask = () => {
       throw new Error("should not ask");
     };
-    expect(() => applyDrop(card("todo"), "reviewing", actions, ask)).not.toThrow();
+    const result = await applyDrop(card("todo"), "reviewing", actions, ask);
+    expect(result.status).toBe("moved");
   });
 
-  it("rejects a move that is not allowed, with the reason, and changes nothing", () => {
+  it("waits for a confirmation that answers later (the dialog)", async () => {
     const { calls, actions } = makeActions();
-    const result = applyDrop(card("todo"), "mastered", actions, yes);
+    const entry = solved([true, false, false, false, false]);
+    const later = () => new Promise((resolve) => setTimeout(() => resolve(true), 5));
+    const pending = applyDrop(card("R2", entry), "todo", actions, later);
+    expect(calls).toEqual([]); // nothing runs before the answer
+    expect((await pending).status).toBe("moved");
+    expect(calls).toEqual([["unsolve", 7]]);
+  });
+
+  it("rejects a move that is not allowed, with the reason, and changes nothing", async () => {
+    const { calls, actions } = makeActions();
+    const result = await applyDrop(card("todo"), "mastered", actions, yes);
     expect(result.status).toBe("rejected");
     expect(result.reason).toBeTruthy();
     expect(calls).toEqual([]);
   });
 
-  it("ignores a drop on the same column or outside the columns", () => {
+  it("ignores a drop on the same column or outside the columns", async () => {
     const { calls, actions } = makeActions();
-    expect(applyDrop(card("todo"), "todo", actions, yes)).toEqual({ status: "ignored" });
-    expect(applyDrop(card("todo"), "nowhere", actions, yes)).toEqual({ status: "ignored" });
+    expect(await applyDrop(card("todo"), "todo", actions, yes)).toEqual({ status: "ignored" });
+    expect(await applyDrop(card("todo"), "nowhere", actions, yes)).toEqual({ status: "ignored" });
     expect(calls).toEqual([]);
   });
 });
