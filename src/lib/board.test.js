@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   COLUMNS,
+  DONE_ZONE,
   UNSOLVE_CONFIRM,
+  URGENCY_COLUMNS,
   applyDrop,
   buildColumns,
+  buildUrgencyColumns,
   canDrop,
   getCardActions,
   getNextDue,
   getStage,
   runCardAction,
+  urgencyBucket,
 } from "./board";
 import { computeStats } from "./stats";
 
@@ -509,5 +513,128 @@ describe("applyDrop", () => {
     expect(await applyDrop(card("todo"), "todo", actions, yes)).toEqual({ status: "ignored" });
     expect(await applyDrop(card("todo"), "nowhere", actions, yes)).toEqual({ status: "ignored" });
     expect(calls).toEqual([]);
+  });
+});
+
+describe("urgencyBucket", () => {
+  it("puts a date before today in overdue and today's date in today", () => {
+    expect(urgencyBucket("2026-09-28", today)).toBe("overdue");
+    expect(urgencyBucket("2026-01-01", today)).toBe("overdue");
+    expect(urgencyBucket(today, today)).toBe("today");
+  });
+
+  it("puts the next 7 days in this-week and later dates in later", () => {
+    expect(urgencyBucket("2026-09-30", today)).toBe("this-week");
+    expect(urgencyBucket("2026-10-06", today)).toBe("this-week"); // today + 7
+    expect(urgencyBucket("2026-10-07", today)).toBe("later"); // today + 8
+  });
+
+  it("works across a month end", () => {
+    expect(urgencyBucket("2026-10-01", "2026-09-30")).toBe("this-week");
+    expect(urgencyBucket("2026-10-07", "2026-09-30")).toBe("this-week"); // +7
+    expect(urgencyBucket("2026-10-08", "2026-09-30")).toBe("later"); // +8
+  });
+});
+
+describe("buildUrgencyColumns", () => {
+  const problems = [
+    { id: 1 }, // no progress -> not shown
+    { id: 2 }, // in progress -> not shown
+    { id: 3 }, // R1 due today
+    { id: 4 }, // R1 overdue
+    { id: 5 }, // R1 tomorrow
+    { id: 6 }, // mastered -> not shown
+    { id: 7 }, // R2 far away
+  ];
+  const progress = {
+    2: { status: "in-progress", solved: false },
+    3: solved(none, { solvedDate: "2026-09-28" }),
+    4: solved(none, { solvedDate: "2026-09-01" }),
+    5: solved(none, { solvedDate: today }),
+    6: solved([true, true, true, true, true]),
+    7: solved([true, false, false, false, false], {
+      solvedDate: "2026-09-01",
+      dates: { review1: "2026-10-20" },
+    }),
+  };
+  const columns = buildUrgencyColumns(problems, progress, today);
+  const ids = (id) =>
+    columns.find((c) => c.id === id).cards.map((card) => card.problem.id);
+
+  it("has the four urgency columns in order", () => {
+    expect(columns.map((c) => c.id)).toEqual(URGENCY_COLUMNS.map((c) => c.id));
+    expect(columns.map((c) => c.title)).toEqual([
+      "Overdue",
+      "Today",
+      "This week",
+      "Later",
+    ]);
+  });
+
+  it("groups problems waiting for a review by their due date", () => {
+    expect(ids("overdue")).toEqual([4]);
+    expect(ids("today")).toEqual([3]);
+    expect(ids("this-week")).toEqual([5]);
+    expect(ids("later")).toEqual([7]);
+  });
+
+  it("leaves out problems that are not waiting for a review", () => {
+    const shown = columns.flatMap((c) => c.cards.map((card) => card.problem.id));
+    for (const hidden of [1, 2, 6]) expect(shown).not.toContain(hidden);
+  });
+
+  it("counts each column", () => {
+    expect(columns.map((c) => c.count)).toEqual([1, 1, 1, 1]);
+  });
+
+  it("gives the same cards as the stage view (stage, due date, urgency)", () => {
+    const card = columns.find((c) => c.id === "today").cards[0];
+    expect(card).toMatchObject({ stage: "R1", nextDue: today, urgency: "today" });
+  });
+
+  it("is empty for an empty list", () => {
+    expect(buildUrgencyColumns([], {}, today).map((c) => c.count)).toEqual([0, 0, 0, 0]);
+  });
+});
+
+describe("canDrop by urgency", () => {
+  const waiting = {
+    problem: { id: 1 },
+    stage: "R2",
+    entry: solved([true, false, false, false, false]),
+  };
+
+  it("completes the review when dropped on the done zone", () => {
+    expect(canDrop(waiting, DONE_ZONE, "urgency")).toEqual({
+      allowed: true,
+      action: { type: "completeReview", index: 1 },
+    });
+  });
+
+  it("does nothing on any other target (the columns are due dates)", () => {
+    for (const target of ["overdue", "today", "this-week", "later", "todo", "mastered"]) {
+      expect(canDrop(waiting, target, "urgency")).toEqual({
+        allowed: false,
+        reason: null,
+      });
+    }
+  });
+
+  it("does nothing for a card that is not waiting for a review", () => {
+    const todo = { problem: { id: 2 }, stage: "todo", entry: {} };
+    expect(canDrop(todo, DONE_ZONE, "urgency").allowed).toBe(false);
+  });
+
+  it("keeps the stage rules by default", () => {
+    expect(canDrop({ stage: "todo", entry: {} }, "in-progress").allowed).toBe(true);
+    expect(canDrop({ stage: "todo", entry: {} }, DONE_ZONE).allowed).toBe(false);
+  });
+
+  it("runs through applyDrop and completes the review", async () => {
+    const calls = [];
+    const actions = { completeReview: (...args) => calls.push(args) };
+    const result = await applyDrop(waiting, DONE_ZONE, actions, () => true, "urgency");
+    expect(result).toEqual({ status: "moved" });
+    expect(calls).toEqual([[1, 1]]);
   });
 });

@@ -1,9 +1,9 @@
 import { useDroppable } from "@dnd-kit/core";
 
-// One board column and a place where cards can be dropped. `count` is
-// optional: nothing is shown until it is given.
-const KanbanColumn = ({ id, title, count, children }) => {
-  const { setNodeRef, isOver } = useDroppable({ id });
+// One board column and a place where cards can be dropped (unless `droppable`
+// is false). `count` is optional: nothing is shown until it is given.
+const KanbanColumn = ({ id, title, count, droppable = true, children }) => {
+  const { setNodeRef, isOver } = useDroppable({ id, disabled: !droppable });
 
   return (
     <section

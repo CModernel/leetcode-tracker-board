@@ -153,6 +153,32 @@ describe("board and tracker share the same data", () => {
     expect(view.card()).not.toBe(null);
   });
 
+  it("grouping by urgency shows only problems waiting for a review, by due date", () => {
+    const view = renderBoth();
+    view.menu("Mark as solved"); // R1 is due tomorrow
+
+    fireEvent.click(view.board().getByRole("button", { name: "Urgency" }));
+    const titles = view
+      .board()
+      .getAllByRole("heading", { level: 2 })
+      .map((h) => h.textContent)
+      .filter((t) => ["Overdue", "Today", "This week", "Later"].includes(t));
+    expect(titles).toEqual(["Overdue", "Today", "This week", "Later"]);
+    expect(view.columnOfCard()).toBe("This week");
+    // A problem that was never started is not shown in this view
+    expect(view.board().queryByText("Contains Duplicate")).toBe(null);
+
+    // Completing the review from the card still changes the tracker
+    view.menu("Complete R1");
+    expect(within(view.card()).getByText("R2")).toBeTruthy();
+    expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
+
+    // Back to stages: everything is shown again
+    fireEvent.click(view.board().getByRole("button", { name: "Stage" }));
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(view.board().getByText("Contains Duplicate")).toBeTruthy();
+  });
+
   it("the list chosen in one view applies to the other", () => {
     const view = renderBoth();
     fireEvent.change(view.tracker().getByTitle("Select a problem list"), {

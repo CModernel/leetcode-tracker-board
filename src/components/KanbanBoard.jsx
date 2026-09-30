@@ -12,7 +12,16 @@ import KanbanColumn from "./KanbanColumn";
 import KanbanCard from "./KanbanCard";
 import DraggableKanbanCard from "./DraggableKanbanCard";
 import Toast from "./Toast";
-import { COLUMNS, applyDrop, buildColumns } from "../lib/board";
+import DoneDropZone from "./DoneDropZone";
+import GroupByToggle from "./GroupByToggle";
+import {
+  COLUMNS,
+  DONE_ZONE,
+  URGENCY_COLUMNS,
+  applyDrop,
+  buildColumns,
+  buildUrgencyColumns,
+} from "../lib/board";
 import {
   DRAG_INSTRUCTIONS,
   dragAnnouncements,
@@ -37,6 +46,10 @@ const KanbanBoard = () => {
     restoreEntry,
   } = useProgress();
   const confirm = useConfirm();
+  // "stage": columns by stage. "urgency": only problems waiting for a review,
+  // grouped by due date, for review sessions.
+  const [groupBy, setGroupBy] = useState("stage");
+  const byUrgency = groupBy === "urgency";
   const [activeId, setActiveId] = useState(null);
   // Message after a drop (why it was not allowed, or "Moved to..." with Undo);
   // a new id shows it again
@@ -81,7 +94,9 @@ const KanbanBoard = () => {
     filters,
     today
   );
-  const columns = buildColumns(problems, listProgress, today);
+  const columns = byUrgency
+    ? buildUrgencyColumns(problems, listProgress, today)
+    : buildColumns(problems, listProgress, today);
   const activeCard = columns
     .flatMap((column) => column.cards)
     .find((card) => card.problem.id === activeId);
@@ -93,7 +108,10 @@ const KanbanBoard = () => {
       .flatMap((column) => column.cards)
       .find((card) => card.problem.id === id)?.problem.title ?? "card";
   const columnTitle = (id) =>
-    COLUMNS.find((column) => column.id === id)?.title ?? "column";
+    id === DONE_ZONE
+      ? "the done zone"
+      : [...COLUMNS, ...URGENCY_COLUMNS].find((column) => column.id === id)
+          ?.title ?? "column";
 
   // Dropping a card runs the same progress actions as the table and the card
   // menu, so the tracker shows the change too. A drop that is not allowed
@@ -111,15 +129,18 @@ const KanbanBoard = () => {
       card,
       over.id,
       { setStatus, markSolved, unsolve, completeReview, uncompleteReview },
-      confirm
+      confirm,
+      groupBy
     );
     if (result.status === "rejected") {
       setNotice({ id: Date.now(), message: result.reason });
     } else if (result.status === "moved") {
-      const column = COLUMNS.find((c) => c.id === over.id);
       setNotice({
         id: Date.now(),
-        message: `Moved to ${column.title}`,
+        message:
+          over.id === DONE_ZONE
+            ? `Completed ${card.stage}`
+            : `Moved to ${columnTitle(over.id)}`,
         undo: () => restoreEntry(list, card.problem.id, before),
       });
     }
@@ -136,6 +157,13 @@ const KanbanBoard = () => {
       onDragEnd={handleDragEnd}
       onDragCancel={stopDragging}
     >
+      <GroupByToggle value={groupBy} onChange={setGroupBy} />
+      {byUrgency && (
+        <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
+          Problems waiting for a review, by due date. Drag a card to the green
+          area, or use its menu, to complete the review.
+        </p>
+      )}
       <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 md:grid md:grid-cols-2 lg:grid-cols-4 md:overflow-visible md:snap-none md:pb-0">
         {columns.map((column) => (
           <KanbanColumn
@@ -143,6 +171,7 @@ const KanbanBoard = () => {
             id={column.id}
             title={column.title}
             count={column.count}
+            droppable={!byUrgency}
           >
             {column.cards.map((card) => (
               <DraggableKanbanCard key={card.problem.id} card={card} />
@@ -150,6 +179,7 @@ const KanbanBoard = () => {
           </KanbanColumn>
         ))}
       </div>
+      {byUrgency && <DoneDropZone />}
       <DragOverlay>
         {activeCard ? (
           <div className="cursor-grabbing shadow-xl rotate-2">
