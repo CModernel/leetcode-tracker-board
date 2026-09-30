@@ -8,6 +8,7 @@ import {
   parseSelectedList,
   restoreEntries,
   restoreEntry,
+  setNote,
   setOrder,
   setStatus,
   uncompleteReview,
@@ -482,5 +483,83 @@ describe("restoreEntries", () => {
   it("does nothing with an empty snapshot", () => {
     const state = solvedState();
     expect(restoreEntries(state, LIST, {})).toBe(state);
+  });
+});
+
+describe("setNote", () => {
+  it("saves a note on a problem without touching the rest", () => {
+    const start = solvedState();
+    const next = setNote(start, LIST, 1, "Use a hash map");
+    expect(next[LIST][1]).toEqual({ ...start[LIST][1], note: "Use a hash map" });
+    expect(next[OTHER]).toBe(start[OTHER]);
+  });
+
+  it("creates an entry for a problem with no progress", () => {
+    const next = setNote({ [LIST]: {} }, LIST, 5, "Sliding window");
+    expect(next[LIST][5]).toEqual({
+      status: "todo",
+      solved: false,
+      reviews: noReviews,
+      dates: {},
+      note: "Sliding window",
+    });
+  });
+
+  it("replaces an older note", () => {
+    const first = setNote(solvedState(), LIST, 1, "old");
+    expect(setNote(first, LIST, 1, "new")[LIST][1].note).toBe("new");
+  });
+
+  it("removes the note when it is empty or only spaces", () => {
+    const withNote = setNote(solvedState(), LIST, 1, "text");
+    expect(setNote(withNote, LIST, 1, "")[LIST][1]).toEqual(solvedState()[LIST][1]);
+    expect(setNote(withNote, LIST, 1, "  \n ")[LIST][1]).not.toHaveProperty("note");
+  });
+
+  it("creates nothing for an empty note on a problem with no progress", () => {
+    const start = { [LIST]: {} };
+    expect(setNote(start, LIST, 5, "")).toBe(start);
+    expect(setNote(start, LIST, 5, "   ")).toBe(start);
+  });
+
+  it("returns the same object when nothing changes", () => {
+    const withNote = setNote(solvedState(), LIST, 1, "text");
+    expect(setNote(withNote, LIST, 1, "text")).toBe(withNote);
+    const start = solvedState();
+    expect(setNote(start, LIST, 1, "")).toBe(start);
+  });
+
+  it("ignores a note that is not text", () => {
+    const start = solvedState();
+    expect(setNote(start, LIST, 1, null)).toBe(start);
+    expect(setNote(start, LIST, 1, 42)).toBe(start);
+  });
+
+  it("keeps the exact text, including line breaks", () => {
+    const text = "Idea:\n- sort first\n- two pointers ";
+    expect(setNote(solvedState(), LIST, 1, text)[LIST][1].note).toBe(text);
+  });
+
+  it("does not change a problem in another list", () => {
+    const next = setNote(solvedState(), LIST, 7, "same id, other list");
+    expect(next[OTHER][7]).not.toHaveProperty("note");
+  });
+
+  it("survives unsolving, changing status and undoing a review", () => {
+    let state = setNote(solvedState(), LIST, 1, "keep me");
+    state = uncompleteReview(state, LIST, 1, 1);
+    expect(state[LIST][1].note).toBe("keep me");
+    state = unsolve(state, LIST, 1);
+    expect(state[LIST][1].note).toBe("keep me");
+    state = setStatus(state, LIST, 1, "in-progress", "2026-10-10");
+    expect(state[LIST][1].note).toBe("keep me");
+    state = markSolved(state, LIST, 1, "2026-10-11");
+    expect(state[LIST][1].note).toBe("keep me");
+  });
+
+  it("is restored by Undo together with the entry", () => {
+    const before = setNote(solvedState(), LIST, 1, "kept")[LIST][1];
+    const moved = setStatus(setNote(solvedState(), LIST, 1, "kept"), LIST, 1, "todo", "2026-10-10");
+    expect(restoreEntry(moved, LIST, 1, before)[LIST][1].note).toBe("kept");
   });
 });

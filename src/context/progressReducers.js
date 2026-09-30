@@ -2,7 +2,7 @@ import { canCompleteReview, canUncompleteReview } from "../lib/schedule";
 import { isStatus } from "../lib/status";
 
 // Pure functions that return the next `progress` object. `progress` is
-// { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates } } }.
+// { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates, note? } } }.
 // `today` is passed in ("YYYY-MM-DD") so these stay easy to test.
 
 export const emptyProgress = () => ({
@@ -106,6 +106,23 @@ export const uncompleteReview = (progress, list, problemId, index) => {
     const dates = { ...current.dates };
     delete dates[`review${index + 1}`];
     return { ...current, reviews, dates };
+  });
+};
+
+// Saves the note of a problem (one note per problem, plain text). A note with
+// only spaces removes it, so the entry has no empty `note`. The note is not
+// part of the schedule: unsolving and moving the problem keep it. Nothing else
+// in the entry changes, and nothing is created for an empty note.
+export const setNote = (progress, list, problemId, note) => {
+  const text = typeof note === "string" && note.trim() !== "" ? note : null;
+  const current = progress[list]?.[problemId];
+  if (text === null && current?.note === undefined) return progress;
+  if (text !== null && current?.note === text) return progress;
+  return updateEntry(progress, list, problemId, (entry) => {
+    const next = { ...entry };
+    if (text === null) delete next.note;
+    else next.note = text;
+    return next;
   });
 };
 
