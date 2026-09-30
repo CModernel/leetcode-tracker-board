@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   getUrgency,
+  urgencyBadgeStyles,
   urgencyButtonStyles,
+  urgencyStripeStyles,
   urgencyTextStyles,
 } from "./urgencyStyles";
 
@@ -36,5 +38,24 @@ describe("styles", () => {
       expect(urgencyButtonStyles[level]).toBeTruthy();
       expect(urgencyTextStyles[level]).toBeTruthy();
     }
+  });
+});
+
+describe("stripe and badge styles", () => {
+  it("has a stripe for every urgency and for cards with none", () => {
+    for (const level of ["overdue", "today", "upcoming", "none"]) {
+      expect(urgencyStripeStyles[level]).toContain("border-l-4");
+    }
+  });
+
+  it("uses the same colors as the rest: red overdue, yellow today", () => {
+    expect(urgencyStripeStyles.overdue).toContain("red");
+    expect(urgencyStripeStyles.today).toContain("yellow");
+    expect(urgencyBadgeStyles.overdue).toContain("red");
+    expect(urgencyBadgeStyles.today).toContain("yellow");
+  });
+
+  it("keeps the space for cards without a review, but invisible", () => {
+    expect(urgencyStripeStyles.none).toContain("transparent");
   });
 });

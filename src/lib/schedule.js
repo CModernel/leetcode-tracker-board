@@ -12,6 +12,16 @@ const pad = (n) => String(n).padStart(2, "0");
 const formatDate = (date) =>
   `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
+// Whole days from `fromDate` to `toDate` ("YYYY-MM-DD"); negative when `toDate`
+// is earlier. Plain calendar days, so daylight saving does not matter.
+export const daysBetween = (fromDate, toDate) => {
+  const toUtc = (dateStr) => {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
+  return Math.round((toUtc(toDate) - toUtc(fromDate)) / 86400000);
+};
+
 export const localToday = () => formatDate(new Date());
 
 export const addDays = (dateStr, days) => {

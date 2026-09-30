@@ -14,3 +14,10 @@ export const roadmapLinks = {
 };
 
 export const getProblems = (listName) => problemLists[listName] || [];
+
+// "12 - Two Sum": the problem's number in its list, then its title. Just the
+// title when the number is not known.
+export const problemLabel = (problem) =>
+  typeof problem.listMeta?.originalIndex === "number"
+    ? `${problem.listMeta.originalIndex} - ${problem.title}`
+    : problem.title;

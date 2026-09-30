@@ -1,4 +1,10 @@
-import { canCompleteReview, canUncompleteReview, getSchedule } from "./schedule";
+import {
+  addDays,
+  canCompleteReview,
+  daysBetween,
+  canUncompleteReview,
+  getSchedule,
+} from "./schedule";
 import { getStatus } from "./status";
 import { getUrgency } from "./urgencyStyles";
 
@@ -41,29 +47,126 @@ const columnOf = (stage) => {
   return "reviewing";
 };
 
+const makeCard = (problem, entry, today) => {
+  const stage = getStage(entry);
+  const nextDue = getNextDue(entry);
+  return {
+    problem,
+    entry,
+    stage,
+    nextDue,
+    urgency: nextDue ? getUrgency(false, nextDue, today) : null,
+  };
+};
+
+// How many cards are overdue, due today or upcoming (cards without a review
+// to wait for are not counted).
+export const countByUrgency = (cards) => {
+  const counts = { overdue: 0, today: 0, upcoming: 0 };
+  for (const card of cards) if (card.urgency) counts[card.urgency] += 1;
+  return counts;
+};
+
+// Sorting inside a column. Sorting is stable, so cards that tie keep the order
+// of the problem list.
+const byNextDue = (a, b) =>
+  a.nextDue < b.nextDue ? -1 : a.nextDue > b.nextDue ? 1 : 0;
+
+// In Progress: problems with a manual `order` come first, by that order. The
+// rest follow by start time, the latest at the bottom; problems without a
+// start time (started before it was saved) go first among them.
+const byInProgressOrder = (a, b) => {
+  const orderA = a.entry.order;
+  const orderB = b.entry.order;
+  const hasA = typeof orderA === "number";
+  const hasB = typeof orderB === "number";
+  if (hasA && hasB) return orderA - orderB;
+  if (hasA) return -1;
+  if (hasB) return 1;
+  const startA = a.entry.startedAt || "";
+  const startB = b.entry.startedAt || "";
+  return startA < startB ? -1 : startA > startB ? 1 : 0;
+};
+
+// Most recently mastered first (the date of the last review). Problems
+// without that date go last.
+const byMasteredDate = (a, b) => {
+  const dateA = a.entry.dates?.review5;
+  const dateB = b.entry.dates?.review5;
+  if (dateA === dateB) return 0;
+  if (!dateA) return 1;
+  if (!dateB) return -1;
+  return dateA < dateB ? 1 : -1;
+};
+
 // The four columns with a card per problem. `progress` is the selected list's
 // progress ({ [problemId]: entry }); `today` is "YYYY-MM-DD". Cards keep the
-// order of `problems`. `urgency` is set only for problems waiting for a
-// review: "overdue", "today" or "upcoming".
+// order of `problems` in To Do; In Progress is by manual order and then by
+// start time (the latest at the bottom), Reviewing by next due date (the most urgent on top) and Mastered
+// has the most recent on top. `urgency`
+// is set only for problems waiting for a review: "overdue", "today" or
+// "upcoming".
 export const buildColumns = (problems, progress, today) => {
   const columns = COLUMNS.map((column) => ({ ...column, cards: [] }));
   for (const problem of problems) {
-    const entry = progress[problem.id] || {};
-    const stage = getStage(entry);
-    const nextDue = getNextDue(entry);
-    const card = {
-      problem,
-      entry,
-      stage,
-      nextDue,
-      urgency: nextDue ? getUrgency(false, nextDue, today) : null,
-    };
-    columns.find((column) => column.id === columnOf(stage)).cards.push(card);
+    const card = makeCard(problem, progress[problem.id] || {}, today);
+    columns.find((column) => column.id === columnOf(card.stage)).cards.push(card);
   }
-  return columns.map((column) => ({ ...column, count: column.cards.length }));
+  const sorters = {
+    "in-progress": byInProgressOrder,
+    reviewing: byNextDue,
+    mastered: byMasteredDate,
+  };
+  return columns.map((column) => ({
+    ...column,
+    cards: sorters[column.id]
+      ? [...column.cards].sort(sorters[column.id])
+      : column.cards,
+    count: column.cards.length,
+    urgencyCounts: countByUrgency(column.cards),
+  }));
 };
 
 // What the confirmation dialog shows before reviews are erased.
+// Columns for the "by urgency" view, used for review sessions.
+export const URGENCY_COLUMNS = [
+  { id: "overdue", title: "Overdue" },
+  { id: "today", title: "Today" },
+  { id: "this-week", title: "This week" },
+  { id: "later", title: "Later" },
+];
+
+// Where a due date falls: before today, today, in the next 7 days, or later.
+export const urgencyBucket = (nextDue, today) => {
+  if (nextDue < today) return "overdue";
+  if (nextDue === today) return "today";
+  if (nextDue <= addDays(today, 7)) return "this-week";
+  return "later";
+};
+
+// Only problems waiting for a review, grouped by when it is due, the soonest
+// on top in each group. Problems that are not solved, or already mastered,
+// are not shown.
+export const buildUrgencyColumns = (problems, progress, today) => {
+  const columns = URGENCY_COLUMNS.map((column) => ({ ...column, cards: [] }));
+  for (const problem of problems) {
+    const card = makeCard(problem, progress[problem.id] || {}, today);
+    if (!card.nextDue) continue;
+    columns
+      .find((column) => column.id === urgencyBucket(card.nextDue, today))
+      .cards.push(card);
+  }
+  return columns.map((column) => ({
+    ...column,
+    cards: [...column.cards].sort(byNextDue),
+    count: column.cards.length,
+    urgencyCounts: countByUrgency(column.cards),
+  }));
+};
+
+// Where a card is dropped to complete its review in the "by urgency" view.
+export const DONE_ZONE = "done";
+
 export const UNSOLVE_CONFIRM = {
   title: "Reset this problem?",
   message: "You'll lose its reviews and dates.",
@@ -137,6 +240,15 @@ export const runCardAction = (action, problemId, actions) => {
   }
 };
 
+// "R3, R4 and R5": the reviews left from `stage` (like "R3") to R5.
+const remainingReviews = (stage) => {
+  const left = [];
+  for (let n = Number(stage.slice(1)); n <= 5; n++) left.push(`R${n}`);
+  return left.length === 1
+    ? left[0]
+    : `${left.slice(0, -1).join(", ")} and ${left[left.length - 1]}`;
+};
+
 // Can a card be dropped on a column? Returns { allowed: true, action } with
 // an action that runCardAction understands (it may carry a `confirm`
 // question), or { allowed: false, reason }. `reason` is null when nothing
@@ -148,10 +260,22 @@ export const runCardAction = (action, problemId, actions) => {
 // - Reviewing -> Mastered: only from R5 (completes the last review).
 // - Mastered -> Reviewing and To Do / In Progress -> Mastered: not allowed.
 //   Going back one review is done from the card menu.
-export const canDrop = (card, targetColumnId) => {
+export const canDrop = (card, targetColumnId, groupBy = "stage") => {
   const from = columnOf(card.stage);
   const reject = (reason) => ({ allowed: false, reason });
   const allow = (action) => ({ allowed: true, action });
+
+  // By urgency the columns are due dates, so the only move is completing the
+  // review the card is waiting for, by dropping it on the "done" zone.
+  if (groupBy === "urgency") {
+    if (targetColumnId !== DONE_ZONE || !card.stage.startsWith("R")) {
+      return reject(null);
+    }
+    const index = Number(card.stage.slice(1)) - 1;
+    return canCompleteReview(card.entry, index)
+      ? allow({ type: "completeReview", index })
+      : reject(null);
+  }
 
   if (!COLUMNS.some((column) => column.id === targetColumnId)) {
     return reject(null);
@@ -175,7 +299,7 @@ export const canDrop = (card, targetColumnId) => {
       );
     case "reviewing":
       if (solved) {
-        return reject("Use the card menu to undo a review one at a time.");
+        return reject("Use the ⋯ menu on the card to undo reviews one at a time.");
       }
       return allow({ type: "markSolved" });
     case "mastered":
@@ -186,8 +310,8 @@ export const canDrop = (card, targetColumnId) => {
       }
       return reject(
         from === "reviewing"
-          ? `Finish all five reviews first (this one is waiting for ${card.stage}).`
-          : "Solve it and finish all five reviews first."
+          ? `This one is waiting for ${card.stage}. Complete ${remainingReviews(card.stage)} first.`
+          : "Solve it first, then complete all five reviews (R1 to R5)."
       );
     default:
       return reject(null);
@@ -201,8 +325,14 @@ export const canDrop = (card, targetColumnId) => {
 // { status, reason? } with status "moved",
 // "cancelled" (the person said no), "rejected" (with the reason) or "ignored"
 // (same column, nothing to say).
-export const applyDrop = async (card, targetColumnId, actions, confirm) => {
-  const result = canDrop(card, targetColumnId);
+export const applyDrop = async (
+  card,
+  targetColumnId,
+  actions,
+  confirm,
+  groupBy = "stage"
+) => {
+  const result = canDrop(card, targetColumnId, groupBy);
   if (!result.allowed) {
     return result.reason
       ? { status: "rejected", reason: result.reason }
@@ -213,4 +343,88 @@ export const applyDrop = async (card, targetColumnId, actions, confirm) => {
   }
   runCardAction(result.action, card.problem.id, actions);
   return { status: "moved" };
+};
+
+// Moves `activeId` to the position `overId` has in `ids` (what dragging a card
+// over another one does). Returns a new list; the same order when either id is
+// missing or they are the same.
+export const reorderIds = (ids, activeId, overId) => {
+  const from = ids.indexOf(activeId);
+  const to = ids.indexOf(overId);
+  if (from === -1 || to === -1 || from === to) return ids;
+  const next = [...ids];
+  next.splice(from, 1);
+  next.splice(to, 0, activeId);
+  return next;
+};
+
+// Where a drop lands. `overId` is a column or, for cards that can be sorted,
+// another card. Returns { columnId, overCardId }: the column it is over (null
+// if none) and, when it is over a card, that card's id.
+export const resolveDrop = (overId, columns) => {
+  const column = columns.find((c) => c.id === overId);
+  if (column) return { columnId: column.id, overCardId: null };
+  const holder = columns.find((c) => c.cards.some((card) => card.problem.id === overId));
+  return holder
+    ? { columnId: holder.id, overCardId: overId }
+    : { columnId: null, overCardId: null };
+};
+
+// How a card looks in a column it is only being shown in (dragged over it, or
+// waiting for a confirmation): in To Do, In Progress and Mastered it has no
+// review to wait for, so no review stage or date. A new card; nothing saved.
+export const cardForColumn = (card, columnId) =>
+  ["todo", "in-progress", "mastered"].includes(columnId)
+    ? { ...card, stage: columnId, nextDue: null, urgency: null }
+    : card;
+
+// The columns as they look while a move waits for a confirmation: the card is
+// already in the column it was dropped on (at the bottom), and the counts
+// follow it. Only for showing; nothing is saved. Unknown ids change nothing.
+export const moveCardInColumns = (columns, cardId, targetColumnId) => {
+  const source = columns.find((c) => c.cards.some((card) => card.problem.id === cardId));
+  const target = columns.find((c) => c.id === targetColumnId);
+  if (!source || !target || source.id === target.id) return columns;
+  const found = source.cards.find((c) => c.problem.id === cardId);
+  const card = cardForColumn(found, target.id);
+  return columns.map((column) => {
+    if (column.id === source.id) {
+      const cards = column.cards.filter((c) => c !== found);
+      return { ...column, cards, count: cards.length, urgencyCounts: countByUrgency(cards) };
+    }
+    if (column.id === target.id) {
+      const cards = [...column.cards, card];
+      return { ...column, cards, count: cards.length, urgencyCounts: countByUrgency(cards) };
+    }
+    return column;
+  });
+};
+
+// The reviews to do today: problems whose next review is overdue or due today,
+// the one waiting longest first (ties keep the list order). Each item is a
+// card plus `daysLate` (0 when due today).
+export const buildReviewQueue = (problems, progress, today) =>
+  problems
+    .map((problem) => makeCard(problem, progress[problem.id] || {}, today))
+    .filter((card) => card.urgency === "overdue" || card.urgency === "today")
+    .sort(byNextDue)
+    .map((card) => ({ ...card, daysLate: daysBetween(card.nextDue, today) }));
+
+export const EARLY_HINT =
+  "Reviewing before the due date is easier and helps your long-term memory less.";
+
+// The button on a card that is waiting for a review: "Complete R3" when it is
+// overdue or due today, "Complete R3 early" when it is not due yet. Null when
+// the card has no review to complete.
+export const completeButtonFor = (card) => {
+  if (!card.urgency || !card.stage.startsWith("R")) return null;
+  const index = Number(card.stage.slice(1)) - 1;
+  if (!canCompleteReview(card.entry, index)) return null;
+  const early = card.urgency === "upcoming";
+  return {
+    index,
+    early,
+    label: early ? `Complete ${card.stage} early` : `Complete ${card.stage}`,
+    hint: early ? EARLY_HINT : undefined,
+  };
 };

@@ -9,6 +9,7 @@ const Filters = ({
   setFilterDifficulty,
   showOnlyDueToday,
   setShowOnlyDueToday,
+  showDueToday = true,
 }) => (
   <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6 transition-colors">
     <div className="flex items-center gap-2 mb-4">
@@ -60,22 +61,24 @@ const Filters = ({
           ))}
         </select>
       </div>
-      <div className="flex items-center gap-2 md:mt-6">
-        <input
-          id="due-today-checkbox"
-          type="checkbox"
-          title="Show Only Due Today"
-          checked={showOnlyDueToday}
-          onChange={() => setShowOnlyDueToday((prev) => !prev)}
-          className="h-4 w-4 cursor-pointer text-blue-600 focus:ring-blue-500 border border-gray-300 dark:border-gray-600 rounded bg-white"
-        />
-        <label
-          htmlFor="due-today-checkbox"
-          className="block cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Show Only Due Today
-        </label>
-      </div>
+      {showDueToday && (
+        <div className="flex items-center gap-2 md:mt-6">
+          <input
+            id="due-today-checkbox"
+            type="checkbox"
+            title="Show Only Due Today"
+            checked={showOnlyDueToday}
+            onChange={() => setShowOnlyDueToday((prev) => !prev)}
+            className="h-4 w-4 cursor-pointer text-blue-600 focus:ring-blue-500 border border-gray-300 dark:border-gray-600 rounded bg-white"
+          />
+          <label
+            htmlFor="due-today-checkbox"
+            className="block cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Show Only Due Today
+          </label>
+        </div>
+      )}
     </div>
   </div>
 );

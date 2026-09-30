@@ -11,3 +11,7 @@ export { default as KanbanCard } from "./KanbanCard";
 export { default as KanbanCardMenu } from "./KanbanCardMenu";
 export { default as DraggableKanbanCard } from "./DraggableKanbanCard";
 export { default as Toast } from "./Toast";
+export { default as GroupByToggle } from "./GroupByToggle";
+export { default as DoneDropZone } from "./DoneDropZone";
+export { default as SortableKanbanCard } from "./SortableKanbanCard";
+export { default as ReviewQueue } from "./ReviewQueue";
