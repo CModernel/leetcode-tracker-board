@@ -398,9 +398,15 @@ describe("notes are shared between the table and the board", () => {
   const showNotes = (view) =>
     fireEvent.click(view.tracker().getByRole("button", { name: /show notes/i }));
   const cardNote = (view) =>
-    within(view.card()).getByRole("button", { name: /(add|edit) note/i });
-  const editOnBoard = (view, text) => {
+    within(view.card()).getByRole("button", { name: /(add|read) note/i });
+  // A note that exists opens to be read: press Edit to change it
+  const openEditor = (view) => {
     fireEvent.click(cardNote(view));
+    const edit = screen.queryByRole("button", { name: "Edit" });
+    if (edit) fireEvent.click(edit);
+  };
+  const editOnBoard = (view, text) => {
+    openEditor(view);
     fireEvent.change(screen.getByRole("textbox", { name: /note for two sum/i }), {
       target: { value: text },
     });
@@ -415,7 +421,7 @@ describe("notes are shared between the table and the board", () => {
     fireEvent.change(field, { target: { value: "Use a hash map" } });
     fireEvent.blur(field);
     const button = cardNote(view);
-    expect(button.getAttribute("aria-label")).toBe("Edit note");
+    expect(button.getAttribute("aria-label")).toBe("Read note");
     expect(button.getAttribute("title")).toBe("Use a hash map");
   });
 
@@ -434,7 +440,7 @@ describe("notes are shared between the table and the board", () => {
   it("the dialog opens with the current note and Cancel keeps it", () => {
     const view = renderBoth();
     editOnBoard(view, "keep");
-    fireEvent.click(cardNote(view));
+    openEditor(view);
     const field = screen.getByRole("textbox", { name: /note for two sum/i });
     expect(field.value).toBe("keep");
     fireEvent.change(field, { target: { value: "discard me" } });
@@ -446,7 +452,7 @@ describe("notes are shared between the table and the board", () => {
   it("Ctrl+Enter saves and emptying the text removes the note", () => {
     const view = renderBoth();
     editOnBoard(view, "first");
-    fireEvent.click(cardNote(view));
+    openEditor(view);
     const field = screen.getByRole("textbox", { name: /note for two sum/i });
     fireEvent.change(field, { target: { value: "" } });
     fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });
@@ -462,6 +468,66 @@ describe("notes are shared between the table and the board", () => {
     fireEvent.click(within(view.row()).getByText("Solved"));
     // un-solving from the table keeps it
     expect(cardNote(view).getAttribute("title")).toBe("remember");
+  });
+
+  describe("reading a note on the card", () => {
+    const withNote = (view) => editOnBoard(view, "Use a hash map\nthen check twice");
+
+    it("opens to read it: the text is shown, not an editor", () => {
+      const view = renderBoth();
+      withNote(view);
+      fireEvent.click(cardNote(view));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText(/Use a hash map/)).toBeTruthy();
+      expect(within(dialog).queryByRole("textbox")).toBeNull();
+      expect(within(dialog).queryByRole("button", { name: "Save" })).toBeNull();
+      expect(within(dialog).getByRole("button", { name: "Close" })).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Edit" })).toBeTruthy();
+    });
+
+    it("keeps the line breaks of the note", () => {
+      const view = renderBoth();
+      withNote(view);
+      fireEvent.click(cardNote(view));
+      const text = screen.getByRole("dialog").querySelector("p.whitespace-pre-wrap");
+      expect(text.textContent).toBe("Use a hash map\nthen check twice");
+    });
+
+    it("Close changes nothing", () => {
+      const view = renderBoth();
+      withNote(view);
+      fireEvent.click(cardNote(view));
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(cardNote(view).getAttribute("title")).toMatch(/Use a hash map/);
+    });
+
+    it("Edit switches to the editor with the same text, and Save keeps the change", () => {
+      const view = renderBoth();
+      withNote(view);
+      fireEvent.click(cardNote(view));
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      const field = screen.getByRole("textbox", { name: /note for two sum/i });
+      expect(field.value).toBe("Use a hash map\nthen check twice");
+      fireEvent.change(field, { target: { value: "new text" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(cardNote(view).getAttribute("title")).toBe("new text");
+    });
+
+    it("Escape closes it, and a problem with no note opens straight in the editor", () => {
+      const view = renderBoth();
+      fireEvent.click(cardNote(view));
+      expect(screen.getByRole("textbox", { name: /note for two sum/i })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    });
+
+    it("Ctrl+Enter does nothing while only reading", () => {
+      const view = renderBoth();
+      withNote(view);
+      fireEvent.click(cardNote(view));
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Enter", ctrlKey: true });
+      expect(screen.getByRole("dialog")).toBeTruthy();
+    });
   });
 
   it("typing in the dialog does not start a drag (keys stay in the dialog)", () => {
@@ -577,8 +643,8 @@ describe("the review button and how it went", () => {
   const saved = () =>
     JSON.parse(localStorage.getItem("leetcode-progress-v3")).progress["Blind 75"]["blind75-1"];
   const openNoteOnCard = (view) =>
-    fireEvent.click(within(view.card()).getByRole("button", { name: "Edit note" }));
-  const closeNote = () => fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(within(view.card()).getByRole("button", { name: "Read note" }));
+  const closeNote = () => fireEvent.click(screen.getByRole("button", { name: "Close" }));
 
   describe("the solved date", () => {
     it("is on the card, so the date of R1 makes sense", () => {
@@ -718,6 +784,11 @@ describe("the review button and how it went", () => {
       const dialog = screen.getByRole("dialog");
       expect(within(dialog).getByText("How did it go?")).toBeTruthy();
       expect(within(dialog).getByText("You opened the note today.")).toBeTruthy();
+      // Only the suggested option is marked, with a badge and not a ring
+      const badges = within(dialog).getAllByText("Suggested");
+      expect(badges).toHaveLength(1);
+      expect(badges[0].closest("button").textContent).toMatch(/Needed the note/);
+      expect(dialog.innerHTML).not.toMatch(/ring-2 ring-blue-400/);
       expect(within(dialog).getByText("Next review: R4 in 7 days (Oct 27)")).toBeTruthy();
       expect(within(dialog).getByText("Repeat R3 in 2 days (Oct 22)")).toBeTruthy();
       expect(within(dialog).getByText("Back to R2 in 2 days (Oct 22)")).toBeTruthy();
@@ -807,7 +878,7 @@ describe("the review button and how it went", () => {
       seed({ note: undefined });
       const view = renderBoth();
       fireEvent.click(within(view.card()).getByRole("button", { name: "Add note" }));
-      closeNote();
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       fireEvent.click(completeButton(view));
       expect(screen.queryByRole("dialog")).toBeNull();
     });
