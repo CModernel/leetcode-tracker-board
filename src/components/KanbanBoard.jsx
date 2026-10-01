@@ -23,6 +23,7 @@ import Toast from "./Toast";
 import DoneDropZone from "./DoneDropZone";
 import GroupByToggle from "./GroupByToggle";
 import ReviewQueue from "./ReviewQueue";
+import OutcomeDialog from "./OutcomeDialog";
 import {
   COLUMNS,
   DONE_ZONE,
@@ -42,12 +43,15 @@ import {
   dragAnnouncements,
   moveToColumn,
 } from "../lib/keyboardDnd";
+import { HELP, suggestedHelp } from "../lib/attempts";
+import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
 import { urgencyBadgeStyles } from "../lib/urgencyStyles";
 import { getProblems } from "../lib/lists";
 import { useProgress } from "../context/ProgressContext";
 import { useConfirm } from "../context/ConfirmContext";
+import { NoticeContext } from "../context/NoticeContext";
 
 // How long "Moved to ... Undo" stays: short, so it does not get in the way
 const UNDO_TOAST_MS = 3000;
@@ -63,6 +67,7 @@ const KanbanBoard = () => {
     markSolved,
     unsolve,
     completeReview,
+    completeReviewWithHelp,
     uncompleteReview,
     restoreEntry,
     restoreEntries,
@@ -76,6 +81,8 @@ const KanbanBoard = () => {
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
   const [showQueue, setShowQueue] = useState(false);
+  // The review whose outcome dialog is open (card or queue item)
+  const [helpItem, setHelpItem] = useState(null);
   // A move that waits for the confirmation dialog: the card is shown in the
   // column it was dropped on meanwhile, and goes back if the answer is no
   const [pendingMove, setPendingMove] = useState(null);
@@ -83,6 +90,11 @@ const KanbanBoard = () => {
   // a new id shows it again
   const [notice, setNotice] = useState(null);
   const closeNotice = useCallback(() => setNotice(null), []);
+  // Lets a card's menu show the same message with Undo
+  const showNotice = useCallback(
+    (next) => setNotice({ id: Date.now(), ...next }),
+    []
+  );
 
   const today = localToday();
   const listProgress = progress[selectedList] || {};
@@ -105,6 +117,14 @@ const KanbanBoard = () => {
   const activeCard = columns
     .flatMap((column) => column.cards)
     .find((card) => card.problem.id === activeId);
+
+  const helpOptions = helpItem
+    ? outcomeOptions(
+        listProgress[helpItem.problem.id],
+        Number(helpItem.stage.slice(1)) - 1,
+        today
+      )
+    : [];
 
   const stopDragging = () => {
     setActiveId(null);
@@ -172,17 +192,32 @@ const KanbanBoard = () => {
   // Column the card being dragged is over (also when over one of its cards)
   const overColumnId = overId === DONE_ZONE ? null : resolveDrop(overId, columns).columnId;
 
-  // Completing a review from a card or from the queue: same action as
-  // everywhere else, with Undo like the moves.
-  const completeFromQueue = (item) => {
+  // Completing a review (card button, queue, or the dialog's answer): same
+  // action everywhere, written in the attempt history, with Undo. `option` says
+  // how it went: { help, message }.
+  const finishReview = (item, option) => {
     const list = selectedList;
     const before = listProgress[item.problem.id];
-    completeReview(item.problem.id, Number(item.stage.slice(1)) - 1);
+    completeReviewWithHelp(
+      item.problem.id,
+      Number(item.stage.slice(1)) - 1,
+      option.help
+    );
     setNotice({
       id: Date.now(),
-      message: `Completed ${item.stage}`,
+      message: option.message,
       undo: () => restoreEntry(list, item.problem.id, before),
     });
+  };
+
+  // The Complete button: if the note or the solution was opened today, ask how
+  // it went; if not, there is nothing to ask and it was solved alone.
+  const completeReviewFromUi = (item) => {
+    if (suggestedHelp(listProgress[item.problem.id], today) === null) {
+      finishReview(item, { help: HELP.ALONE, message: `Completed ${item.stage}` });
+    } else {
+      setHelpItem(item);
+    }
   };
 
   // Dropping a card runs the same progress actions as the table and the card
@@ -254,6 +289,7 @@ const KanbanBoard = () => {
   };
 
   return (
+    <NoticeContext.Provider value={showNotice}>
     <DndContext
       sensors={sensors}
       collisionDetection={collisionDetection}
@@ -288,7 +324,7 @@ const KanbanBoard = () => {
         </button>
       </div>
       {showQueue && (
-        <ReviewQueue items={queue} onComplete={completeFromQueue} />
+        <ReviewQueue items={queue} onComplete={completeReviewFromUi} />
       )}
       {byUrgency && (
         <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
@@ -326,7 +362,7 @@ const KanbanBoard = () => {
                   <SortableKanbanCard
                     key={card.problem.id}
                     card={card}
-                    onComplete={completeFromQueue}
+                    onComplete={completeReviewFromUi}
                   />
                 ))}
               </SortableContext>
@@ -335,7 +371,7 @@ const KanbanBoard = () => {
                 <DraggableKanbanCard
                   key={card.problem.id}
                   card={card}
-                  onComplete={completeFromQueue}
+                  onComplete={completeReviewFromUi}
                 />
               ))
             )}
@@ -354,6 +390,19 @@ const KanbanBoard = () => {
           </div>
         ) : null}
       </DragOverlay>
+      {helpItem && helpOptions.length > 0 && (
+        <OutcomeDialog
+          title={`${helpItem.problem.title} · ${helpItem.stage}`}
+          options={helpOptions}
+          suggested={suggestedHelp(listProgress[helpItem.problem.id], today)}
+          onChoose={(option) => {
+            const item = helpItem;
+            setHelpItem(null);
+            finishReview(item, option);
+          }}
+          onClose={() => setHelpItem(null)}
+        />
+      )}
       {notice && (
         <Toast
           key={notice.id}
@@ -366,6 +415,7 @@ const KanbanBoard = () => {
         />
       )}
     </DndContext>
+    </NoticeContext.Provider>
   );
 };
 

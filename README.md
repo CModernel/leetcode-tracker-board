@@ -43,6 +43,17 @@ One short note per problem (up to 300 characters), to read before a review: the 
 - Both views share the same note. It is kept when you unsolve or move a problem, and it is included in the export/import file.
 - Reading a note never changes the review schedule.
 
+### 🧭 Review outcomes
+
+Completing a review is one click: it counts as **solved it myself**. If you opened the note (or a solution) that day, you are asked **How did it go?** first, and each answer shows its real dates before you choose:
+
+- **Solved it myself**: the next review follows the schedule.
+- **Needed the note**: the same review is repeated in 2 days.
+- **Needed the solution**: the problem goes one review back (R4 to R3), not a full reset.
+
+- Works the same in the tracker, on the board cards and in the **Review today** list, with an **Undo** message.
+- Every attempt is saved in a history (date, review and help needed) that is kept when a problem steps back, and included in the export/import file. It is only erased by **Clear All**.
+
 ### 💾 Data Persistence
 
 - **Local Storage**: All progress automatically saved to browser's local storage
@@ -155,6 +166,7 @@ These are the dates when every review is done on time. If you do a review late, 
 - [x] Dark mode support
 - [x] Kanban board with auto-repetition schedule
 - [x] Notes per task for better retrieval
+- [x] Review outcomes by help needed
 - [ ] Show/hide solution (if attached)
 - [ ] Cloud data persistence
 - [ ] Study streaks tracking

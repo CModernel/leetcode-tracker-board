@@ -10,6 +10,7 @@ import {
   buildReviewQueue,
   buildUrgencyColumns,
   canDrop,
+  cardActionMessage,
   cardForColumn,
   completeButtonFor,
   countByUrgency,
@@ -252,6 +253,16 @@ describe("getCardActions", () => {
     expect(toR1.confirm.message).toBe("R1, R2 and R3 and their dates will be erased.");
     // "Undo R3" is going back one review: no question
     expect(getCardActions("R4", entry).find((a) => a.type === "undoReview").confirm).toBeUndefined();
+  });
+
+  it("has no Complete with help entry: how it went is asked only after opening a note", () => {
+    for (const [stage, entry] of [
+      ["R3", solved([true, true, false, false, false])],
+      ["R1", solved(none)],
+      ["mastered", solved([true, true, true, true, true])],
+    ]) {
+      expect(types(stage, entry)).not.toContain("completeWithHelp");
+    }
   });
 
   it("offers undo, going back and unsolve when mastered", () => {
@@ -1138,23 +1149,43 @@ describe("completeButtonFor", () => {
     .flatMap((c) => c.cards)[0];
 
   it("is a plain Complete button when the review is due today", () => {
-    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-28" })));
-    expect(button).toEqual({ index: 0, early: false, label: "Complete R1", hint: undefined });
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-28" })), today);
+    expect(button).toEqual({
+      index: 0,
+      early: false,
+      label: "Complete R1",
+      text: "R1 · today",
+      title: "Due today",
+      hint: undefined,
+    });
   });
 
   it("is a plain Complete button when the review is overdue", () => {
-    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-01" })));
-    expect(button).toMatchObject({ early: false, label: "Complete R1" });
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-01" })), today);
+    expect(button).toMatchObject({
+      early: false,
+      label: "Complete R1",
+      text: "R1 · 27d late",
+      title: "Due Sep 2 · 27 days late",
+    });
   });
 
   it("says early, with the hint, when the review is not due yet", () => {
-    const button = completeButtonFor(cardFor(solved(none, { solvedDate: today })));
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: today })), today);
     expect(button).toEqual({
       index: 0,
       early: true,
       label: "Complete R1 early",
+      text: "R1 · Sep 30",
+      title: `Due Sep 30. ${EARLY_HINT}`,
       hint: EARLY_HINT,
     });
+  });
+
+  it("says one day, not one days, when it is a day late", () => {
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-27" })), today);
+    expect(button.text).toBe("R1 · 1d late");
+    expect(button.title).toBe("Due Sep 28 · 1 day late");
   });
 
   it("is for the review the card waits for, not always R1", () => {
@@ -1209,5 +1240,31 @@ describe("runCardAction rewind", () => {
       rewindReviews: (...args) => calls.push(args),
     });
     expect(calls).toEqual([["p1", 1]]);
+  });
+});
+
+describe("a chosen due date on the board", () => {
+  it("getNextDue and the urgency follow it", () => {
+    const entry = {
+      ...solved([true, false, false, false, false]),
+      solvedDate: "2026-10-01",
+      dates: { review1: "2026-10-02" },
+      dueOverride: { review: 1, date: "2026-10-09" },
+    };
+    expect(getNextDue(entry)).toBe("2026-10-09");
+    expect(getNextDue({ ...entry, dueOverride: undefined })).toBe("2026-10-04");
+  });
+});
+
+describe("cardActionMessage", () => {
+  it("says what a menu action did, for every action the menu offers", () => {
+    const message = (type, index) => cardActionMessage({ type, index });
+    expect(message("start")).toBe("Moved to In Progress");
+    expect(message("backToTodo")).toBe("Moved to To Do");
+    expect(message("markSolved")).toBe("Marked as solved");
+    expect(message("completeReview", 2)).toBe("Completed R3");
+    expect(message("undoReview", 0)).toBe("Undid R1");
+    expect(message("rewind", 1)).toBe("Went back to R2");
+    expect(message("unsolve")).toBe("Unsolved");
   });
 });

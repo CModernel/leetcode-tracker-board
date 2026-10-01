@@ -19,6 +19,19 @@ export const urgencyButtonStyles = {
     "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600",
 };
 
+// The review button on a board card: a bit bigger and with a thicker border
+// than the tracker chip, since it is the main action of the card. Overdue and
+// today are filled and have a shadow; a review that is not due yet is only an
+// outline, dashed, so it looks like something that can wait.
+export const reviewButtonStyles = {
+  overdue:
+    "border-2 border-red-500 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 shadow-sm",
+  today:
+    "border-2 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 shadow-sm",
+  upcoming:
+    "border-2 border-dashed border-gray-400 dark:border-gray-500 bg-transparent text-gray-600 dark:text-gray-300",
+};
+
 // Count badges in a column header.
 export const urgencyBadgeStyles = {
   overdue: "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300",

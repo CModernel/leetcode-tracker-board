@@ -3,15 +3,18 @@ import { Pencil, Plus } from "lucide-react";
 import { NOTE_HINT, NOTE_MAX_LENGTH } from "../lib/notes";
 
 // A problem's note, edited in place. Click it (or "Add note") to edit.
-// Saves when the field loses focus or with Ctrl/Cmd+Enter; Escape discards the
-// changes. Enter alone adds a line. `onSave` gets the new text ("" removes it).
-const NoteCell = ({ note, label, onSave }) => {
+// Saves with the Save button, when the field loses focus or with Ctrl/Cmd+Enter;
+// Cancel and Escape discard the changes. Enter alone adds a line. `onSave` gets
+// the new text ("" removes it). `onView` is called when an existing note is
+// opened (to read it).
+const NoteCell = ({ note, label, onSave, onView }) => {
   const [draft, setDraft] = useState(null);
   const editing = draft !== null;
   // Escape closes the field, and the focus loss that follows must not save
   const discarded = useRef(false);
 
   const open = () => {
+    if (note) onView?.();
     discarded.current = false;
     setDraft(note ?? "");
   };
@@ -22,12 +25,19 @@ const NoteCell = ({ note, label, onSave }) => {
   };
   const onKeyDown = (event) => {
     if (event.key === "Escape") {
-      discarded.current = true;
-      setDraft(null);
+      cancel();
     } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
       save();
     }
+  };
+
+  // The buttons must not take the focus from the field: losing it saves, and
+  // Cancel would save the very text it is meant to discard.
+  const keepFocus = (event) => event.preventDefault();
+  const cancel = () => {
+    discarded.current = true;
+    setDraft(null);
   };
 
   if (editing) {
@@ -45,12 +55,30 @@ const NoteCell = ({ note, label, onSave }) => {
           onKeyDown={onKeyDown}
           className="w-full rounded border border-blue-400 bg-white dark:bg-gray-700 p-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
-        <p
-          aria-live="polite"
-          className="mt-1 text-right text-xs text-gray-500 dark:text-gray-400"
-        >
-          {draft.length}/{NOTE_MAX_LENGTH}
-        </p>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p
+            aria-live="polite"
+            className="text-xs text-gray-500 dark:text-gray-400"
+          >
+            {draft.length}/{NOTE_MAX_LENGTH}
+          </p>
+          <div className="flex gap-1.5">
+            <button
+              onMouseDown={keepFocus}
+              onClick={cancel}
+              className="rounded-lg px-2.5 py-1 text-xs font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onMouseDown={keepFocus}
+              onClick={save}
+              className="rounded-lg px-2.5 py-1 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+            >
+              Save
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
