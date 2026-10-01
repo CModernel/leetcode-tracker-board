@@ -7,13 +7,18 @@ import { useProgress } from "../context/ProgressContext";
 // it is highlighted and the note shows as its tooltip; without one it is a
 // quiet icon that adds one. Reading never changes the schedule.
 const KanbanCardNote = ({ problem, note }) => {
-  const { setNote } = useProgress();
+  const { setNote, markHelpViewed } = useProgress();
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          // Reading a note is studying: it changes nothing in the calendar, but
+          // it is remembered so completing the review today can ask how it went
+          if (note) markHelpViewed(problem.id, "note");
+          setOpen(true);
+        }}
         aria-label={note ? "Edit note" : "Add note"}
         title={note || "Add note"}
         className={`p-1 rounded transition-colors ${

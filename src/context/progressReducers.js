@@ -6,11 +6,11 @@ import {
   canUncompleteReview,
   isDateString,
 } from "../lib/schedule";
-import { HELP, REPEAT_DAYS, attemptsOf, isHelp } from "../lib/attempts";
+import { HELP, REPEAT_DAYS, VIEW_KINDS, attemptsOf, isHelp } from "../lib/attempts";
 import { isStatus } from "../lib/status";
 
 // Pure functions that return the next `progress` object. `progress` is
-// { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates, note?, attempts? } } }.
+// { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates, note?, attempts?, helpViewed? } } }.
 // `today` is passed in ("YYYY-MM-DD") so these stay easy to test.
 
 export const emptyProgress = () => ({
@@ -171,6 +171,27 @@ export const recordAttempt = (progress, list, problemId, review, help, today) =>
   }));
 };
 
+// Remembers that the note (or solution) of a solved problem was opened on
+// `today`. Nothing else changes. Does nothing for a problem that is not solved,
+// an unknown kind, or when that day is already saved.
+export const markHelpViewed = (progress, list, problemId, kind, today) => {
+  const current = progress[list]?.[problemId];
+  if (!current?.solved || !Object.values(VIEW_KINDS).includes(kind)) return progress;
+  if (current.helpViewed?.[kind] === today) return progress;
+  return updateEntry(progress, list, problemId, (entry) => ({
+    ...entry,
+    helpViewed: { ...entry.helpViewed, [kind]: today },
+  }));
+};
+
+// The question "how did it go?" has been answered: what was opened before it
+// no longer counts.
+const withoutHelpViewed = (entry) => {
+  const { helpViewed, ...rest } = entry;
+  void helpViewed;
+  return rest;
+};
+
 // Chooses the due date of a pending review (see `dueOverride` in getSchedule).
 // Does nothing unless the problem is solved, the review is not done yet and
 // `date` is a real day.
@@ -219,7 +240,8 @@ export const completeReviewWithHelp = (
     if (index > 0) next = rewindReviews(next, list, problemId, back);
     next = setDueOverride(next, list, problemId, back, addDays(today, GAPS[back]));
   }
-  return recordAttempt(next, list, problemId, index, help, today);
+  next = recordAttempt(next, list, problemId, index, help, today);
+  return updateEntry(next, list, problemId, withoutHelpViewed);
 };
 
 // Puts a problem's saved entry back as it was (used by "Undo"). `entry` is

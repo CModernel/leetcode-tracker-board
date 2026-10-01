@@ -38,6 +38,7 @@ const ProblemTable = ({
     unsolve,
     completeReview,
     setNote,
+    markHelpViewed,
     rewindReviews,
   } = useProgress();
   const confirm = useConfirm();
@@ -242,6 +243,14 @@ const ProblemTable = ({
                         {prob.solved ? "Solved" : "Not Solved"}
                       </span>
                     </button>
+                    {prob.solved && prob.solvedDate && (
+                      <div
+                        className="mt-0.5 pl-7 text-[10px] text-gray-500 dark:text-gray-400"
+                        title={`Solved on ${formatShortDate(prob.solvedDate)}`}
+                      >
+                        {formatShortDate(prob.solvedDate)}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-4">
                     {prob.solved ? (
@@ -304,6 +313,7 @@ const ProblemTable = ({
                         note={prob.note}
                         label={problem.title}
                         onSave={(text) => setNote(problem.id, text)}
+                        onView={() => markHelpViewed(problem.id, "note")}
                       />
                     </td>
                   )}

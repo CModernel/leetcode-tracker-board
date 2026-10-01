@@ -254,6 +254,16 @@ describe("getCardActions", () => {
     expect(getCardActions("R4", entry).find((a) => a.type === "undoReview").confirm).toBeUndefined();
   });
 
+  it("has no Complete with help entry: how it went is asked only after opening a note", () => {
+    for (const [stage, entry] of [
+      ["R3", solved([true, true, false, false, false])],
+      ["R1", solved(none)],
+      ["mastered", solved([true, true, true, true, true])],
+    ]) {
+      expect(types(stage, entry)).not.toContain("completeWithHelp");
+    }
+  });
+
   it("offers undo, going back and unsolve when mastered", () => {
     const entry = solved([true, true, true, true, true]);
     const actions = getCardActions("mastered", entry);
@@ -1138,23 +1148,43 @@ describe("completeButtonFor", () => {
     .flatMap((c) => c.cards)[0];
 
   it("is a plain Complete button when the review is due today", () => {
-    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-28" })));
-    expect(button).toEqual({ index: 0, early: false, label: "Complete R1", hint: undefined });
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-28" })), today);
+    expect(button).toEqual({
+      index: 0,
+      early: false,
+      label: "Complete R1",
+      text: "R1 · today",
+      title: "Due today",
+      hint: undefined,
+    });
   });
 
   it("is a plain Complete button when the review is overdue", () => {
-    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-01" })));
-    expect(button).toMatchObject({ early: false, label: "Complete R1" });
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-01" })), today);
+    expect(button).toMatchObject({
+      early: false,
+      label: "Complete R1",
+      text: "R1 · 27d late",
+      title: "Due Sep 2 · 27 days late",
+    });
   });
 
   it("says early, with the hint, when the review is not due yet", () => {
-    const button = completeButtonFor(cardFor(solved(none, { solvedDate: today })));
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: today })), today);
     expect(button).toEqual({
       index: 0,
       early: true,
       label: "Complete R1 early",
+      text: "R1 · Sep 30",
+      title: `Due Sep 30. ${EARLY_HINT}`,
       hint: EARLY_HINT,
     });
+  });
+
+  it("says one day, not one days, when it is a day late", () => {
+    const button = completeButtonFor(cardFor(solved(none, { solvedDate: "2026-09-27" })), today);
+    expect(button.text).toBe("R1 · 1d late");
+    expect(button.title).toBe("Due Sep 28 · 1 day late");
   });
 
   it("is for the review the card waits for, not always R1", () => {

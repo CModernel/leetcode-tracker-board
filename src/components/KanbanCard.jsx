@@ -1,23 +1,23 @@
-import { Calendar, Check, ExternalLink } from "lucide-react";
+import { Calendar, Check, Clock, ExternalLink } from "lucide-react";
 import KanbanCardMenu from "./KanbanCardMenu";
 import KanbanCardNote from "./KanbanCardNote";
-import KanbanCardHelp from "./KanbanCardHelp";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { problemLabel } from "../lib/lists";
 import { completeButtonFor } from "../lib/board";
 import { formatShortDate } from "../lib/schedule";
 import {
+  reviewButtonStyles,
   urgencyButtonStyles,
   urgencyStripeStyles,
   urgencyTextStyles,
 } from "../lib/urgencyStyles";
 
 // One problem on the board: title (opens the problem), difficulty, topics and,
-// for problems waiting for a review, the review (R1..R5) with its due date in
-// the same colors as the tracker, and a button to complete that review
-// (`onComplete(card)`; no button when it is not given). With `onHelp(card,
-// option)` a "Needed help…" link offers the other outcomes of that review.
-const KanbanCard = ({ card, onComplete, onHelp }) => {
+// for problems waiting for a review, one button that is the review and the
+// action in one: "✓ R3 · 3d late" (red, overdue), "✓ R1 · today" (yellow) or,
+// when it is not due yet, "🕒 R1 · Oct 2" as a dashed gray outline. `onComplete(card)`
+// runs when it is pressed (no button when it is not given).
+const KanbanCard = ({ card, onComplete }) => {
   const { problem, stage, nextDue, urgency } = card;
   const completeButton = onComplete ? completeButtonFor(card) : null;
 
@@ -57,8 +57,16 @@ const KanbanCard = ({ card, onComplete, onHelp }) => {
             {topic}
           </span>
         ))}
+        {card.entry?.solved && card.entry?.solvedDate && (
+          <span
+            className="ml-auto text-xs text-gray-500 dark:text-gray-400"
+            title="The first review is one day after this date"
+          >
+            Solved {formatShortDate(card.entry.solvedDate)}
+          </span>
+        )}
       </div>
-      {urgency && (
+      {urgency && !completeButton && (
         <div className="mt-2 flex items-center gap-2">
           <span
             className={`px-2 py-0.5 rounded text-xs border ${urgencyButtonStyles[urgency]}`}
@@ -77,23 +85,20 @@ const KanbanCard = ({ card, onComplete, onHelp }) => {
       {completeButton && (
         <button
           onClick={() => onComplete(card)}
-          title={completeButton.hint}
-          className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-colors ${
-            completeButton.early
-              ? "border border-gray-400 dark:border-gray-500 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
-              : "bg-green-600 hover:bg-green-700 text-white"
+          aria-label={completeButton.label}
+          title={completeButton.title}
+          className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition hover:brightness-95 dark:hover:brightness-125 ${
+            reviewButtonStyles[urgency]
           }`}
         >
-          <Check size={14} />
-          {completeButton.label}
+          {/* A clock for a review that can wait, a check for one that is due */}
+          {completeButton.early ? (
+            <Clock size={16} aria-hidden="true" />
+          ) : (
+            <Check size={16} aria-hidden="true" />
+          )}
+          {completeButton.text}
         </button>
-      )}
-      {completeButton && onHelp && (
-        <KanbanCardHelp
-          card={card}
-          index={completeButton.index}
-          onChoose={(option) => onHelp(card, option)}
-        />
       )}
     </article>
   );

@@ -5,14 +5,16 @@ import { NOTE_HINT, NOTE_MAX_LENGTH } from "../lib/notes";
 // A problem's note, edited in place. Click it (or "Add note") to edit.
 // Saves with the Save button, when the field loses focus or with Ctrl/Cmd+Enter;
 // Cancel and Escape discard the changes. Enter alone adds a line. `onSave` gets
-// the new text ("" removes it).
-const NoteCell = ({ note, label, onSave }) => {
+// the new text ("" removes it). `onView` is called when an existing note is
+// opened (to read it).
+const NoteCell = ({ note, label, onSave, onView }) => {
   const [draft, setDraft] = useState(null);
   const editing = draft !== null;
   // Escape closes the field, and the focus loss that follows must not save
   const discarded = useRef(false);
 
   const open = () => {
+    if (note) onView?.();
     discarded.current = false;
     setDraft(note ?? "");
   };

@@ -149,6 +149,10 @@ export const ProgressProvider = ({ children }) => {
           localToday()
         )
       ),
+    markHelpViewed: (problemId, kind) =>
+      setProgress((prev) =>
+        reducers.markHelpViewed(prev, selectedList, problemId, kind, localToday())
+      ),
     completeReviewWithHelp: (problemId, index, help) =>
       setProgress((prev) =>
         reducers.completeReviewWithHelp(

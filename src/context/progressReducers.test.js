@@ -5,6 +5,7 @@ import {
   completeReviewWithHelp,
   DEFAULT_LIST,
   importData,
+  markHelpViewed,
   markSolved,
   parseSelectedList,
   restoreEntries,
@@ -963,5 +964,56 @@ describe("completeReviewWithHelp", () => {
     const before = after(2)[LIST][1];
     const done = completeReviewWithHelp(after(2), LIST, 1, 2, HELP.SOLUTION, TODAY);
     expect(restoreEntry(done, LIST, 1, before)[LIST][1]).toEqual(before);
+  });
+});
+
+describe("markHelpViewed", () => {
+  it("remembers the day the note was opened, without touching anything else", () => {
+    const start = solvedState();
+    const next = markHelpViewed(start, LIST, 1, "note", "2026-10-06");
+    expect(next[LIST][1].helpViewed).toEqual({ note: "2026-10-06" });
+    expect(next[LIST][1].reviews).toBe(start[LIST][1].reviews);
+    expect(next[OTHER]).toBe(start[OTHER]);
+  });
+
+  it("keeps the other kind and updates the day", () => {
+    let state = markHelpViewed(solvedState(), LIST, 1, "note", "2026-10-06");
+    state = markHelpViewed(state, LIST, 1, "solution", "2026-10-06");
+    state = markHelpViewed(state, LIST, 1, "note", "2026-10-08");
+    expect(state[LIST][1].helpViewed).toEqual({ note: "2026-10-08", solution: "2026-10-06" });
+  });
+
+  it("returns the same object when that day is already saved", () => {
+    const once = markHelpViewed(solvedState(), LIST, 1, "note", "2026-10-06");
+    expect(markHelpViewed(once, LIST, 1, "note", "2026-10-06")).toBe(once);
+  });
+
+  it("does nothing for a problem that is not solved, has no entry, or an unknown kind", () => {
+    const todo = { [LIST]: { 1: { status: "todo", solved: false, reviews: noReviews, dates: {} } } };
+    expect(markHelpViewed(todo, LIST, 1, "note", "2026-10-06")).toBe(todo);
+    expect(markHelpViewed(todo, LIST, 99, "note", "2026-10-06")).toBe(todo);
+    const start = solvedState();
+    expect(markHelpViewed(start, LIST, 1, "video", "2026-10-06")).toBe(start);
+  });
+
+  it("does not change the calendar or the history", () => {
+    const start = solvedState();
+    const next = markHelpViewed(start, LIST, 1, "solution", "2026-10-06");
+    const { helpViewed, ...rest } = next[LIST][1];
+    void helpViewed;
+    expect(rest).toEqual(start[LIST][1]);
+  });
+
+  it("is cleared by any review outcome, so the question is asked once", () => {
+    for (const help of [0, 1, 2]) {
+      const viewed = markHelpViewed(solvedState(), LIST, 1, "note", "2026-10-06");
+      const next = completeReviewWithHelp(viewed, LIST, 1, 2, help, "2026-10-06");
+      expect(next[LIST][1]).not.toHaveProperty("helpViewed");
+    }
+  });
+
+  it("is kept when an outcome is refused", () => {
+    const viewed = markHelpViewed(solvedState(), LIST, 1, "note", "2026-10-06");
+    expect(completeReviewWithHelp(viewed, LIST, 1, 4, 0, "2026-10-06")).toBe(viewed);
   });
 });

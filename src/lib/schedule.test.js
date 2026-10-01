@@ -576,3 +576,31 @@ describe("getSchedule with a chosen due date (dueOverride)", () => {
     expect(dueOverrideFor(undefined, 0)).toBeNull();
   });
 });
+
+describe("the same R2 date from different solved dates", () => {
+  // R2 is counted from the day R1 was really done, not from the solved date.
+  // So two problems solved on different days can both have R2 on the same day,
+  // and after undoing R1 each one goes back to its own R1 date (solved + 1).
+  const done = (solvedDate) => ({
+    solved: true,
+    solvedDate,
+    reviews: [true, false, false, false, false],
+    dates: { initial: solvedDate, review1: "2026-10-01" },
+  });
+  const undone = (solvedDate) => ({
+    solved: true,
+    solvedDate,
+    reviews: [false, false, false, false, false],
+    dates: { initial: solvedDate },
+  });
+
+  it("R2 is the same day when R1 was done the same day", () => {
+    expect(getSchedule(done("2026-09-28"))[1]).toBe("2026-10-03");
+    expect(getSchedule(done("2026-09-30"))[1]).toBe("2026-10-03");
+  });
+
+  it("after undoing R1, each problem goes back to its own R1 date", () => {
+    expect(getSchedule(undone("2026-09-28"))[0]).toBe("2026-09-29");
+    expect(getSchedule(undone("2026-09-30"))[0]).toBe("2026-10-01");
+  });
+});
