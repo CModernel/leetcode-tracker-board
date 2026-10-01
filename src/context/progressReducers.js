@@ -1,12 +1,16 @@
 import {
+  GAPS,
+  addDays,
   canCompleteReview,
   canRewindTo,
   canUncompleteReview,
+  isDateString,
 } from "../lib/schedule";
+import { HELP, REPEAT_DAYS, VIEW_KINDS, attemptsOf, isHelp } from "../lib/attempts";
 import { isStatus } from "../lib/status";
 
 // Pure functions that return the next `progress` object. `progress` is
-// { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates, note? } } }.
+// { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates, note?, attempts?, helpViewed? } } }.
 // `today` is passed in ("YYYY-MM-DD") so these stay easy to test.
 
 export const emptyProgress = () => ({
@@ -21,6 +25,15 @@ const emptyEntry = () => ({
   reviews: Array(5).fill(false),
   dates: {},
 });
+
+// A chosen due date (`dueOverride`) belongs to the review that was pending
+// when it was set. Whenever the reviews change, it is dropped so it can never
+// land on a different review later.
+const withoutOverride = (entry) => {
+  const { dueOverride, ...rest } = entry;
+  void dueOverride;
+  return rest;
+};
 
 const updateEntry = (progress, list, problemId, update) => {
   const listProgress = progress[list] || {};
@@ -45,7 +58,7 @@ export const markSolved = (progress, list, problemId, today) => {
 // Un-solving wipes the reviews and their dates.
 export const unsolve = (progress, list, problemId) =>
   updateEntry(progress, list, problemId, (current) => ({
-    ...current,
+    ...withoutOverride(current),
     status: "todo",
     solved: false,
     solvedDate: null,
@@ -94,7 +107,7 @@ export const completeReview = (progress, list, problemId, index, today) => {
     const reviews = [...current.reviews];
     reviews[index] = true;
     return {
-      ...current,
+      ...withoutOverride(current),
       reviews,
       dates: { ...current.dates, [`review${index + 1}`]: today },
     };
@@ -109,7 +122,7 @@ export const uncompleteReview = (progress, list, problemId, index) => {
     reviews[index] = false;
     const dates = { ...current.dates };
     delete dates[`review${index + 1}`];
-    return { ...current, reviews, dates };
+    return { ...withoutOverride(current), reviews, dates };
   });
 };
 
@@ -139,8 +152,96 @@ export const rewindReviews = (progress, list, problemId, index) => {
     const reviews = current.reviews.map((done, i) => (i >= index ? false : done));
     const dates = { ...current.dates };
     for (let i = index; i < reviews.length; i++) delete dates[`review${i + 1}`];
-    return { ...current, reviews, dates };
+    return { ...withoutOverride(current), reviews, dates };
   });
+};
+
+// Adds an attempt to the problem's history: which review (0..4) was tried, how
+// much help it needed (see HELP) and on what day. Only a solved problem has
+// reviews, so anything else does nothing, and so does an invalid review or
+// help. Existing attempts are never changed or removed by this or by any other
+// action except "Clear all".
+export const recordAttempt = (progress, list, problemId, review, help, today) => {
+  const current = progress[list]?.[problemId];
+  const validReview = Number.isInteger(review) && review >= 0 && review < 5;
+  if (!current?.solved || !validReview || !isHelp(help)) return progress;
+  return updateEntry(progress, list, problemId, (entry) => ({
+    ...entry,
+    attempts: [...attemptsOf(entry), { date: today, review, help }],
+  }));
+};
+
+// Remembers that the note (or solution) of a solved problem was opened on
+// `today`. Nothing else changes. Does nothing for a problem that is not solved,
+// an unknown kind, or when that day is already saved.
+export const markHelpViewed = (progress, list, problemId, kind, today) => {
+  const current = progress[list]?.[problemId];
+  if (!current?.solved || !Object.values(VIEW_KINDS).includes(kind)) return progress;
+  if (current.helpViewed?.[kind] === today) return progress;
+  return updateEntry(progress, list, problemId, (entry) => ({
+    ...entry,
+    helpViewed: { ...entry.helpViewed, [kind]: today },
+  }));
+};
+
+// The question "how did it go?" has been answered: what was opened before it
+// no longer counts.
+const withoutHelpViewed = (entry) => {
+  const { helpViewed, ...rest } = entry;
+  void helpViewed;
+  return rest;
+};
+
+// Chooses the due date of a pending review (see `dueOverride` in getSchedule).
+// Does nothing unless the problem is solved, the review is not done yet and
+// `date` is a real day.
+export const setDueOverride = (progress, list, problemId, review, date) => {
+  const current = progress[list]?.[problemId];
+  const pending =
+    current?.solved &&
+    Number.isInteger(review) &&
+    review >= 0 &&
+    review < GAPS.length &&
+    !current.reviews?.[review];
+  if (!pending || !isDateString(date)) return progress;
+  return updateEntry(progress, list, problemId, (entry) => ({
+    ...entry,
+    dueOverride: { review, date },
+  }));
+};
+
+// Completes the next review saying how much help it needed. Every outcome is
+// written in the attempt history. What happens to the calendar:
+// - HELP.ALONE: the review is done, as with completeReview.
+// - HELP.NOTE: it is not done; the same review comes back in REPEAT_DAYS days.
+// - HELP.SOLUTION: one step back. The previous review is pending again, due
+//   after its own gap counted from today (R4 -> R3 in 4 days). At R1 there is
+//   nothing before it, so R1 comes back tomorrow. Not a full reset.
+// Only the next pending review can be completed (see canCompleteReview);
+// anything else, or an unknown help level, does nothing.
+export const completeReviewWithHelp = (
+  progress,
+  list,
+  problemId,
+  index,
+  help,
+  today
+) => {
+  if (!isHelp(help)) return progress;
+  if (!canCompleteReview(progress[list]?.[problemId], index)) return progress;
+
+  let next = progress;
+  if (help === HELP.ALONE) {
+    next = completeReview(next, list, problemId, index, today);
+  } else if (help === HELP.NOTE) {
+    next = setDueOverride(next, list, problemId, index, addDays(today, REPEAT_DAYS));
+  } else {
+    const back = Math.max(index - 1, 0);
+    if (index > 0) next = rewindReviews(next, list, problemId, back);
+    next = setDueOverride(next, list, problemId, back, addDays(today, GAPS[back]));
+  }
+  next = recordAttempt(next, list, problemId, index, help, today);
+  return updateEntry(next, list, problemId, withoutHelpViewed);
 };
 
 // Puts a problem's saved entry back as it was (used by "Undo"). `entry` is

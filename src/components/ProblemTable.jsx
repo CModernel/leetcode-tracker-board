@@ -16,6 +16,8 @@ import {
   canRewindTo,
 } from "../lib/schedule";
 import { rewindConfirm } from "../lib/rewind";
+import { HELP, suggestedHelp } from "../lib/attempts";
+import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
 import {
   getUrgency,
@@ -24,6 +26,7 @@ import {
 } from "../lib/urgencyStyles";
 import { SHOW_NOTES_KEY, parseShowNotes } from "../lib/preferences";
 import NoteCell from "./NoteCell";
+import OutcomeDialog from "./OutcomeDialog";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { useProgress } from "../context/ProgressContext";
 import { useConfirm } from "../context/ConfirmContext";
@@ -36,8 +39,9 @@ const ProblemTable = ({
     filters,
     markSolved,
     unsolve,
-    completeReview,
+    completeReviewWithHelp,
     setNote,
+    markHelpViewed,
     rewindReviews,
   } = useProgress();
   const confirm = useConfirm();
@@ -62,13 +66,23 @@ const ProblemTable = ({
     }
   };
 
-  // A done review can be undone at any time. Going back more than one review
-  // asks first, because it erases the later ones too.
-  const toggleReview = async (problemId, prob, idx) => {
-    if (!prob.reviews?.[idx]) return completeReview(problemId, idx);
+  // The review whose "how did it go?" dialog is open: { problem, index }
+  const [helpFor, setHelpFor] = useState(null);
+
+  // A review that is not done is completed: at once, as solved alone, unless
+  // the note or the solution was opened today (then it asks how it went, like
+  // the board). A done review can be undone at any time; going back more than
+  // one review asks first, because it erases the later ones too.
+  const toggleReview = async (problem, prob, idx) => {
+    if (!prob.reviews?.[idx]) {
+      if (suggestedHelp(prob, today) === null) {
+        return completeReviewWithHelp(problem.id, idx, HELP.ALONE);
+      }
+      return setHelpFor({ problem, index: idx });
+    }
     const question = rewindConfirm(prob, idx);
     if (question && !(await confirm(question))) return;
-    rewindReviews(problemId, idx);
+    rewindReviews(problem.id, idx);
   };
 
   const filteredProblems = filterProblems(problems, progress, filters, today);
@@ -242,6 +256,14 @@ const ProblemTable = ({
                         {prob.solved ? "Solved" : "Not Solved"}
                       </span>
                     </button>
+                    {prob.solved && prob.solvedDate && (
+                      <div
+                        className="mt-0.5 pl-7 text-[10px] text-gray-500 dark:text-gray-400"
+                        title={`Solved on ${formatShortDate(prob.solvedDate)}`}
+                      >
+                        {formatShortDate(prob.solvedDate)}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-4">
                     {prob.solved ? (
@@ -263,7 +285,7 @@ const ProblemTable = ({
                               className="flex flex-col items-center"
                             >
                               <button
-                                onClick={() => toggleReview(problem.id, prob, idx)}
+                                onClick={() => toggleReview(problem, prob, idx)}
                                 disabled={!canToggle}
                                 className={`px-2 py-1 rounded text-xs border min-w-[50px] transition-colors ${urgencyButtonStyles[urgency]} ${
                                   canToggle
@@ -304,6 +326,7 @@ const ProblemTable = ({
                         note={prob.note}
                         label={problem.title}
                         onSave={(text) => setNote(problem.id, text)}
+                        onView={() => markHelpViewed(problem.id, "note")}
                       />
                     </td>
                   )}
@@ -313,6 +336,19 @@ const ProblemTable = ({
           </tbody>
         </table>
       </div>
+      {helpFor && (
+        <OutcomeDialog
+          title={`${helpFor.problem.title} · R${helpFor.index + 1}`}
+          options={outcomeOptions(progress[helpFor.problem.id], helpFor.index, today)}
+          suggested={suggestedHelp(progress[helpFor.problem.id], today)}
+          onChoose={(option) => {
+            const { problem, index } = helpFor;
+            setHelpFor(null);
+            completeReviewWithHelp(problem.id, index, option.help);
+          }}
+          onClose={() => setHelpFor(null)}
+        />
+      )}
     </div>
   );
 };

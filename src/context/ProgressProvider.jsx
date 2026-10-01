@@ -138,6 +138,32 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.uncompleteReview(prev, selectedList, problemId, index)
       ),
+    recordAttempt: (problemId, review, help) =>
+      setProgress((prev) =>
+        reducers.recordAttempt(
+          prev,
+          selectedList,
+          problemId,
+          review,
+          help,
+          localToday()
+        )
+      ),
+    markHelpViewed: (problemId, kind) =>
+      setProgress((prev) =>
+        reducers.markHelpViewed(prev, selectedList, problemId, kind, localToday())
+      ),
+    completeReviewWithHelp: (problemId, index, help) =>
+      setProgress((prev) =>
+        reducers.completeReviewWithHelp(
+          prev,
+          selectedList,
+          problemId,
+          index,
+          help,
+          localToday()
+        )
+      ),
     rewindReviews: (problemId, index) =>
       setProgress((prev) =>
         reducers.rewindReviews(prev, selectedList, problemId, index)

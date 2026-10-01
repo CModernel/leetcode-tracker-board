@@ -64,7 +64,7 @@ describe("board and tracker share the same data", () => {
     expect(view.columnOfCard()).toBe("Reviewing");
     expect(within(view.row()).getByText("Solved")).toBeTruthy();
     expect(within(view.row()).getByRole("button", { name: "R1" })).toBeTruthy();
-    expect(within(view.card()).getByText("R1")).toBeTruthy();
+    expect(within(view.card()).getByText(/^R1 ·/)).toBeTruthy();
   });
 
   it("starting a problem on the board moves its card to In Progress", () => {
@@ -84,14 +84,14 @@ describe("board and tracker share the same data", () => {
     const view = renderBoth();
     view.menu("Mark as solved");
     fireEvent.click(within(view.row()).getByRole("button", { name: "R1" }));
-    expect(within(view.card()).getByText("R2")).toBeTruthy();
+    expect(within(view.card()).getByText(/^R2 ·/)).toBeTruthy();
   });
 
   it("completing a review on the board marks it in the table", () => {
     const view = renderBoth();
     view.menu("Mark as solved");
     view.menu("Complete R1");
-    expect(within(view.card()).getByText("R2")).toBeTruthy();
+    expect(within(view.card()).getByText(/^R2 ·/)).toBeTruthy();
     // R2 can now be completed in the table (it needs R1 done first)
     expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
   });
@@ -101,7 +101,7 @@ describe("board and tracker share the same data", () => {
     view.menu("Mark as solved");
     view.menu("Complete R1");
     view.menu("Undo R1");
-    expect(within(view.card()).getByText("R1")).toBeTruthy();
+    expect(within(view.card()).getByText(/^R1 ·/)).toBeTruthy();
     expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(true);
   });
 
@@ -141,6 +141,18 @@ describe("board and tracker share the same data", () => {
     expect(within(view.row()).getByText("Not Solved")).toBeTruthy();
   });
 
+  it("an action from the card menu shows a message, and Undo brings the problem back", () => {
+    const view = renderBoth();
+    view.menu("Start");
+    expect(screen.getByText("Moved to In Progress")).toBeTruthy();
+    view.menu("Mark as solved");
+    expect(screen.getByText("Marked as solved")).toBeTruthy();
+    expect(view.columnOfCard()).toBe("Reviewing");
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(view.columnOfCard()).toBe("In Progress");
+    expect(within(view.row()).getByText("Not Solved")).toBeTruthy();
+  });
+
   it("a filter chosen in one view applies to the other", () => {
     const view = renderBoth();
     // Two Sum is Easy: filtering by Hard from the board's header removes it
@@ -171,7 +183,7 @@ describe("board and tracker share the same data", () => {
 
     // Completing the review from the card still changes the tracker
     view.menu("Complete R1");
-    expect(within(view.card()).getByText("R2")).toBeTruthy();
+    expect(within(view.card()).getByText(/^R2 ·/)).toBeTruthy();
     expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
 
     // Back to stages: everything is shown again
@@ -194,7 +206,7 @@ describe("board and tracker share the same data", () => {
       const button = within(view.card()).getByRole("button", { name: "Complete R1 early" });
       expect(button.title).toMatch(/before the due date/);
       fireEvent.click(button);
-      expect(within(view.card()).getByText("R2")).toBeTruthy();
+      expect(within(view.card()).getByText(/^R2 ·/)).toBeTruthy();
       expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
       expect(screen.getByText("Completed R1")).toBeTruthy();
     });
@@ -228,7 +240,8 @@ describe("board and tracker share the same data", () => {
       );
       const view = renderBoth();
       const button = within(view.card()).getByRole("button", { name: "Complete R1" });
-      expect(button.title).toBe("");
+      expect(button.title).toMatch(/late/);
+      expect(button.textContent).toMatch(/^R1 · \d+d late$/);
     });
 
     it("goes through all five reviews with the button, ending in Mastered", () => {
@@ -248,7 +261,7 @@ describe("board and tracker share the same data", () => {
       view.menu("Mark as solved");
       fireEvent.click(view.board().getByRole("button", { name: "Urgency" }));
       fireEvent.click(within(view.card()).getByRole("button", { name: "Complete R1 early" }));
-      expect(within(view.card()).getByText("R2")).toBeTruthy();
+      expect(within(view.card()).getByText(/^R2 ·/)).toBeTruthy();
     });
   });
 
@@ -298,7 +311,7 @@ describe("board and tracker share the same data", () => {
       ).toContain("0");
       // The tracker shows R2 as the next review to complete
       expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
-      expect(within(view.card()).getByText("R2")).toBeTruthy();
+      expect(within(view.card()).getByText(/^R2 ·/)).toBeTruthy();
     });
 
     it("can be undone from the message", async () => {
@@ -397,9 +410,15 @@ describe("notes are shared between the table and the board", () => {
   const showNotes = (view) =>
     fireEvent.click(view.tracker().getByRole("button", { name: /show notes/i }));
   const cardNote = (view) =>
-    within(view.card()).getByRole("button", { name: /(add|edit) note/i });
-  const editOnBoard = (view, text) => {
+    within(view.card()).getByRole("button", { name: /(add|read) note/i });
+  // A note that exists opens to be read: press Edit to change it
+  const openEditor = (view) => {
     fireEvent.click(cardNote(view));
+    const edit = screen.queryByRole("button", { name: "Edit" });
+    if (edit) fireEvent.click(edit);
+  };
+  const editOnBoard = (view, text) => {
+    openEditor(view);
     fireEvent.change(screen.getByRole("textbox", { name: /note for two sum/i }), {
       target: { value: text },
     });
@@ -414,7 +433,7 @@ describe("notes are shared between the table and the board", () => {
     fireEvent.change(field, { target: { value: "Use a hash map" } });
     fireEvent.blur(field);
     const button = cardNote(view);
-    expect(button.getAttribute("aria-label")).toBe("Edit note");
+    expect(button.getAttribute("aria-label")).toBe("Read note");
     expect(button.getAttribute("title")).toBe("Use a hash map");
   });
 
@@ -433,7 +452,7 @@ describe("notes are shared between the table and the board", () => {
   it("the dialog opens with the current note and Cancel keeps it", () => {
     const view = renderBoth();
     editOnBoard(view, "keep");
-    fireEvent.click(cardNote(view));
+    openEditor(view);
     const field = screen.getByRole("textbox", { name: /note for two sum/i });
     expect(field.value).toBe("keep");
     fireEvent.change(field, { target: { value: "discard me" } });
@@ -445,7 +464,7 @@ describe("notes are shared between the table and the board", () => {
   it("Ctrl+Enter saves and emptying the text removes the note", () => {
     const view = renderBoth();
     editOnBoard(view, "first");
-    fireEvent.click(cardNote(view));
+    openEditor(view);
     const field = screen.getByRole("textbox", { name: /note for two sum/i });
     fireEvent.change(field, { target: { value: "" } });
     fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });
@@ -461,6 +480,66 @@ describe("notes are shared between the table and the board", () => {
     fireEvent.click(within(view.row()).getByText("Solved"));
     // un-solving from the table keeps it
     expect(cardNote(view).getAttribute("title")).toBe("remember");
+  });
+
+  describe("reading a note on the card", () => {
+    const withNote = (view) => editOnBoard(view, "Use a hash map\nthen check twice");
+
+    it("opens to read it: the text is shown, not an editor", () => {
+      const view = renderBoth();
+      withNote(view);
+      fireEvent.click(cardNote(view));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText(/Use a hash map/)).toBeTruthy();
+      expect(within(dialog).queryByRole("textbox")).toBeNull();
+      expect(within(dialog).queryByRole("button", { name: "Save" })).toBeNull();
+      expect(within(dialog).getByRole("button", { name: "Close" })).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Edit" })).toBeTruthy();
+    });
+
+    it("keeps the line breaks of the note", () => {
+      const view = renderBoth();
+      withNote(view);
+      fireEvent.click(cardNote(view));
+      const text = screen.getByRole("dialog").querySelector("p.whitespace-pre-wrap");
+      expect(text.textContent).toBe("Use a hash map\nthen check twice");
+    });
+
+    it("Close changes nothing", () => {
+      const view = renderBoth();
+      withNote(view);
+      fireEvent.click(cardNote(view));
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(cardNote(view).getAttribute("title")).toMatch(/Use a hash map/);
+    });
+
+    it("Edit switches to the editor with the same text, and Save keeps the change", () => {
+      const view = renderBoth();
+      withNote(view);
+      fireEvent.click(cardNote(view));
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      const field = screen.getByRole("textbox", { name: /note for two sum/i });
+      expect(field.value).toBe("Use a hash map\nthen check twice");
+      fireEvent.change(field, { target: { value: "new text" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(cardNote(view).getAttribute("title")).toBe("new text");
+    });
+
+    it("Escape closes it, and a problem with no note opens straight in the editor", () => {
+      const view = renderBoth();
+      fireEvent.click(cardNote(view));
+      expect(screen.getByRole("textbox", { name: /note for two sum/i })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    });
+
+    it("Ctrl+Enter does nothing while only reading", () => {
+      const view = renderBoth();
+      withNote(view);
+      fireEvent.click(cardNote(view));
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Enter", ctrlKey: true });
+      expect(screen.getByRole("dialog")).toBeTruthy();
+    });
   });
 
   it("typing in the dialog does not start a drag (keys stay in the dialog)", () => {
@@ -491,7 +570,7 @@ describe("going back more than one review", () => {
     const view = threeDone();
     fireEvent.click(rButton(view, "R3"));
     expect(screen.queryByRole("alertdialog")).toBe(null);
-    expect(within(view.card()).getByText("R3")).toBeTruthy();
+    expect(within(view.card()).getByText(/^R3 ·/)).toBeTruthy();
     expect(rButton(view, "R3").disabled).toBe(false);
     expect(rButton(view, "R2").disabled).toBe(false);
   });
@@ -507,13 +586,13 @@ describe("going back more than one review", () => {
     // Cancel: nothing changes
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await act(async () => {});
-    expect(within(view.card()).getByText("R4")).toBeTruthy();
+    expect(within(view.card()).getByText(/^R4 ·/)).toBeTruthy();
 
     // Confirm: back at R1, in the table and on the board
     fireEvent.click(rButton(view, "R1"));
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
     await act(async () => {});
-    expect(within(view.card()).getByText("R1")).toBeTruthy();
+    expect(within(view.card()).getByText(/^R1 ·/)).toBeTruthy();
     expect(rButton(view, "R2").disabled).toBe(true);
     expect(view.columnOfCard()).toBe("Reviewing");
   });
@@ -525,7 +604,7 @@ describe("going back more than one review", () => {
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
     await act(async () => {});
     // R1 is still done, R2 and R3 are not: R2 is the next review
-    expect(within(view.card()).getByText("R2")).toBeTruthy();
+    expect(within(view.card()).getByText(/^R2 ·/)).toBeTruthy();
     expect(rButton(view, "R2").disabled).toBe(false);
     expect(rButton(view, "R3").disabled).toBe(true);
   });
@@ -538,5 +617,356 @@ describe("going back more than one review", () => {
     fireEvent.click(within(card).getByLabelText("Card actions"));
     expect(screen.queryByRole("menuitem", { name: /Go back to/ })).toBe(null);
     expect(screen.getByRole("menuitem", { name: "Undo R1" })).toBeTruthy();
+  });
+});
+
+describe("the review button and how it went", () => {
+  // Two Sum solved on 2026-10-01 with R1 and R2 done on time, today 2026-10-20
+  // (R3 was due 10-08: overdue). Only Date is faked, so timers still run.
+  const seed = (extra = {}) =>
+    localStorage.setItem(
+      "leetcode-progress-v3",
+      JSON.stringify({
+        version: 3,
+        progress: {
+          "Blind 75": {
+            "blind75-1": {
+              status: "solved",
+              solved: true,
+              solvedDate: "2026-10-01",
+              reviews: [true, true, false, false, false],
+              dates: { initial: "2026-10-01", review1: "2026-10-02", review2: "2026-10-04" },
+              note: "Use a hash map",
+              ...extra,
+            },
+          },
+        },
+      })
+    );
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 20, 12, 0, 0));
+    seed();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const completeButton = (view) =>
+    within(view.card()).getByRole("button", { name: /^Complete R3/ });
+  const saved = () =>
+    JSON.parse(localStorage.getItem("leetcode-progress-v3")).progress["Blind 75"]["blind75-1"];
+  const openNoteOnCard = (view) =>
+    fireEvent.click(within(view.card()).getByRole("button", { name: "Read note" }));
+  const closeNote = () => fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+  describe("the solved date", () => {
+    it("is on the card, so the date of R1 makes sense", () => {
+      const view = renderBoth();
+      expect(within(view.card()).getByText("Solved Oct 1")).toBeTruthy();
+    });
+
+    it("is in the tracker under Solved", () => {
+      const view = renderBoth();
+      expect(within(view.row()).getByTitle("Solved on Oct 1").textContent).toBe("Oct 1");
+    });
+
+    it("is not shown for a problem that is not solved", () => {
+      localStorage.clear();
+      const view = renderBoth();
+      expect(within(view.card()).queryByText(/^Solved /)).toBeNull();
+      expect(within(view.row()).queryByTitle(/Solved on/)).toBeNull();
+    });
+
+    it("follows the problem when it is solved from the board", () => {
+      localStorage.clear();
+      const view = renderBoth();
+      view.menu("Mark as solved");
+      const now = new Date();
+      const label = now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      expect(within(view.card()).getByText(`Solved ${label}`)).toBeTruthy();
+      expect(within(view.row()).getByTitle(`Solved on ${label}`)).toBeTruthy();
+    });
+  });
+
+  describe("the button", () => {
+    it("is the review and the action in one: no separate chip, date or help link", () => {
+      const view = renderBoth();
+      const card = view.card();
+      expect(completeButton(view).textContent).toBe("R3 · 12d late");
+      expect(within(card).queryByRole("button", { name: /help/i })).toBeNull();
+      expect(within(card).queryByText("Sep 8")).toBeNull();
+    });
+
+    it("overdue says how late, with the date in the tooltip", () => {
+      const view = renderBoth();
+      expect(completeButton(view).getAttribute("title")).toBe("Due Oct 8 · 12 days late");
+    });
+
+    it("due today says today", () => {
+      seed({ dates: { initial: "2026-10-01", review1: "2026-10-02", review2: "2026-10-04" }, solvedDate: "2026-10-01", dueOverride: { review: 2, date: "2026-10-20" } });
+      const view = renderBoth();
+      expect(completeButton(view).textContent).toBe("R3 · today");
+      expect(completeButton(view).getAttribute("title")).toBe("Due today");
+    });
+
+    it("not due yet shows the date, says early in its name and warns in the tooltip", () => {
+      seed({ dueOverride: { review: 2, date: "2026-10-25" } });
+      const view = renderBoth();
+      const button = within(view.card()).getByRole("button", { name: "Complete R3 early" });
+      expect(button.textContent).toBe("R3 · Oct 25");
+      expect(button.getAttribute("title")).toMatch(/^Due Oct 25\. Reviewing before/);
+    });
+
+    it("is red when overdue, yellow today, and a dashed outline when not due yet", () => {
+      let view = renderBoth();
+      expect(completeButton(view).className).toMatch(/bg-red/);
+      cleanup();
+      seed({ dueOverride: { review: 2, date: "2026-10-20" } });
+      view = renderBoth();
+      expect(completeButton(view).className).toMatch(/bg-yellow/);
+      expect(completeButton(view).className).not.toMatch(/dashed/);
+      cleanup();
+      seed({ dueOverride: { review: 2, date: "2026-10-25" } });
+      view = renderBoth();
+      expect(completeButton(view).className).toMatch(/border-dashed/);
+    });
+
+    it("shows a clock when the review can wait and a check when it is due", () => {
+      const icon = (view) => completeButton(view).querySelector("svg").getAttribute("class");
+      let view = renderBoth();
+      expect(icon(view)).toMatch(/lucide-check/);
+      cleanup();
+      seed({ dueOverride: { review: 2, date: "2026-10-25" } });
+      view = renderBoth();
+      expect(icon(view)).toMatch(/lucide-clock/);
+    });
+  });
+
+  describe("completing without opening anything", () => {
+    it("completes at once as solved alone, and writes it in the history", () => {
+      const view = renderBoth();
+      fireEvent.click(completeButton(view));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.getByText("Completed R3")).toBeTruthy();
+      expect(saved().reviews).toEqual([true, true, true, false, false]);
+      expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 0 }]);
+    });
+
+    it("Undo brings the review and the history back", () => {
+      const view = renderBoth();
+      fireEvent.click(completeButton(view));
+      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+      expect(saved().reviews).toEqual([true, true, false, false, false]);
+      expect(saved().attempts).toBeUndefined();
+    });
+
+    it("the Review today queue completes the same way", () => {
+      const view = renderBoth();
+      fireEvent.click(view.board().getByRole("button", { name: /Review today/ }));
+      const queue = screen.getByRole("region", { name: "Review today" });
+      fireEvent.click(within(queue).getByRole("button", { name: "Complete R3" }));
+      expect(saved().reviews).toEqual([true, true, true, false, false]);
+      expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 0 }]);
+    });
+
+    it("the queue asks too when the note was opened today", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(view.board().getByRole("button", { name: /Review today/ }));
+      const queue = screen.getByRole("region", { name: "Review today" });
+      fireEvent.click(within(queue).getByRole("button", { name: "Complete R3" }));
+      expect(screen.getByRole("dialog")).toBeTruthy();
+    });
+  });
+
+  describe("after opening the note", () => {
+    it("opening a note that is there remembers it, and changes nothing else", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      expect(saved().helpViewed).toEqual({ note: "2026-10-20" });
+      expect(saved().reviews).toEqual([true, true, false, false, false]);
+    });
+
+    it("then Complete asks how it went, with the note suggested and focused", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(completeButton(view));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("How did it go?")).toBeTruthy();
+      expect(within(dialog).getByText("You opened the note today.")).toBeTruthy();
+      // Only the suggested option is marked, with a badge and not a ring
+      const badges = within(dialog).getAllByText("Suggested");
+      expect(badges).toHaveLength(1);
+      expect(badges[0].closest("button").textContent).toMatch(/Needed the note/);
+      expect(dialog.innerHTML).not.toMatch(/ring-2 ring-blue-400/);
+      expect(within(dialog).getByText("Next review: R4 in 7 days (Oct 27)")).toBeTruthy();
+      expect(within(dialog).getByText("Repeat R3 in 2 days (Oct 22)")).toBeTruthy();
+      expect(within(dialog).getByText("Back to R2 in 2 days (Oct 22)")).toBeTruthy();
+      expect(saved().reviews).toEqual([true, true, false, false, false]);
+    });
+
+    it("Cancel changes nothing and asks again next time", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(completeButton(view));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(saved().reviews).toEqual([true, true, false, false, false]);
+      expect(saved().attempts).toBeUndefined();
+      fireEvent.click(completeButton(view));
+      expect(screen.getByRole("dialog")).toBeTruthy();
+    });
+
+    it("solved it myself completes the review", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(completeButton(view));
+      fireEvent.click(screen.getByRole("button", { name: /Solved it myself/ }));
+      expect(screen.getByText("Completed R3")).toBeTruthy();
+      expect(saved().reviews).toEqual([true, true, true, false, false]);
+      expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 0 }]);
+      expect(saved()).not.toHaveProperty("helpViewed");
+    });
+
+    it("needed the note repeats R3 in 2 days, and the table shows that date", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(completeButton(view));
+      fireEvent.click(screen.getByRole("button", { name: /Needed the note/ }));
+      expect(screen.getByText("R3 again in 2 days")).toBeTruthy();
+      expect(saved().reviews).toEqual([true, true, false, false, false]);
+      expect(saved().attempts[0]).toEqual({ date: "2026-10-20", review: 2, help: 1 });
+      expect(completeButton(view).textContent).toBe("R3 · Oct 22");
+      expect(within(view.row()).getByText("Oct 22")).toBeTruthy();
+    });
+
+    it("needed the solution goes one review back, not a reset", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(completeButton(view));
+      fireEvent.click(screen.getByRole("button", { name: /Needed the solution/ }));
+      expect(screen.getByText("Back to R2 in 2 days")).toBeTruthy();
+      expect(saved().reviews).toEqual([true, false, false, false, false]);
+      expect(saved().solved).toBe(true);
+      expect(saved().attempts[0]).toEqual({ date: "2026-10-20", review: 2, help: 2 });
+    });
+
+    it("Undo brings back the review, the history and the reminder that the note was opened", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(completeButton(view));
+      fireEvent.click(screen.getByRole("button", { name: /Needed the solution/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+      expect(saved().reviews).toEqual([true, true, false, false, false]);
+      expect(saved().attempts).toBeUndefined();
+      expect(saved().helpViewed).toEqual({ note: "2026-10-20" });
+    });
+
+    it("reading the note in the tracker counts too", () => {
+      const view = renderBoth();
+      fireEvent.click(view.tracker().getByRole("button", { name: /show notes/i }));
+      fireEvent.click(within(view.row()).getByRole("button", { name: /edit note for two sum/i }));
+      fireEvent.keyDown(within(view.row()).getByRole("textbox"), { key: "Escape" });
+      fireEvent.click(completeButton(view));
+      expect(screen.getByRole("dialog")).toBeTruthy();
+    });
+
+    it("the note opened on another day does not ask", () => {
+      seed({ helpViewed: { note: "2026-10-19" } });
+      const view = renderBoth();
+      fireEvent.click(completeButton(view));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(saved().reviews).toEqual([true, true, true, false, false]);
+    });
+
+    it("opening the note of a problem that has none asks nothing later", () => {
+      seed({ note: undefined });
+      const view = renderBoth();
+      fireEvent.click(within(view.card()).getByRole("button", { name: "Add note" }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      fireEvent.click(completeButton(view));
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("the solution opened today is suggested instead", () => {
+      seed({ helpViewed: { solution: "2026-10-20" } });
+      const view = renderBoth();
+      fireEvent.click(completeButton(view));
+      expect(screen.getByText("You opened the solution today.")).toBeTruthy();
+    });
+  });
+
+  describe("what a help outcome changes in both views", () => {
+    const answerWithNote = (view, option) => {
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(completeButton(view));
+      fireEvent.click(screen.getByRole("button", { name: option }));
+    };
+    const queueButton = (view) => view.board().getByRole("button", { name: /Review today/ });
+
+    it("needed the note takes the review out of the Review today queue until its new date", () => {
+      const view = renderBoth();
+      expect(queueButton(view).textContent).toContain("1");
+      answerWithNote(view, /Needed the note/);
+      expect(queueButton(view).textContent).toContain("0");
+      expect(saved().dueOverride).toEqual({ review: 2, date: "2026-10-22" });
+    });
+
+    it("needed the solution puts the card back on R2 and the table shows it pending", () => {
+      const view = renderBoth();
+      answerWithNote(view, /Needed the solution/);
+      expect(view.columnOfCard()).toBe("Reviewing");
+      expect(within(view.card()).getByRole("button", { name: /^Complete R2/ })).toBeTruthy();
+      expect(saved().dueOverride).toEqual({ review: 1, date: "2026-10-22" });
+      expect(within(view.row()).getByText("Oct 22")).toBeTruthy();
+    });
+
+    it("the history is kept when the problem is unsolved", async () => {
+      const view = renderBoth();
+      answerWithNote(view, /Needed the note/);
+      view.menu("Unsolve");
+      fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+      await act(async () => {});
+      expect(view.columnOfCard()).toBe("To Do");
+      expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 1 }]);
+      expect(saved()).not.toHaveProperty("dueOverride");
+    });
+
+    it("each attempt adds to the history, in order", () => {
+      const view = renderBoth();
+      answerWithNote(view, /Needed the note/);
+      // R3 now waits for Oct 22, so completing it today is early
+      fireEvent.click(completeButton(view));
+      expect(saved().attempts.map((a) => a.help)).toEqual([1, 0]);
+      expect(saved().reviews).toEqual([true, true, true, false, false]);
+    });
+  });
+
+  it("the card menu has no Complete with help entry", () => {
+    const view = renderBoth();
+    const card = view.card();
+    fireEvent.click(within(card).getByLabelText("Card actions"));
+    expect(screen.getByRole("menuitem", { name: "Complete R3" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: /with help/i })).toBeNull();
+  });
+
+  it("keys typed in the dialog do not lift the card", () => {
+    const view = renderBoth();
+    openNoteOnCard(view);
+    closeNote();
+    fireEvent.click(completeButton(view));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.keyDown(dialog, { key: " ", code: "Space" });
+    fireEvent.keyDown(dialog, { key: "Enter", code: "Enter" });
+    expect(screen.queryByText(/picked up|dragging/i)).toBeNull();
+    expect(screen.getByRole("dialog")).toBeTruthy();
   });
 });

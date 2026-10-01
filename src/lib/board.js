@@ -3,7 +3,9 @@ import {
   canCompleteReview,
   daysBetween,
   canUncompleteReview,
+  formatShortDate,
   getSchedule,
+  localToday,
 } from "./schedule";
 import { rewindConfirm } from "./rewind";
 import { getStatus } from "./status";
@@ -269,6 +271,28 @@ export const runCardAction = (action, problemId, actions) => {
   }
 };
 
+// What the message with Undo says after a menu action ("Marked as solved").
+export const cardActionMessage = (action) => {
+  switch (action.type) {
+    case "start":
+      return "Moved to In Progress";
+    case "backToTodo":
+      return "Moved to To Do";
+    case "markSolved":
+      return "Marked as solved";
+    case "completeReview":
+      return `Completed R${action.index + 1}`;
+    case "undoReview":
+      return `Undid R${action.index + 1}`;
+    case "rewind":
+      return `Went back to R${action.index + 1}`;
+    case "unsolve":
+      return "Unsolved";
+    default:
+      return "Done";
+  }
+};
+
 // "R3, R4 and R5": the reviews left from `stage` (like "R3") to R5.
 const remainingReviews = (stage) => {
   const left = [];
@@ -445,15 +469,34 @@ export const EARLY_HINT =
 // The button on a card that is waiting for a review: "Complete R3" when it is
 // overdue or due today, "Complete R3 early" when it is not due yet. Null when
 // the card has no review to complete.
-export const completeButtonFor = (card) => {
+export const completeButtonFor = (card, today = localToday()) => {
   if (!card.urgency || !card.stage.startsWith("R")) return null;
   const index = Number(card.stage.slice(1)) - 1;
   if (!canCompleteReview(card.entry, index)) return null;
   const early = card.urgency === "upcoming";
+  const date = formatShortDate(card.nextDue);
+  const late = daysBetween(card.nextDue, today);
+  // The button is the review chip and the action in one. `text` is what it
+  // shows: how late when it is due or overdue, the date when it is not due yet.
+  // `label` is its accessible name and `title` the tooltip.
+  const text =
+    card.urgency === "overdue"
+      ? `${card.stage} · ${late}d late`
+      : card.urgency === "today"
+      ? `${card.stage} · today`
+      : `${card.stage} · ${date}`;
+  const title =
+    card.urgency === "overdue"
+      ? `Due ${date} · ${late} ${late === 1 ? "day" : "days"} late`
+      : card.urgency === "today"
+      ? "Due today"
+      : `Due ${date}. ${EARLY_HINT}`;
   return {
     index,
     early,
     label: early ? `Complete ${card.stage} early` : `Complete ${card.stage}`,
+    text,
+    title,
     hint: early ? EARLY_HINT : undefined,
   };
 };

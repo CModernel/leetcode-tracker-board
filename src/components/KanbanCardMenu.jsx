@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MoreHorizontal } from "lucide-react";
-import { getCardActions, runCardAction } from "../lib/board";
+import { cardActionMessage, getCardActions, runCardAction } from "../lib/board";
 import { useProgress } from "../context/ProgressContext";
+import { useNotice } from "../context/NoticeContext";
 import { useConfirm } from "../context/ConfirmContext";
 
 const MENU_WIDTH = 176;
@@ -18,8 +19,11 @@ const KanbanCardMenu = ({ card }) => {
     completeReview,
     uncompleteReview,
     rewindReviews,
+    restoreEntry,
+    selectedList,
   } = useProgress();
   const confirm = useConfirm();
+  const showNotice = useNotice();
   const [position, setPosition] = useState(null);
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
@@ -67,6 +71,9 @@ const KanbanCardMenu = ({ card }) => {
   const choose = async (action) => {
     close();
     if (action.confirm && !(await confirm(action.confirm))) return;
+    // What the problem looked like, to bring it back on Undo
+    const list = selectedList;
+    const before = card.entry;
     runCardAction(action, card.problem.id, {
       setStatus,
       markSolved,
@@ -74,6 +81,10 @@ const KanbanCardMenu = ({ card }) => {
       completeReview,
       uncompleteReview,
       rewindReviews,
+    });
+    showNotice({
+      message: cardActionMessage(action),
+      undo: () => restoreEntry(list, card.problem.id, before),
     });
   };
 

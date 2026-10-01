@@ -209,6 +209,20 @@ describe("importing a file", () => {
     expect(parseStored(saved)).toEqual(data);
   });
 
+  it("keeps the attempt history when importing, loading and saving", () => {
+    const data = v3Data();
+    data["Blind 75"][1].attempts = [
+      { date: "2026-10-02", review: 0, help: 0 },
+      { date: "2026-10-05", review: 1, help: 2 },
+    ];
+    expect(migrate(JSON.parse(JSON.stringify(data))).progress).toEqual(data);
+    expect(parseStored(serializeProgress(data))).toEqual(data);
+  });
+
+  it("loads data saved before attempts existed", () => {
+    expect(migrate(v3Data()).progress["Blind 75"][1]).not.toHaveProperty("attempts");
+  });
+
   it("rejects a file that is not progress data", () => {
     expect(() => migrate(JSON.parse("[1, 2]"))).toThrow();
     expect(() => migrate(JSON.parse("null"))).toThrow();

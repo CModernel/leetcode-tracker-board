@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getUrgency,
+  reviewButtonStyles,
   urgencyBadgeStyles,
   urgencyButtonStyles,
   urgencyStripeStyles,
@@ -57,5 +58,26 @@ describe("stripe and badge styles", () => {
 
   it("keeps the space for cards without a review, but invisible", () => {
     expect(urgencyStripeStyles.none).toContain("transparent");
+  });
+});
+
+describe("reviewButtonStyles", () => {
+  it("has a style for every level a card button can have", () => {
+    for (const level of ["overdue", "today", "upcoming"]) {
+      expect(reviewButtonStyles[level]).toBeTruthy();
+      expect(reviewButtonStyles[level]).toMatch(/border-2/);
+    }
+  });
+
+  it("makes a review that is not due yet look different from one due today", () => {
+    expect(reviewButtonStyles.upcoming).toMatch(/border-dashed/);
+    expect(reviewButtonStyles.today).not.toMatch(/border-dashed/);
+    expect(reviewButtonStyles.overdue).not.toMatch(/border-dashed/);
+  });
+
+  it("only overdue and today are filled with a color", () => {
+    expect(reviewButtonStyles.overdue).toMatch(/bg-red/);
+    expect(reviewButtonStyles.today).toMatch(/bg-yellow/);
+    expect(reviewButtonStyles.upcoming).toMatch(/bg-transparent/);
   });
 });
