@@ -210,3 +210,125 @@ describe("editing a note in the table", () => {
     expect(screen.getByText(`3/${NOTE_MAX_LENGTH}`)).toBeTruthy();
   });
 });
+
+describe("completing a review in the table", () => {
+  // Two Sum solved on 2026-10-01 with R1 and R2 done, today 2026-10-20 (R3
+  // overdue). Only Date is faked, so timers still run.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 20, 12, 0, 0));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const seed = (extra = {}) =>
+    localStorage.setItem(
+      V3_KEY,
+      serializeProgress({
+        "Blind 75": {
+          "blind75-1": {
+            status: "solved",
+            solved: true,
+            solvedDate: "2026-10-01",
+            reviews: [true, true, false, false, false],
+            dates: { initial: "2026-10-01", review1: "2026-10-02", review2: "2026-10-04" },
+            note: "Use a hash map",
+            ...extra,
+          },
+        },
+        "LeetCode 75": {},
+        "NeetCode 150": {},
+      })
+    );
+  const saved = () => JSON.parse(localStorage.getItem(V3_KEY)).progress["Blind 75"]["blind75-1"];
+  const r3 = () => within(row()).getByRole("button", { name: "R3" });
+  const readNote = () => {
+    fireEvent.click(toggle());
+    fireEvent.click(within(row()).getByRole("button", { name: /edit note for two sum/i }));
+    fireEvent.keyDown(within(row()).getByRole("textbox"), { key: "Escape" });
+  };
+
+  it("completes at once as solved alone when nothing was opened, and writes the history", () => {
+    seed();
+    renderTracker();
+    fireEvent.click(r3());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(saved().reviews).toEqual([true, true, true, false, false]);
+    expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 0 }]);
+  });
+
+  it("opening a note in the table counts, and then asks how it went", () => {
+    seed();
+    renderTracker();
+    readNote();
+    expect(saved().helpViewed).toEqual({ note: "2026-10-20" });
+    fireEvent.click(r3());
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("You opened the note today.")).toBeTruthy();
+    expect(within(dialog).getByText("Next review: R4 in 7 days (Oct 27)")).toBeTruthy();
+    expect(within(dialog).getByText("Repeat R3 in 2 days (Oct 22)")).toBeTruthy();
+    expect(within(dialog).getByText("Back to R2 in 2 days (Oct 22)")).toBeTruthy();
+    expect(saved().reviews).toEqual([true, true, false, false, false]);
+  });
+
+  it("Cancel changes nothing", () => {
+    seed();
+    renderTracker();
+    readNote();
+    fireEvent.click(r3());
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(saved().reviews).toEqual([true, true, false, false, false]);
+    expect(saved().attempts).toBeUndefined();
+  });
+
+  it("needed the note: R3 is repeated in 2 days and the row shows that date", () => {
+    seed();
+    renderTracker();
+    readNote();
+    fireEvent.click(r3());
+    fireEvent.click(screen.getByRole("button", { name: /Needed the note/ }));
+    expect(saved().reviews).toEqual([true, true, false, false, false]);
+    expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 1 }]);
+    expect(within(row()).getByText("Oct 22")).toBeTruthy();
+  });
+
+  it("needed the solution: one review back, the row shows R2 pending", () => {
+    seed();
+    renderTracker();
+    readNote();
+    fireEvent.click(r3());
+    fireEvent.click(screen.getByRole("button", { name: /Needed the solution/ }));
+    expect(saved().reviews).toEqual([true, false, false, false, false]);
+    expect(saved().solved).toBe(true);
+    expect(saved().attempts[0]).toMatchObject({ review: 2, help: 2 });
+    expect(within(row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
+    expect(within(row()).getByRole("button", { name: "R3" }).disabled).toBe(true);
+  });
+
+  it("solved it myself completes and clears the reminder that the note was opened", () => {
+    seed();
+    renderTracker();
+    readNote();
+    fireEvent.click(r3());
+    fireEvent.click(screen.getByRole("button", { name: /Solved it myself/ }));
+    expect(saved().reviews).toEqual([true, true, true, false, false]);
+    expect(saved()).not.toHaveProperty("helpViewed");
+  });
+
+  it("does not ask when the note was opened on another day", () => {
+    seed({ helpViewed: { note: "2026-10-19" } });
+    renderTracker();
+    fireEvent.click(r3());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(saved().reviews).toEqual([true, true, true, false, false]);
+  });
+
+  it("going back is not affected: a done review is still undone with one click", () => {
+    seed();
+    renderTracker();
+    fireEvent.click(within(row()).getByRole("button", { name: "R2" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(saved().reviews).toEqual([true, false, false, false, false]);
+    expect(saved().attempts).toBeUndefined();
+  });
+});
