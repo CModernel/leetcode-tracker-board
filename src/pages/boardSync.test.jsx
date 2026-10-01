@@ -903,6 +903,47 @@ describe("the review button and how it went", () => {
     });
   });
 
+  // A real drag (mouse down, move, up) onto the green "done" zone of the
+  // by-urgency view. jsdom has no layout, so only the zone gets a rectangle
+  // and the pointer is moved inside it.
+  describe("dropping a card on the done zone", () => {
+    const dropOnDoneZone = (view) => {
+      fireEvent.click(view.board().getByRole("button", { name: "Urgency" }));
+      const zone = screen.getByText("Drop a card here to complete its review").closest("div");
+      const rect = { left: 0, top: 2000, right: 500, bottom: 2050, width: 500, height: 50, x: 0, y: 2000 };
+      vi.spyOn(zone, "getBoundingClientRect").mockReturnValue(rect);
+      const handle = view.card().parentElement;
+      fireEvent.mouseDown(handle, { button: 0, clientX: 5, clientY: 5 });
+      fireEvent.mouseMove(document, { clientX: 5, clientY: 30 });
+      fireEvent.mouseMove(document, { clientX: 100, clientY: 2025 });
+      fireEvent.mouseUp(document, { clientX: 100, clientY: 2025 });
+    };
+    // dnd-kit swallows the click that follows a drop until the next tick
+    const afterDrop = () => act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+    it("completes the review as solved alone and writes it in the history", async () => {
+      const view = renderBoth();
+      dropOnDoneZone(view);
+      await afterDrop();
+      expect(saved().reviews).toEqual([true, true, true, false, false]);
+      expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 0 }]);
+      expect(screen.getByText("Completed R3")).toBeTruthy();
+    });
+
+    it("asks how it went when the note was opened today, and nothing changes until answered", async () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      dropOnDoneZone(view);
+      await afterDrop();
+      expect(screen.getByText("How did it go?")).toBeTruthy();
+      expect(saved().reviews).toEqual([true, true, false, false, false]);
+      fireEvent.click(screen.getByRole("button", { name: /Needed the note/ }));
+      expect(saved().reviews).toEqual([true, true, false, false, false]);
+      expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 1 }]);
+    });
+  });
+
   describe("what a help outcome changes in both views", () => {
     const answerWithNote = (view, option) => {
       openNoteOnCard(view);

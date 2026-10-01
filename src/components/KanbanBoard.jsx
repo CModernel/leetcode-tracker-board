@@ -32,6 +32,7 @@ import {
   buildColumns,
   buildReviewQueue,
   buildUrgencyColumns,
+  canDrop,
   cardForColumn,
   emptyMessage,
   moveCardInColumns,
@@ -251,6 +252,16 @@ const KanbanBoard = () => {
         message: "Reordered In Progress",
         undo: () => restoreEntries(list, snapshot),
       });
+      return;
+    }
+
+    // The done zone completes the review like the Complete button: it asks
+    // how it went when the note or the solution was opened, and the attempt is
+    // written in the history (a plain drop would skip both).
+    if (target === DONE_ZONE) {
+      if (canDrop(card, DONE_ZONE, groupBy).allowed) {
+        completeReviewFromUi({ problem: card.problem, stage: card.stage });
+      }
       return;
     }
 
