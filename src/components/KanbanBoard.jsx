@@ -51,6 +51,7 @@ import { urgencyBadgeStyles } from "../lib/urgencyStyles";
 import { getProblems } from "../lib/lists";
 import { useProgress } from "../context/ProgressContext";
 import { useConfirm } from "../context/ConfirmContext";
+import { NoticeContext } from "../context/NoticeContext";
 
 // How long "Moved to ... Undo" stays: short, so it does not get in the way
 const UNDO_TOAST_MS = 3000;
@@ -65,6 +66,7 @@ const KanbanBoard = () => {
     setStatus,
     markSolved,
     unsolve,
+    completeReview,
     completeReviewWithHelp,
     uncompleteReview,
     restoreEntry,
@@ -88,6 +90,11 @@ const KanbanBoard = () => {
   // a new id shows it again
   const [notice, setNotice] = useState(null);
   const closeNotice = useCallback(() => setNotice(null), []);
+  // Lets a card's menu show the same message with Undo
+  const showNotice = useCallback(
+    (next) => setNotice({ id: Date.now(), ...next }),
+    []
+  );
 
   const today = localToday();
   const listProgress = progress[selectedList] || {};
@@ -282,6 +289,7 @@ const KanbanBoard = () => {
   };
 
   return (
+    <NoticeContext.Provider value={showNotice}>
     <DndContext
       sensors={sensors}
       collisionDetection={collisionDetection}
@@ -407,6 +415,7 @@ const KanbanBoard = () => {
         />
       )}
     </DndContext>
+    </NoticeContext.Provider>
   );
 };
 

@@ -54,7 +54,7 @@ const NoteDialog = ({ label, note, onSave, onClose }) => {
           save();
         }
       }}
-      className="m-auto p-0 w-[calc(100%-2rem)] max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-2xl backdrop:bg-black/50"
+      className="cursor-default m-auto p-0 w-[calc(100%-2rem)] max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-2xl backdrop:bg-black/50"
     >
       <div className="p-6">
         <h2 id="note-title" className="text-lg font-semibold">
@@ -96,7 +96,7 @@ const NoteDialog = ({ label, note, onSave, onClose }) => {
           </>
         ) : (
           <>
-            <p className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-gray-50 dark:bg-gray-700/50 p-3 text-sm text-gray-900 dark:text-gray-100">
+            <p className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap break-words text-sm text-gray-900 dark:text-gray-100">
               {note}
             </p>
             <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

@@ -10,6 +10,7 @@ import {
   buildReviewQueue,
   buildUrgencyColumns,
   canDrop,
+  cardActionMessage,
   cardForColumn,
   completeButtonFor,
   countByUrgency,
@@ -1252,5 +1253,18 @@ describe("a chosen due date on the board", () => {
     };
     expect(getNextDue(entry)).toBe("2026-10-09");
     expect(getNextDue({ ...entry, dueOverride: undefined })).toBe("2026-10-04");
+  });
+});
+
+describe("cardActionMessage", () => {
+  it("says what a menu action did, for every action the menu offers", () => {
+    const message = (type, index) => cardActionMessage({ type, index });
+    expect(message("start")).toBe("Moved to In Progress");
+    expect(message("backToTodo")).toBe("Moved to To Do");
+    expect(message("markSolved")).toBe("Marked as solved");
+    expect(message("completeReview", 2)).toBe("Completed R3");
+    expect(message("undoReview", 0)).toBe("Undid R1");
+    expect(message("rewind", 1)).toBe("Went back to R2");
+    expect(message("unsolve")).toBe("Unsolved");
   });
 });

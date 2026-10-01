@@ -28,16 +28,27 @@ const KanbanCard = ({ card, onComplete }) => {
       }`}
     >
       <div className="flex items-start justify-between gap-1">
-        <a
-          href={problem.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline flex items-start gap-1"
-          title={`Open ${problem.title}`}
-        >
-          <span className="line-clamp-2">{problemLabel(problem)}</span>
-          <ExternalLink size={12} className="flex-shrink-0 mt-1" />
-        </a>
+        <div className="min-w-0">
+          <a
+            href={problem.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline flex items-start gap-1"
+            title={`Open ${problem.title}`}
+          >
+            <span className="line-clamp-2">{problemLabel(problem)}</span>
+            <ExternalLink size={12} className="flex-shrink-0 mt-1" />
+          </a>
+          {/* Under the title, so it never drops to a line of its own among the chips */}
+          {card.entry?.solved && card.entry?.solvedDate && (
+            <p
+              className="mt-0.5 whitespace-nowrap text-[11px] leading-tight text-gray-500 dark:text-gray-400"
+              title="The first review is one day after this date"
+            >
+              Solved {formatShortDate(card.entry.solvedDate)}
+            </p>
+          )}
+        </div>
         <div className="flex flex-shrink-0 items-center">
           <KanbanCardNote problem={problem} note={card.entry?.note} />
           <KanbanCardMenu card={card} />
@@ -57,14 +68,6 @@ const KanbanCard = ({ card, onComplete }) => {
             {topic}
           </span>
         ))}
-        {card.entry?.solved && card.entry?.solvedDate && (
-          <span
-            className="ml-auto text-xs text-gray-500 dark:text-gray-400"
-            title="The first review is one day after this date"
-          >
-            Solved {formatShortDate(card.entry.solvedDate)}
-          </span>
-        )}
       </div>
       {urgency && !completeButton && (
         <div className="mt-2 flex items-center gap-2">
@@ -87,7 +90,7 @@ const KanbanCard = ({ card, onComplete }) => {
           onClick={() => onComplete(card)}
           aria-label={completeButton.label}
           title={completeButton.title}
-          className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition hover:brightness-95 dark:hover:brightness-125 ${
+          className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1 text-xs font-semibold transition hover:brightness-95 dark:hover:brightness-125 ${
             reviewButtonStyles[urgency]
           }`}
         >

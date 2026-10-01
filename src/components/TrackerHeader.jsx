@@ -118,6 +118,27 @@ const TrackerHeader = ({ title, showDueToday = true }) => {
                 solving. If you review late, the next dates move from the
                 day you actually reviewed.
               </p>
+              <h4 className="font-semibold mt-4 mb-2">
+                If you needed help:
+              </h4>
+              <ul className="space-y-1 text-sm">
+                <li>
+                  <strong>Solved it myself:</strong> the next review
+                  follows the schedule
+                </li>
+                <li>
+                  <strong>Needed the note:</strong> the same review is
+                  repeated in 2 days
+                </li>
+                <li>
+                  <strong>Needed the solution:</strong> the problem goes
+                  one review back (never a full reset)
+                </li>
+              </ul>
+              <p className="text-sm mt-2">
+                Reading a note or a solution is free. When you complete a
+                review after opening one today, you are asked how it went.
+              </p>
             </div>
             <div>
               <h4 className="font-semibold mb-2">How to Use:</h4>

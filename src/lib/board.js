@@ -271,6 +271,28 @@ export const runCardAction = (action, problemId, actions) => {
   }
 };
 
+// What the message with Undo says after a menu action ("Marked as solved").
+export const cardActionMessage = (action) => {
+  switch (action.type) {
+    case "start":
+      return "Moved to In Progress";
+    case "backToTodo":
+      return "Moved to To Do";
+    case "markSolved":
+      return "Marked as solved";
+    case "completeReview":
+      return `Completed R${action.index + 1}`;
+    case "undoReview":
+      return `Undid R${action.index + 1}`;
+    case "rewind":
+      return `Went back to R${action.index + 1}`;
+    case "unsolve":
+      return "Unsolved";
+    default:
+      return "Done";
+  }
+};
+
 // "R3, R4 and R5": the reviews left from `stage` (like "R3") to R5.
 const remainingReviews = (stage) => {
   const left = [];

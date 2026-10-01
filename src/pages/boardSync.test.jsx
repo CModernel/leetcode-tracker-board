@@ -141,6 +141,18 @@ describe("board and tracker share the same data", () => {
     expect(within(view.row()).getByText("Not Solved")).toBeTruthy();
   });
 
+  it("an action from the card menu shows a message, and Undo brings the problem back", () => {
+    const view = renderBoth();
+    view.menu("Start");
+    expect(screen.getByText("Moved to In Progress")).toBeTruthy();
+    view.menu("Mark as solved");
+    expect(screen.getByText("Marked as solved")).toBeTruthy();
+    expect(view.columnOfCard()).toBe("Reviewing");
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(view.columnOfCard()).toBe("In Progress");
+    expect(within(view.row()).getByText("Not Solved")).toBeTruthy();
+  });
+
   it("a filter chosen in one view applies to the other", () => {
     const view = renderBoth();
     // Two Sum is Easy: filtering by Hard from the board's header removes it
@@ -888,6 +900,53 @@ describe("the review button and how it went", () => {
       const view = renderBoth();
       fireEvent.click(completeButton(view));
       expect(screen.getByText("You opened the solution today.")).toBeTruthy();
+    });
+  });
+
+  describe("what a help outcome changes in both views", () => {
+    const answerWithNote = (view, option) => {
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(completeButton(view));
+      fireEvent.click(screen.getByRole("button", { name: option }));
+    };
+    const queueButton = (view) => view.board().getByRole("button", { name: /Review today/ });
+
+    it("needed the note takes the review out of the Review today queue until its new date", () => {
+      const view = renderBoth();
+      expect(queueButton(view).textContent).toContain("1");
+      answerWithNote(view, /Needed the note/);
+      expect(queueButton(view).textContent).toContain("0");
+      expect(saved().dueOverride).toEqual({ review: 2, date: "2026-10-22" });
+    });
+
+    it("needed the solution puts the card back on R2 and the table shows it pending", () => {
+      const view = renderBoth();
+      answerWithNote(view, /Needed the solution/);
+      expect(view.columnOfCard()).toBe("Reviewing");
+      expect(within(view.card()).getByRole("button", { name: /^Complete R2/ })).toBeTruthy();
+      expect(saved().dueOverride).toEqual({ review: 1, date: "2026-10-22" });
+      expect(within(view.row()).getByText("Oct 22")).toBeTruthy();
+    });
+
+    it("the history is kept when the problem is unsolved", async () => {
+      const view = renderBoth();
+      answerWithNote(view, /Needed the note/);
+      view.menu("Unsolve");
+      fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+      await act(async () => {});
+      expect(view.columnOfCard()).toBe("To Do");
+      expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 1 }]);
+      expect(saved()).not.toHaveProperty("dueOverride");
+    });
+
+    it("each attempt adds to the history, in order", () => {
+      const view = renderBoth();
+      answerWithNote(view, /Needed the note/);
+      // R3 now waits for Oct 22, so completing it today is early
+      fireEvent.click(completeButton(view));
+      expect(saved().attempts.map((a) => a.help)).toEqual([1, 0]);
+      expect(saved().reviews).toEqual([true, true, true, false, false]);
     });
   });
 
