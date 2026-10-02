@@ -3,6 +3,7 @@ import {
   COLUMNS,
   DONE_ZONE,
   EARLY_HINT,
+  MASTER_CONFIRM,
   UNSOLVE_CONFIRM,
   URGENCY_COLUMNS,
   applyDrop,
@@ -207,19 +208,20 @@ describe("getCardActions", () => {
   const types = (stage, entry) => getCardActions(stage, entry).map((a) => a.type);
 
   it("offers start and solve for a problem in To Do", () => {
-    expect(types("todo", {})).toEqual(["start", "markSolved"]);
+    expect(types("todo", {})).toEqual(["start", "markSolved", "markMastered"]);
   });
 
   it("offers solve and going back for a problem in progress", () => {
     expect(types("in-progress", { status: "in-progress" })).toEqual([
       "markSolved",
+      "markMastered",
       "backToTodo",
     ]);
   });
 
   it("offers the pending review and unsolve when no review is done", () => {
     const actions = getCardActions("R1", solved(none));
-    expect(actions.map((a) => a.type)).toEqual(["completeReview", "unsolve"]);
+    expect(actions.map((a) => a.type)).toEqual(["completeReview", "markMastered", "unsolve"]);
     expect(actions[0]).toMatchObject({ label: "Complete R1", index: 0 });
   });
 
@@ -230,11 +232,23 @@ describe("getCardActions", () => {
       "completeReview",
       "undoReview",
       "rewind",
+      "markMastered",
       "unsolve",
     ]);
     expect(actions[0]).toMatchObject({ label: "Complete R3", index: 2 });
     expect(actions[1]).toMatchObject({ label: "Undo R2", index: 1 });
     expect(actions[2]).toMatchObject({ label: "Go back to R1", index: 0 });
+  });
+
+  it("offers Mark as mastered, asking first only when a review is done", () => {
+    const find = (stage, entry) => getCardActions(stage, entry).find((a) => a.type === "markMastered");
+    expect(find("todo", {}).confirm).toBeUndefined();
+    expect(find("in-progress", { status: "in-progress" }).confirm).toBeUndefined();
+    expect(find("R1", solved(none)).confirm).toBeUndefined();
+    expect(find("R3", solved([true, true, false, false, false])).confirm).toBe(MASTER_CONFIRM);
+    // From R5 the way is completing that review; once mastered there is nothing to offer
+    expect(find("R5", solved([true, true, true, true, false]))).toBeUndefined();
+    expect(find("mastered", solved([true, true, true, true, true]))).toBeUndefined();
   });
 
   it("offers going back further only with two or more reviews done", () => {
@@ -290,7 +304,7 @@ describe("getCardActions", () => {
       ...getCardActions("todo", {}),
       ...getCardActions("in-progress", {}),
       ...getCardActions("R2", solved([true, false, false, false, false])).filter(
-        (a) => a.type !== "unsolve"
+        (a) => !["unsolve", "markMastered"].includes(a.type)
       ),
     ];
     for (const action of others) expect(action.confirm).toBeUndefined();
@@ -317,6 +331,7 @@ describe("runCardAction", () => {
       actions: {
         setStatus: record("setStatus"),
         markSolved: record("markSolved"),
+        markMastered: record("markMastered"),
         completeReview: record("completeReview"),
         uncompleteReview: record("uncompleteReview"),
         unsolve: record("unsolve"),
@@ -333,6 +348,7 @@ describe("runCardAction", () => {
     expect(run({ type: "start" })).toEqual([["setStatus", 7, "in-progress"]]);
     expect(run({ type: "backToTodo" })).toEqual([["setStatus", 7, "todo"]]);
     expect(run({ type: "markSolved" })).toEqual([["markSolved", 7]]);
+    expect(run({ type: "markMastered" })).toEqual([["markMastered", 7]]);
     expect(run({ type: "completeReview", index: 2 })).toEqual([["completeReview", 7, 2]]);
     expect(run({ type: "undoReview", index: 1 })).toEqual([["uncompleteReview", 7, 1]]);
     expect(run({ type: "unsolve" })).toEqual([["unsolve", 7]]);
@@ -381,11 +397,9 @@ describe("canDrop", () => {
     expect(action(fromProgress, "reviewing")).toEqual({ type: "markSolved" });
   });
 
-  it("does not let an unsolved problem jump to Mastered", () => {
+  it("masters a problem from To Do or In Progress without asking", () => {
     for (const c of [fromTodo, fromProgress]) {
-      const result = drop(c, "mastered");
-      expect(result.allowed).toBe(false);
-      expect(result.reason).toBe("Solve it first, then complete all five reviews (R1 to R5).");
+      expect(action(c, "mastered")).toEqual({ type: "markMastered" });
     }
   });
 
@@ -396,13 +410,21 @@ describe("canDrop", () => {
     });
   });
 
-  it("does not let a card before R5 reach Mastered, and says which reviews are left", () => {
-    const say = (c) => drop(c, "mastered").reason;
-    expect(drop(fromR1, "mastered").allowed).toBe(false);
-    expect(say(fromR1)).toBe("This one is waiting for R1. Complete R1, R2, R3, R4 and R5 first.");
-    expect(say(fromR3)).toBe("This one is waiting for R3. Complete R3, R4 and R5 first.");
+  it("masters a card in Reviewing before R5, asking first only when it has reviews done (their dates are lost)", () => {
     const fromR4 = card("R4", solved([true, true, true, false, false]));
-    expect(say(fromR4)).toBe("This one is waiting for R4. Complete R4 and R5 first.");
+    // R1 with nothing done yet: nothing to lose
+    expect(action(fromR1, "mastered")).toEqual({ type: "markMastered" });
+    for (const c of [fromR3, fromR4]) {
+      expect(action(c, "mastered")).toEqual({ type: "markMastered", confirm: MASTER_CONFIRM });
+    }
+  });
+
+  it("the question is neutral, not a warning", () => {
+    expect(MASTER_CONFIRM.tone).toBe("neutral");
+  });
+
+  it("does not offer Mastered on a card that is already mastered", () => {
+    expect(drop(fromMastered, "mastered")).toEqual({ allowed: false, reason: null });
   });
 
   it("does not allow Mastered at R5 when the earlier reviews are not done", () => {
@@ -442,13 +464,18 @@ describe("canDrop", () => {
         if (!result.allowed) continue;
         const fromSolved = c.stage === "mastered" || c.stage.startsWith("R");
         const erases = fromSolved && ["todo", "in-progress"].includes(column.id);
-        expect(Boolean(result.action.confirm)).toBe(erases);
+        // Mastering from R1..R4 replaces the schedule, so it asks too
+        const masters =
+          column.id === "mastered" &&
+          /^R[1-4]$/.test(c.stage) &&
+          Boolean(c.entry?.reviews?.some(Boolean));
+        expect(Boolean(result.action.confirm)).toBe(erases || masters);
       }
     }
   });
 
   it("only returns actions that runCardAction understands", () => {
-    const known = ["start", "backToTodo", "markSolved", "completeReview", "unsolve"];
+    const known = ["start", "backToTodo", "markSolved", "markMastered", "completeReview", "unsolve"];
     for (const c of [fromTodo, fromProgress, fromR1, fromR5, fromMastered]) {
       for (const column of COLUMNS) {
         const result = drop(c, column.id);
@@ -478,6 +505,7 @@ describe("applyDrop", () => {
       actions: {
         setStatus: record("setStatus"),
         markSolved: record("markSolved"),
+        markMastered: record("markMastered"),
         completeReview: record("completeReview"),
         uncompleteReview: record("uncompleteReview"),
         unsolve: record("unsolve"),
@@ -551,9 +579,36 @@ describe("applyDrop", () => {
 
   it("rejects a move that is not allowed, with the reason, and changes nothing", async () => {
     const { calls, actions } = makeActions();
-    const result = await applyDrop(card("todo"), "mastered", actions, yes);
+    const result = await applyDrop(
+      card("mastered", { reviews: [true, true, true, true, true] }),
+      "reviewing",
+      actions,
+      yes
+    );
     expect(result.status).toBe("rejected");
     expect(result.reason).toBeTruthy();
+    expect(calls).toEqual([]);
+  });
+
+  it("masters without asking from To Do, and asks first from Reviewing", async () => {
+    const { calls, actions } = makeActions();
+    const asked = [];
+    const ask = (question) => {
+      asked.push(question);
+      return true;
+    };
+    expect(await applyDrop(card("todo"), "mastered", actions, ask)).toEqual({ status: "moved" });
+    expect(asked).toEqual([]);
+    const reviewing = card("R2", { reviews: [true, false, false, false, false] });
+    expect(await applyDrop(reviewing, "mastered", actions, ask)).toEqual({ status: "moved" });
+    expect(asked).toEqual([MASTER_CONFIRM]);
+    expect(calls).toEqual([["markMastered", 7], ["markMastered", 7]]);
+  });
+
+  it("does not master when the question is answered no", async () => {
+    const { calls, actions } = makeActions();
+    const reviewing = card("R2", { reviews: [true, false, false, false, false] });
+    expect(await applyDrop(reviewing, "mastered", actions, () => false)).toEqual({ status: "cancelled" });
     expect(calls).toEqual([]);
   });
 
@@ -1262,6 +1317,7 @@ describe("cardActionMessage", () => {
     expect(message("start")).toBe("Moved to In Progress");
     expect(message("backToTodo")).toBe("Moved to To Do");
     expect(message("markSolved")).toBe("Marked as solved");
+    expect(message("markMastered")).toBe("Marked as mastered");
     expect(message("completeReview", 2)).toBe("Completed R3");
     expect(message("undoReview", 0)).toBe("Undid R1");
     expect(message("rewind", 1)).toBe("Went back to R2");

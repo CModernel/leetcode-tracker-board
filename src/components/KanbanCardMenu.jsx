@@ -15,6 +15,7 @@ const KanbanCardMenu = ({ card }) => {
   const {
     setStatus,
     markSolved,
+    markMastered,
     unsolve,
     completeReview,
     uncompleteReview,
@@ -77,6 +78,7 @@ const KanbanCardMenu = ({ card }) => {
     runCardAction(action, card.problem.id, {
       setStatus,
       markSolved,
+      markMastered,
       unsolve,
       completeReview,
       uncompleteReview,

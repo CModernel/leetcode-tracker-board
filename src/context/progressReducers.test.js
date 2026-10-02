@@ -6,6 +6,7 @@ import {
   DEFAULT_LIST,
   importData,
   markHelpViewed,
+  markMastered,
   markSolved,
   parseSelectedList,
   restoreEntries,
@@ -1015,5 +1016,108 @@ describe("markHelpViewed", () => {
   it("is kept when an outcome is refused", () => {
     const viewed = markHelpViewed(solvedState(), LIST, 1, "note", "2026-10-06");
     expect(completeReviewWithHelp(viewed, LIST, 1, 4, 0, "2026-10-06")).toBe(viewed);
+  });
+});
+
+describe("markMastered", () => {
+  const TODAY = "2026-10-10";
+  const allDone = [true, true, true, true, true];
+
+  it("masters a problem that was never started: it becomes solved with every review done", () => {
+    const next = markMastered({ [LIST]: {} }, LIST, 1, TODAY);
+    expect(next[LIST][1]).toEqual({
+      status: "solved",
+      solved: true,
+      solvedDate: TODAY,
+      reviews: allDone,
+      dates: {
+        initial: TODAY,
+        review1: TODAY,
+        review2: TODAY,
+        review3: TODAY,
+        review4: TODAY,
+        review5: TODAY,
+      },
+      masteredBy: "manual",
+    });
+  });
+
+  it("keeps the solved date and the dates of the reviews that were done, and dates the rest today", () => {
+    const next = markMastered(solvedState(), LIST, 1, TODAY);
+    expect(next[LIST][1].solvedDate).toBe("2026-10-01");
+    expect(next[LIST][1].dates).toEqual({
+      initial: "2026-10-01",
+      review1: "2026-10-02",
+      review2: "2026-10-05",
+      review3: TODAY,
+      review4: TODAY,
+      review5: TODAY,
+    });
+    expect(next[LIST][1].reviews).toEqual(allDone);
+  });
+
+  it("does not invent attempts: the history only holds real ones", () => {
+    const start = solvedState();
+    start[LIST][1].attempts = [{ date: "2026-10-02", review: 0, help: 0 }];
+    const next = markMastered(start, LIST, 1, TODAY);
+    expect(next[LIST][1].attempts).toEqual([{ date: "2026-10-02", review: 0, help: 0 }]);
+    expect(markMastered({ [LIST]: {} }, LIST, 1, TODAY)[LIST][1]).not.toHaveProperty("attempts");
+  });
+
+  it("keeps the note and drops what only made sense while it was in progress or pending", () => {
+    const start = {
+      [LIST]: {
+        1: {
+          status: "in-progress",
+          solved: false,
+          reviews: noReviews,
+          dates: {},
+          note: "hash map",
+          startedAt: "2026-10-09T10:00:00Z",
+          order: 2,
+          dueOverride: { review: 0, date: "2026-10-12" },
+          helpViewed: { note: TODAY },
+        },
+      },
+    };
+    const entry = markMastered(start, LIST, 1, TODAY)[LIST][1];
+    expect(entry.note).toBe("hash map");
+    for (const key of ["startedAt", "order", "dueOverride", "helpViewed"]) {
+      expect(entry).not.toHaveProperty(key);
+    }
+  });
+
+  it("does nothing when all the reviews are already done, and changes only that problem", () => {
+    const done = { [LIST]: { 1: { solved: true, solvedDate: "2026-09-01", reviews: allDone, dates: {} } } };
+    expect(markMastered(done, LIST, 1, TODAY)).toBe(done);
+    const start = solvedState();
+    const next = markMastered(start, LIST, 1, TODAY);
+    expect(next[OTHER]).toBe(start[OTHER]);
+  });
+
+  it("the card is in Mastered, and nothing is left pending in the schedule", () => {
+    const entry = markMastered(solvedState(), LIST, 1, TODAY)[LIST][1];
+    expect(getSchedule(entry)).toHaveLength(5);
+    expect(entry.reviews.every(Boolean)).toBe(true);
+  });
+
+  it("the mark goes away as soon as the reviews change: going back, undoing a review or unsolving", () => {
+    const mastered = markMastered(solvedState(), LIST, 1, TODAY);
+    expect(rewindReviews(mastered, LIST, 1, 2)[LIST][1]).not.toHaveProperty("masteredBy");
+    expect(uncompleteReview(mastered, LIST, 1, 4)[LIST][1]).not.toHaveProperty("masteredBy");
+    expect(unsolve(mastered, LIST, 1)[LIST][1]).not.toHaveProperty("masteredBy");
+    expect(setStatus(mastered, LIST, 1, "todo", TODAY)[LIST][1]).not.toHaveProperty("masteredBy");
+  });
+
+  it("going back from a manual Mastered starts the reviews again from that one", () => {
+    const mastered = markMastered(solvedState(), LIST, 1, TODAY);
+    const back = rewindReviews(mastered, LIST, 1, 0)[LIST][1];
+    expect(back.reviews).toEqual(noReviews);
+    expect(back.solved).toBe(true);
+  });
+
+  it("changing the note keeps the mark", () => {
+    const mastered = markMastered(solvedState(), LIST, 1, TODAY);
+    expect(setNote(mastered, LIST, 1, "x")[LIST][1].masteredBy).toBe("manual");
   });
 });

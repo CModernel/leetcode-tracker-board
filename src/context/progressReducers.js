@@ -28,10 +28,12 @@ const emptyEntry = () => ({
 
 // A chosen due date (`dueOverride`) belongs to the review that was pending
 // when it was set. Whenever the reviews change, it is dropped so it can never
-// land on a different review later.
+// land on a different review later. `masteredBy` (see markMastered) describes
+// the reviews being all done, so it goes the same way as soon as they change.
 const withoutOverride = (entry) => {
-  const { dueOverride, ...rest } = entry;
+  const { dueOverride, masteredBy, ...rest } = entry;
   void dueOverride;
+  void masteredBy;
   return rest;
 };
 
@@ -53,6 +55,38 @@ export const markSolved = (progress, list, problemId, today) => {
     solvedDate: today,
     dates: { ...current.dates, initial: today },
   }));
+};
+
+// Marks a problem as mastered without going through the five reviews (someone
+// who already knows it). It becomes solved if it was not, every review is done
+// (the ones still pending get `today` as their date) and `masteredBy: "manual"`
+// tells it apart from one that earned it. Attempts are NOT invented: the
+// history only holds real attempts. Notes and attempts stay; the chosen due
+// date, the "opened today" reminders and the In Progress position go. Does
+// nothing when all the reviews are already done.
+export const markMastered = (progress, list, problemId, today) => {
+  const current = progress[list]?.[problemId];
+  if (current?.reviews?.length === 5 && current.reviews.every(Boolean)) return progress;
+  return updateEntry(progress, list, problemId, (entry) => {
+    const next = withoutOverride(entry);
+    delete next.helpViewed;
+    delete next.startedAt;
+    delete next.order;
+    const solvedDate = entry.solvedDate || today;
+    const dates = { ...entry.dates, initial: entry.dates?.initial || solvedDate };
+    for (let i = 0; i < 5; i++) {
+      if (!entry.reviews?.[i]) dates[`review${i + 1}`] = today;
+    }
+    return {
+      ...next,
+      status: "solved",
+      solved: true,
+      solvedDate,
+      reviews: Array(5).fill(true),
+      dates,
+      masteredBy: "manual",
+    };
+  });
 };
 
 // Un-solving wipes the reviews and their dates.

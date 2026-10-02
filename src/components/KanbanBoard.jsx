@@ -66,6 +66,7 @@ const KanbanBoard = () => {
     filters,
     setStatus,
     markSolved,
+    markMastered,
     unsolve,
     completeReview,
     completeReviewWithHelp,
@@ -255,11 +256,12 @@ const KanbanBoard = () => {
       return;
     }
 
-    // The done zone completes the review like the Complete button: it asks
-    // how it went when the note or the solution was opened, and the attempt is
-    // written in the history (a plain drop would skip both).
-    if (target === DONE_ZONE) {
-      if (canDrop(card, DONE_ZONE, groupBy).allowed) {
+    // The done zone, and Mastered from R5, complete the review like the
+    // Complete button: it asks how it went when the note or the solution was
+    // opened, and the attempt is written in the history (a plain drop would
+    // skip both).
+    if (target === DONE_ZONE || (target === "mastered" && card.stage === "R5")) {
+      if (canDrop(card, target, groupBy).allowed) {
         completeReviewFromUi({ problem: card.problem, stage: card.stage });
       }
       return;
@@ -278,7 +280,14 @@ const KanbanBoard = () => {
       result = await applyDrop(
         card,
         target,
-        { setStatus, markSolved, unsolve, completeReview, uncompleteReview },
+        {
+          setStatus,
+          markSolved,
+          markMastered,
+          unsolve,
+          completeReview,
+          uncompleteReview,
+        },
         askAndShow,
         groupBy
       );
@@ -293,6 +302,8 @@ const KanbanBoard = () => {
         message:
           target === DONE_ZONE
             ? `Completed ${card.stage}`
+            : target === "mastered"
+            ? "Marked as mastered"
             : `Moved to ${columnTitle(target)}`,
         undo: () => restoreEntry(list, card.problem.id, before),
       });

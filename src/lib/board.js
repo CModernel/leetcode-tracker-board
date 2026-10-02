@@ -193,6 +193,23 @@ export const UNSOLVE_CONFIRM = {
   confirmLabel: "Reset",
 };
 
+// Asked before mastering a problem that already has reviews done: mastering
+// replaces their dates. It is not a bad thing, so the dialog is neutral. With no
+// review done (To Do, In Progress, or a solved problem still at R1) nothing is
+// lost and nothing is asked: the message with Undo is enough.
+export const MASTER_CONFIRM = {
+  title: "Mark as mastered?",
+  message:
+    "This skips the rest of the review schedule, and the dates of the reviews you completed will be lost.",
+  confirmLabel: "Mark as mastered",
+  tone: "neutral",
+};
+
+// The question to ask before mastering `entry`, or undefined when it has no
+// review done.
+export const masterConfirmFor = (entry) =>
+  entry?.reviews?.some(Boolean) ? MASTER_CONFIRM : undefined;
+
 // Index of the last completed review, or -1 when none is done.
 const lastDoneReview = (entry) => {
   for (let i = 4; i >= 0; i--) if (entry.reviews?.[i]) return i;
@@ -206,11 +223,13 @@ export const getCardActions = (stage, entry = {}) => {
     return [
       { type: "start", label: "Start" },
       { type: "markSolved", label: "Mark as solved" },
+      { type: "markMastered", label: "Mark as mastered" },
     ];
   }
   if (stage === "in-progress") {
     return [
       { type: "markSolved", label: "Mark as solved" },
+      { type: "markMastered", label: "Mark as mastered" },
       { type: "backToTodo", label: "Back to To Do" },
     ];
   }
@@ -240,6 +259,14 @@ export const getCardActions = (stage, entry = {}) => {
       confirm: rewindConfirm(entry, i),
     });
   }
+  // From R5 the way to master it is completing that review
+  if (pending >= 0 && pending < 4) {
+    actions.push({
+      type: "markMastered",
+      label: "Mark as mastered",
+      confirm: masterConfirmFor(entry),
+    });
+  }
   actions.push({
     type: "unsolve",
     label: "Unsolve",
@@ -258,6 +285,8 @@ export const runCardAction = (action, problemId, actions) => {
       return actions.setStatus(problemId, "todo");
     case "markSolved":
       return actions.markSolved(problemId);
+    case "markMastered":
+      return actions.markMastered(problemId);
     case "completeReview":
       return actions.completeReview(problemId, action.index);
     case "undoReview":
@@ -280,6 +309,8 @@ export const cardActionMessage = (action) => {
       return "Moved to To Do";
     case "markSolved":
       return "Marked as solved";
+    case "markMastered":
+      return "Marked as mastered";
     case "completeReview":
       return `Completed R${action.index + 1}`;
     case "undoReview":
@@ -293,15 +324,6 @@ export const cardActionMessage = (action) => {
   }
 };
 
-// "R3, R4 and R5": the reviews left from `stage` (like "R3") to R5.
-const remainingReviews = (stage) => {
-  const left = [];
-  for (let n = Number(stage.slice(1)); n <= 5; n++) left.push(`R${n}`);
-  return left.length === 1
-    ? left[0]
-    : `${left.slice(0, -1).join(", ")} and ${left[left.length - 1]}`;
-};
-
 // Can a card be dropped on a column? Returns { allowed: true, action } with
 // an action that runCardAction understands (it may carry a `confirm`
 // question), or { allowed: false, reason }. `reason` is null when nothing
@@ -310,9 +332,11 @@ const remainingReviews = (stage) => {
 // - To Do <-> In Progress: change the status only.
 // - Anything solved -> To Do / In Progress: unsolve, which erases reviews, so
 //   it asks first.
-// - Reviewing -> Mastered: only from R5 (completes the last review).
-// - Mastered -> Reviewing and To Do / In Progress -> Mastered: not allowed.
-//   Going back one review is done from the card menu.
+// - Reviewing at R5 -> Mastered: completes the last review.
+// - Anything else -> Mastered: marked as mastered without the reviews. It asks
+//   first only when it has reviews done (their dates are lost).
+// - Mastered -> Reviewing: not allowed. Going back one review is done from the
+//   card menu.
 export const canDrop = (card, targetColumnId, groupBy = "stage") => {
   const from = columnOf(card.stage);
   const reject = (reason) => ({ allowed: false, reason });
@@ -361,11 +385,13 @@ export const canDrop = (card, targetColumnId, groupBy = "stage") => {
           ? allow({ type: "completeReview", index: 4 })
           : reject("Complete the earlier reviews first.");
       }
-      return reject(
-        from === "reviewing"
-          ? `This one is waiting for ${card.stage}. Complete ${remainingReviews(card.stage)} first.`
-          : "Solve it first, then complete all five reviews (R1 to R5)."
-      );
+      // Any other problem can be mastered without the reviews (someone who
+      // already knows it). It asks first only when it has reviews done, whose
+      // dates would be lost.
+      return allow({
+        type: "markMastered",
+        confirm: masterConfirmFor(card.entry),
+      });
     default:
       return reject(null);
   }

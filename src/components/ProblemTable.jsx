@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   CheckCircle2,
   Circle,
@@ -7,6 +7,7 @@ import {
   Minus,
   Eye,
   EyeOff,
+  CheckCheck,
 } from "lucide-react";
 import {
   localToday,
@@ -16,6 +17,7 @@ import {
   canRewindTo,
 } from "../lib/schedule";
 import { rewindConfirm } from "../lib/rewind";
+import { getStage, masterConfirmFor } from "../lib/board";
 import { HELP, suggestedHelp } from "../lib/attempts";
 import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
@@ -27,6 +29,7 @@ import {
 import { SHOW_NOTES_KEY, parseShowNotes } from "../lib/preferences";
 import NoteCell from "./NoteCell";
 import OutcomeDialog from "./OutcomeDialog";
+import Toast from "./Toast";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { useProgress } from "../context/ProgressContext";
 import { useConfirm } from "../context/ConfirmContext";
@@ -37,12 +40,15 @@ const ProblemTable = ({
 }) => {
   const {
     filters,
+    selectedList,
     markSolved,
+    markMastered,
     unsolve,
     completeReviewWithHelp,
     setNote,
     markHelpViewed,
     rewindReviews,
+    restoreEntry,
   } = useProgress();
   const confirm = useConfirm();
   const today = localToday();
@@ -83,6 +89,30 @@ const ProblemTable = ({
     const question = rewindConfirm(prob, idx);
     if (question && !(await confirm(question))) return;
     rewindReviews(problem.id, idx);
+  };
+
+  // Message with Undo after marking a problem as mastered ({ id, undo })
+  const [notice, setNotice] = useState(null);
+  const closeNotice = useCallback(() => setNotice(null), []);
+
+  // The double check next to Solved: mastered without going through the
+  // reviews. With reviews done it asks first (same question as on the board:
+  // their dates are lost). With none done nothing is lost, so it only shows the
+  // message with Undo. At R5 it is just completing that last review, as on the
+  // board.
+  const master = async (problem, prob) => {
+    if (getStage(prob) === "mastered") return;
+    if (getStage(prob) === "R5") return toggleReview(problem, prob, 4);
+    const question = masterConfirmFor(prob);
+    if (question && !(await confirm(question))) return;
+    const list = selectedList;
+    const before = progress[problem.id];
+    markMastered(problem.id);
+    setNotice({
+      id: Date.now(),
+      message: "Marked as mastered",
+      undo: () => restoreEntry(list, problem.id, before),
+    });
   };
 
   const filteredProblems = filterProblems(problems, progress, filters, today);
@@ -129,7 +159,7 @@ const ProblemTable = ({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-40">
                 Companies
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-32">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-44">
                 Status
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[200px]">
@@ -149,7 +179,11 @@ const ProblemTable = ({
               return (
                 <tr
                   key={problem.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                    getStage(prob) === "mastered"
+                      ? "bg-green-50/25 dark:bg-green-900/5"
+                      : ""
+                  }`}
                 >
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                     {index + 1}
@@ -236,26 +270,47 @@ const ProblemTable = ({
                     </div>
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() =>
-                        prob.solved
-                          ? unsolve(problem.id)
-                          : markSolved(problem.id)
-                      }
-                      className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-                    >
-                      {prob.solved ? (
-                        <CheckCircle2
-                          className="text-green-600 dark:text-green-500"
-                          size={20}
-                        />
-                      ) : (
-                        <Circle size={20} />
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          prob.solved
+                            ? unsolve(problem.id)
+                            : markSolved(problem.id)
+                        }
+                        className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                      >
+                        {getStage(prob) === "mastered" ? (
+                          <CheckCheck
+                            className="text-green-600 dark:text-green-500"
+                            size={20}
+                          />
+                        ) : prob.solved ? (
+                          <CheckCircle2
+                            className="text-green-600 dark:text-green-500"
+                            size={20}
+                          />
+                        ) : (
+                          <Circle size={20} />
+                        )}
+                        <span className="text-xs">
+                          {getStage(prob) === "mastered"
+                            ? "Mastered"
+                            : prob.solved
+                            ? "Solved"
+                            : "Not Solved"}
+                        </span>
+                      </button>
+                      {getStage(prob) !== "mastered" && (
+                        <button
+                          onClick={() => master(problem, prob)}
+                          aria-label="Mark as mastered"
+                          title="Mark as mastered (skips the review schedule)"
+                          className="rounded p-0.5 text-gray-300 dark:text-gray-600 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                        >
+                          <CheckCheck size={16} />
+                        </button>
                       )}
-                      <span className="text-xs">
-                        {prob.solved ? "Solved" : "Not Solved"}
-                      </span>
-                    </button>
+                    </div>
                     {prob.solved && prob.solvedDate && (
                       <div
                         className="mt-0.5 pl-7 text-[10px] text-gray-500 dark:text-gray-400"
@@ -347,6 +402,16 @@ const ProblemTable = ({
             completeReviewWithHelp(problem.id, index, option.help);
           }}
           onClose={() => setHelpFor(null)}
+        />
+      )}
+      {notice && (
+        <Toast
+          key={notice.id}
+          message={notice.message}
+          onClose={closeNotice}
+          duration={3000}
+          actionLabel="Undo"
+          onAction={notice.undo}
         />
       )}
     </div>

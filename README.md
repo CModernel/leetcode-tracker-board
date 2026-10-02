@@ -54,6 +54,16 @@ Completing a review is one click: it counts as **solved it myself**. If you open
 - Works the same in the tracker, on the board cards and in the **Review today** list, with an **Undo** message.
 - Every attempt is saved in a history (date, review and help needed) that is kept when a problem steps back, and included in the export/import file. It is only erased by **Clear All**.
 
+### 🏆 Mark as mastered
+
+If you already know a problem, you do not need to tap R1 to R5: mark it as mastered.
+
+- **Tracker**: the double check next to **Solved** (it works on problems you have not solved yet too). A mastered problem shows **Mastered** and a very light green row.
+- **Board**: drag a card onto **Mastered**, or use **Mark as mastered** in its ⋯ menu.
+- It asks first only when the problem has reviews done, because their dates are lost. From **To Do**, **In Progress** or with no review done yet it is done at once, with a message and **Undo**.
+- From **R5** the double check (or dropping the card on Mastered) just completes that last review.
+- It does not invent attempts in the history. Going back with R1 to R5 starts the reviews again.
+
 ### 💾 Data Persistence
 
 - **Local Storage**: All progress automatically saved to browser's local storage

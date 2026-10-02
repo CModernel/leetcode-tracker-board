@@ -1011,3 +1011,188 @@ describe("the review button and how it went", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 });
+
+describe("marking a problem as mastered", () => {
+  const entry = () =>
+    JSON.parse(localStorage.getItem("leetcode-progress-v3")).progress["Blind 75"]["blind75-1"];
+  const trophy = (view) => within(view.row()).queryByRole("button", { name: "Mark as mastered" });
+  // The dialog's own button: the table has a trophy button with the same name on every row
+  const cancelOrConfirm = async (name) => {
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name }));
+    await act(async () => {});
+  };
+
+  it("from To Do, the card menu masters it at once, with a message and Undo, and no dialog", () => {
+    const view = renderBoth();
+    view.menu("Mark as mastered");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByText("Marked as mastered")).toBeTruthy();
+    expect(view.columnOfCard()).toBe("Mastered");
+    expect(entry().masteredBy).toBe("manual");
+    expect(entry().attempts).toBeUndefined();
+    // The tracker shows it too: the button is gone, replaced by the Mastered label
+    expect(trophy(view)).toBeNull();
+    expect(within(view.row()).getByText("Mastered")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(view.columnOfCard()).toBe("To Do");
+    expect(entry().masteredBy).toBeUndefined();
+  });
+
+  it("from In Progress it is the same: no dialog", () => {
+    const view = renderBoth();
+    view.menu("Start");
+    view.menu("Mark as mastered");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(view.columnOfCard()).toBe("Mastered");
+  });
+
+  it("solved but with no review done yet, it masters at once: there is nothing to lose", () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    view.menu("Mark as mastered");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(view.columnOfCard()).toBe("Mastered");
+  });
+
+  it("with a review done it asks first, in a neutral dialog, and Cancel changes nothing", async () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    view.menu("Complete R1");
+    view.menu("Mark as mastered");
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("Mark as mastered?")).toBeTruthy();
+    expect(within(dialog).getByText(/dates of the reviews you completed will be lost/)).toBeTruthy();
+    // Not a warning: no red anywhere in it, and a blue confirm button
+    expect(dialog.innerHTML).not.toMatch(/red-/);
+    expect(within(dialog).getByRole("button", { name: "Mark as mastered" }).className).toMatch(/bg-blue-600/);
+    await cancelOrConfirm("Cancel");
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().masteredBy).toBeUndefined();
+
+    view.menu("Mark as mastered");
+    await cancelOrConfirm("Mark as mastered");
+    expect(view.columnOfCard()).toBe("Mastered");
+    expect(entry().reviews).toEqual([true, true, true, true, true]);
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().reviews).toEqual([true, false, false, false, false]);
+  });
+
+  it("the tracker button on a problem never solved masters it with a message and Undo", () => {
+    const view = renderBoth();
+    fireEvent.click(trophy(view));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(view.columnOfCard()).toBe("Mastered");
+    expect(screen.getByText("Marked as mastered")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(view.columnOfCard()).toBe("To Do");
+    expect(trophy(view)).not.toBeNull();
+  });
+
+  it("the tracker button asks first only when a review is done", async () => {
+    const view = renderBoth();
+    fireEvent.click(within(view.row()).getByText("Not Solved"));
+    fireEvent.click(within(view.row()).getByRole("button", { name: "R1" }));
+    fireEvent.click(trophy(view));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    await cancelOrConfirm("Cancel");
+    expect(view.columnOfCard()).toBe("Reviewing");
+    fireEvent.click(trophy(view));
+    await cancelOrConfirm("Mark as mastered");
+    expect(view.columnOfCard()).toBe("Mastered");
+  });
+
+  it("a mastered row is shown as Mastered with a very light green, and only that row", () => {
+    const view = renderBoth();
+    expect(view.row().className).not.toMatch(/green/);
+    view.menu("Mark as mastered");
+    expect(within(view.row()).getByText("Mastered")).toBeTruthy();
+    expect(view.row().className).toMatch(/bg-green-50\/25/);
+    expect(within(view.row()).queryByText("Solved")).toBeNull();
+  });
+
+  it("going back with an R button after a manual Mastered starts the reviews again", async () => {
+    const view = renderBoth();
+    view.menu("Mark as mastered");
+    fireEvent.click(within(view.row()).getByRole("button", { name: "R1" }));
+    // Going back to R1 erases all five reviews, so it asks first
+    await cancelOrConfirm("Go back");
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().masteredBy).toBeUndefined();
+    expect(entry().reviews).toEqual([false, false, false, false, false]);
+  });
+
+  it("dragging a card from To Do onto the Mastered column masters it, without a dialog", async () => {
+    const view = renderBoth();
+    const column = [...document.querySelectorAll("section")].find(
+      (s) => s.querySelector("h2")?.textContent === "Mastered"
+    );
+    const rect = { left: 0, top: 3000, right: 400, bottom: 3400, width: 400, height: 400, x: 0, y: 3000 };
+    vi.spyOn(column, "getBoundingClientRect").mockReturnValue(rect);
+    const handle = view.card().parentElement;
+    fireEvent.mouseDown(handle, { button: 0, clientX: 5, clientY: 5 });
+    fireEvent.mouseMove(document, { clientX: 5, clientY: 30 });
+    fireEvent.mouseMove(document, { clientX: 100, clientY: 3100 });
+    fireEvent.mouseUp(document, { clientX: 100, clientY: 3100 });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByText("Marked as mastered")).toBeTruthy();
+    expect(view.columnOfCard()).toBe("Mastered");
+  });
+
+  describe("from R5", () => {
+    // Two Sum solved long ago, with R1 to R4 done: only R5 is left
+    const seedR5 = () =>
+      localStorage.setItem(
+        "leetcode-progress-v3",
+        JSON.stringify({
+          version: 3,
+          progress: {
+            "Blind 75": {
+              "blind75-1": {
+                status: "solved",
+                solved: true,
+                solvedDate: "2020-01-01",
+                reviews: [true, true, true, true, false],
+                dates: { initial: "2020-01-01" },
+              },
+            },
+            "LeetCode 75": {},
+            "NeetCode 150": {},
+          },
+        })
+      );
+
+    it("the tracker button completes R5 like the review button: no question, and the attempt is written", () => {
+      seedR5();
+      const view = renderBoth();
+      fireEvent.click(trophy(view));
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(view.columnOfCard()).toBe("Mastered");
+      expect(entry().reviews).toEqual([true, true, true, true, true]);
+      expect(entry().attempts).toHaveLength(1);
+      expect(entry().attempts[0]).toMatchObject({ review: 4, help: 0 });
+      expect(entry().masteredBy).toBeUndefined();
+    });
+
+    it("dragging the card onto Mastered does the same", async () => {
+      seedR5();
+      const view = renderBoth();
+      const column = [...document.querySelectorAll("section")].find(
+        (s) => s.querySelector("h2")?.textContent === "Mastered"
+      );
+      vi.spyOn(column, "getBoundingClientRect").mockReturnValue({
+        left: 0, top: 3000, right: 400, bottom: 3400, width: 400, height: 400, x: 0, y: 3000,
+      });
+      const handle = view.card().parentElement;
+      fireEvent.mouseDown(handle, { button: 0, clientX: 5, clientY: 5 });
+      fireEvent.mouseMove(document, { clientX: 5, clientY: 30 });
+      fireEvent.mouseMove(document, { clientX: 100, clientY: 3100 });
+      fireEvent.mouseUp(document, { clientX: 100, clientY: 3100 });
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      expect(view.columnOfCard()).toBe("Mastered");
+      expect(entry().attempts[0]).toMatchObject({ review: 4, help: 0 });
+      expect(entry().masteredBy).toBeUndefined();
+    });
+  });
+});
