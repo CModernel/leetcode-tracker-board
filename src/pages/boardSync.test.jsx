@@ -1252,3 +1252,75 @@ describe("marking a problem as mastered", () => {
     });
   });
 });
+
+describe("unsolving from the tracker", () => {
+  const entry = () =>
+    JSON.parse(localStorage.getItem("leetcode-progress-v3")).progress["Blind 75"]["blind75-1"];
+  const solvedButton = (view) => within(view.row()).getByText("Solved").closest("button");
+  const answer = async (name) => {
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name }));
+    await act(async () => {});
+  };
+  // Both pages are on screen here, and the board's own message may still be up
+  const undoUnsolve = () =>
+    fireEvent.click(
+      within(screen.getByText("Unsolved").closest('[role="status"]')).getByRole("button", { name: "Undo" })
+    );
+
+  it("with no review done it unsolves at once, with a message and Undo", () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    fireEvent.click(solvedButton(view));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(view.columnOfCard()).toBe("To Do");
+    expect(screen.getByText("Unsolved")).toBeTruthy();
+    undoUnsolve();
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().solved).toBe(true);
+  });
+
+  it("with a review done it asks first, and Cancel changes nothing", async () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    view.menu("Complete R1");
+    fireEvent.click(solvedButton(view));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("Reset this problem?")).toBeTruthy();
+    await answer("Cancel");
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().reviews).toEqual([true, false, false, false, false]);
+    expect(screen.queryByText("Unsolved")).toBeNull();
+  });
+
+  it("confirming erases the reviews, and Undo brings them back", async () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    view.menu("Complete R1");
+    fireEvent.click(solvedButton(view));
+    await answer("Reset");
+    expect(view.columnOfCard()).toBe("To Do");
+    expect(entry().reviews).toEqual([false, false, false, false, false]);
+    expect(screen.getByText("Unsolved")).toBeTruthy();
+    undoUnsolve();
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().reviews).toEqual([true, false, false, false, false]);
+  });
+
+  it("the Mastered label asks too, because it is the same button", async () => {
+    const view = renderBoth();
+    view.menu("Mark as mastered");
+    fireEvent.click(within(view.row()).getByText("Mastered").closest("button"));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    await answer("Reset");
+    expect(view.columnOfCard()).toBe("To Do");
+    expect(entry().masteredBy).toBeUndefined();
+  });
+
+  it("solving a problem is still one click, with no question and no message", () => {
+    const view = renderBoth();
+    fireEvent.click(within(view.row()).getByText("Not Solved"));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByText("Unsolved")).toBeNull();
+    expect(view.columnOfCard()).toBe("Reviewing");
+  });
+});

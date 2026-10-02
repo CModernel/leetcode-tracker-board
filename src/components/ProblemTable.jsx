@@ -17,7 +17,7 @@ import {
   canRewindTo,
 } from "../lib/schedule";
 import { rewindConfirm } from "../lib/rewind";
-import { getStage, masterConfirmFor } from "../lib/board";
+import { UNSOLVE_CONFIRM, getStage, masterConfirmFor } from "../lib/board";
 import { HELP, suggestedHelp } from "../lib/attempts";
 import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
@@ -91,9 +91,27 @@ const ProblemTable = ({
     rewindReviews(problem.id, idx);
   };
 
-  // Message with Undo after marking a problem as mastered ({ id, undo })
+  // Message with Undo after marking a problem as mastered or unsolving it
+  // ({ id, message, undo })
   const [notice, setNotice] = useState(null);
   const closeNotice = useCallback(() => setNotice(null), []);
+
+  // The Solved button is a switch. Solving is immediate. Unsolving erases the
+  // reviews and their dates, so it asks first (same question as on the board)
+  // when a review is done; with none done nothing real is lost. Either way the
+  // message with Undo follows, so a wrong click can be taken back.
+  const toggleSolved = async (problem, prob) => {
+    if (!prob.solved) return markSolved(problem.id);
+    if (prob.reviews?.some(Boolean) && !(await confirm(UNSOLVE_CONFIRM))) return;
+    const list = selectedList;
+    const before = progress[problem.id];
+    unsolve(problem.id);
+    setNotice({
+      id: Date.now(),
+      message: "Unsolved",
+      undo: () => restoreEntry(list, problem.id, before),
+    });
+  };
 
   // The double check next to Solved: mastered without going through the
   // reviews. With reviews done it asks first (same question as on the board:
@@ -272,11 +290,7 @@ const ProblemTable = ({
                   <td className="px-4 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() =>
-                          prob.solved
-                            ? unsolve(problem.id)
-                            : markSolved(problem.id)
-                        }
+                        onClick={() => toggleSolved(problem, prob)}
                         className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                       >
                         {getStage(prob) === "mastered" ? (
