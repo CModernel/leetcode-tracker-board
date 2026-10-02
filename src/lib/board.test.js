@@ -1,20 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   COLUMNS,
-  DONE_ZONE,
   EARLY_HINT,
   MASTER_CONFIRM,
   UNSOLVE_CONFIRM,
-  URGENCY_COLUMNS,
   applyDrop,
   buildColumns,
-  buildReviewQueue,
-  buildUrgencyColumns,
   canDrop,
   cardActionMessage,
   cardForColumn,
   completeButtonFor,
-  countByUrgency,
   emptyMessage,
   getCardActions,
   getNextDue,
@@ -22,8 +17,8 @@ import {
   moveCardInColumns,
   reorderIds,
   resolveDrop,
+  reviewSections,
   runCardAction,
-  urgencyBucket,
 } from "./board";
 import { computeStats } from "./stats";
 
@@ -620,129 +615,6 @@ describe("applyDrop", () => {
   });
 });
 
-describe("urgencyBucket", () => {
-  it("puts a date before today in overdue and today's date in today", () => {
-    expect(urgencyBucket("2026-09-28", today)).toBe("overdue");
-    expect(urgencyBucket("2026-01-01", today)).toBe("overdue");
-    expect(urgencyBucket(today, today)).toBe("today");
-  });
-
-  it("puts the next 7 days in this-week and later dates in later", () => {
-    expect(urgencyBucket("2026-09-30", today)).toBe("this-week");
-    expect(urgencyBucket("2026-10-06", today)).toBe("this-week"); // today + 7
-    expect(urgencyBucket("2026-10-07", today)).toBe("later"); // today + 8
-  });
-
-  it("works across a month end", () => {
-    expect(urgencyBucket("2026-10-01", "2026-09-30")).toBe("this-week");
-    expect(urgencyBucket("2026-10-07", "2026-09-30")).toBe("this-week"); // +7
-    expect(urgencyBucket("2026-10-08", "2026-09-30")).toBe("later"); // +8
-  });
-});
-
-describe("buildUrgencyColumns", () => {
-  const problems = [
-    { id: 1 }, // no progress -> not shown
-    { id: 2 }, // in progress -> not shown
-    { id: 3 }, // R1 due today
-    { id: 4 }, // R1 overdue
-    { id: 5 }, // R1 tomorrow
-    { id: 6 }, // mastered -> not shown
-    { id: 7 }, // R2 far away
-  ];
-  const progress = {
-    2: { status: "in-progress", solved: false },
-    3: solved(none, { solvedDate: "2026-09-28" }),
-    4: solved(none, { solvedDate: "2026-09-01" }),
-    5: solved(none, { solvedDate: today }),
-    6: solved([true, true, true, true, true]),
-    7: solved([true, false, false, false, false], {
-      solvedDate: "2026-09-01",
-      dates: { review1: "2026-10-20" },
-    }),
-  };
-  const columns = buildUrgencyColumns(problems, progress, today);
-  const ids = (id) =>
-    columns.find((c) => c.id === id).cards.map((card) => card.problem.id);
-
-  it("has the four urgency columns in order", () => {
-    expect(columns.map((c) => c.id)).toEqual(URGENCY_COLUMNS.map((c) => c.id));
-    expect(columns.map((c) => c.title)).toEqual([
-      "Overdue",
-      "Today",
-      "This week",
-      "Later",
-    ]);
-  });
-
-  it("groups problems waiting for a review by their due date", () => {
-    expect(ids("overdue")).toEqual([4]);
-    expect(ids("today")).toEqual([3]);
-    expect(ids("this-week")).toEqual([5]);
-    expect(ids("later")).toEqual([7]);
-  });
-
-  it("leaves out problems that are not waiting for a review", () => {
-    const shown = columns.flatMap((c) => c.cards.map((card) => card.problem.id));
-    for (const hidden of [1, 2, 6]) expect(shown).not.toContain(hidden);
-  });
-
-  it("counts each column", () => {
-    expect(columns.map((c) => c.count)).toEqual([1, 1, 1, 1]);
-  });
-
-  it("gives the same cards as the stage view (stage, due date, urgency)", () => {
-    const card = columns.find((c) => c.id === "today").cards[0];
-    expect(card).toMatchObject({ stage: "R1", nextDue: today, urgency: "today" });
-  });
-
-  it("is empty for an empty list", () => {
-    expect(buildUrgencyColumns([], {}, today).map((c) => c.count)).toEqual([0, 0, 0, 0]);
-  });
-});
-
-describe("canDrop by urgency", () => {
-  const waiting = {
-    problem: { id: 1 },
-    stage: "R2",
-    entry: solved([true, false, false, false, false]),
-  };
-
-  it("completes the review when dropped on the done zone", () => {
-    expect(canDrop(waiting, DONE_ZONE, "urgency")).toEqual({
-      allowed: true,
-      action: { type: "completeReview", index: 1 },
-    });
-  });
-
-  it("does nothing on any other target (the columns are due dates)", () => {
-    for (const target of ["overdue", "today", "this-week", "later", "todo", "mastered"]) {
-      expect(canDrop(waiting, target, "urgency")).toEqual({
-        allowed: false,
-        reason: null,
-      });
-    }
-  });
-
-  it("does nothing for a card that is not waiting for a review", () => {
-    const todo = { problem: { id: 2 }, stage: "todo", entry: {} };
-    expect(canDrop(todo, DONE_ZONE, "urgency").allowed).toBe(false);
-  });
-
-  it("keeps the stage rules by default", () => {
-    expect(canDrop({ stage: "todo", entry: {} }, "in-progress").allowed).toBe(true);
-    expect(canDrop({ stage: "todo", entry: {} }, DONE_ZONE).allowed).toBe(false);
-  });
-
-  it("runs through applyDrop and completes the review", async () => {
-    const calls = [];
-    const actions = { completeReview: (...args) => calls.push(args) };
-    const result = await applyDrop(waiting, DONE_ZONE, actions, () => true, "urgency");
-    expect(result).toEqual({ status: "moved" });
-    expect(calls).toEqual([[1, 1]]);
-  });
-});
-
 describe("order inside the columns", () => {
   // Ids in list order: 1..8. Each entry decides the column and the order.
   const list = [1, 2, 3, 4, 5, 6, 7, 8].map((id) => ({ id }));
@@ -813,25 +685,6 @@ describe("order inside the columns", () => {
     expect(columns.map((c) => c.count)).toEqual(
       columns.map((c) => c.cards.length)
     );
-  });
-
-  it("sorts every urgency column by due date, the soonest on top", () => {
-    const columns = buildUrgencyColumns(list, {
-      // R1 due 10-03, 10-01, 10-06 (all this week), 10-02 (an R2 example below)
-      1: at("2026-10-02"),
-      2: at("2026-09-30"),
-      3: at("2026-10-05"),
-      4: at("2026-10-01", [true, false, false, false, false], { review1: "2026-10-02" }), // R2 due 10-04
-    }, today);
-    expect(ids(columns, "this-week")).toEqual([2, 1, 4, 3]);
-  });
-
-  it("orders the urgency view like the stage view for the same cards", () => {
-    const urgency = buildUrgencyColumns(list, progress, today).flatMap((c) =>
-      c.cards.map((card) => card.problem.id)
-    );
-    // overdue first, then today, then later ones
-    expect(urgency).toEqual([4, 5, 3, 6]);
   });
 });
 
@@ -1080,16 +933,7 @@ describe("a card shown in another column while a move waits", () => {
   });
 });
 
-describe("countByUrgency and column urgency counts", () => {
-  const card = (urgency) => ({ urgency });
-
-  it("counts overdue, today and upcoming cards, ignoring cards without a review", () => {
-    expect(
-      countByUrgency([card("overdue"), card("overdue"), card("today"), card("upcoming"), card(null)])
-    ).toEqual({ overdue: 2, today: 1, upcoming: 1 });
-    expect(countByUrgency([])).toEqual({ overdue: 0, today: 0, upcoming: 0 });
-  });
-
+describe("reviewSections", () => {
   const list = [1, 2, 3, 4, 5].map((id) => ({ id }));
   const progress = {
     1: solved(none, { solvedDate: "2026-09-01" }), // overdue
@@ -1098,104 +942,48 @@ describe("countByUrgency and column urgency counts", () => {
     4: solved(none, { solvedDate: today }), // tomorrow
     5: { status: "in-progress", solved: false },
   };
+  const reviewingCards = (prog = progress) =>
+    buildColumns(list, prog, today).find((c) => c.id === "reviewing").cards;
+  const ids = (section) => section.cards.map((card) => card.problem.id);
 
-  it("gives Reviewing its overdue and due-today numbers", () => {
-    const reviewing = buildColumns(list, progress, today).find((c) => c.id === "reviewing");
-    expect(reviewing.urgencyCounts).toEqual({ overdue: 2, today: 1, upcoming: 1 });
+  it("splits Reviewing in Overdue, Today and Upcoming, the most urgent first in each", () => {
+    const sections = reviewSections(reviewingCards());
+    expect(sections.map((s) => s.id)).toEqual(["overdue", "today", "upcoming"]);
+    expect(sections.map((s) => s.title)).toEqual(["Overdue", "Today", "Upcoming"]);
+    expect(ids(sections[0])).toEqual([1, 2]);
+    expect(ids(sections[1])).toEqual([3]);
+    expect(ids(sections[2])).toEqual([4]);
   });
 
-  it("matches the Due Today number of the stats: overdue + today", () => {
-    const reviewing = buildColumns(list, progress, today).find((c) => c.id === "reviewing");
-    expect(reviewing.urgencyCounts.overdue + reviewing.urgencyCounts.today).toBe(
-      computeStats(list, progress, today).dueToday
-    );
+  it("leaves out the sections that have no cards", () => {
+    const onlyUpcoming = { 4: progress[4] };
+    expect(reviewSections(reviewingCards(onlyUpcoming)).map((s) => s.id)).toEqual(["upcoming"]);
+    expect(reviewSections([])).toEqual([]);
   });
 
-  it("has zero counts in the other stage columns", () => {
-    const columns = buildColumns(list, progress, today);
-    for (const id of ["todo", "in-progress", "mastered"]) {
-      expect(columns.find((c) => c.id === id).urgencyCounts).toEqual({
-        overdue: 0,
-        today: 0,
-        upcoming: 0,
-      });
+  it("Overdue and Today together are the Due Today number of the stats", () => {
+    const sections = reviewSections(reviewingCards());
+    const due = sections
+      .filter((s) => s.id !== "upcoming")
+      .reduce((total, s) => total + s.cards.length, 0);
+    expect(due).toBe(computeStats(list, progress, today).dueToday);
+  });
+
+  it("shows every card of Reviewing once", () => {
+    const cards = reviewingCards();
+    const shown = reviewSections(cards).flatMap(ids);
+    expect(shown.sort()).toEqual(cards.map((c) => c.problem.id).sort());
+  });
+
+  it("counts a card with no urgency as upcoming (it is only there while a move waits)", () => {
+    const sections = reviewSections([{ problem: { id: 9 }, urgency: null }]);
+    expect(sections.map((s) => s.id)).toEqual(["upcoming"]);
+  });
+
+  it("does not put the urgency in the other columns' data any more", () => {
+    for (const column of buildColumns(list, progress, today)) {
+      expect(column).not.toHaveProperty("urgencyCounts");
     }
-  });
-
-  it("counts in the urgency view match each column's size", () => {
-    const columns = buildUrgencyColumns(list, progress, today);
-    expect(columns.find((c) => c.id === "overdue").urgencyCounts.overdue).toBe(2);
-    expect(columns.find((c) => c.id === "today").urgencyCounts.today).toBe(1);
-    expect(columns.find((c) => c.id === "this-week").urgencyCounts.upcoming).toBe(1);
-  });
-
-  it("follows a card shown in another column while a move waits", () => {
-    const moved = moveCardInColumns(buildColumns(list, progress, today), 1, "todo");
-    expect(moved.find((c) => c.id === "reviewing").urgencyCounts.overdue).toBe(1);
-    expect(moved.find((c) => c.id === "todo").urgencyCounts.overdue).toBe(0);
-  });
-});
-
-describe("buildReviewQueue", () => {
-  const list = [1, 2, 3, 4, 5, 6].map((id) => ({ id }));
-  const progress = {
-    1: solved(none, { solvedDate: "2026-09-28" }), // due today (R1 = 09-29)
-    2: solved(none, { solvedDate: "2026-09-10" }), // due 09-11, 18 days late
-    3: solved(none, { solvedDate: "2026-09-20" }), // due 09-21, 8 days late
-    4: solved(none, { solvedDate: today }), // due tomorrow: not in the queue
-    5: { status: "in-progress", solved: false }, // not solved
-    6: solved([true, true, true, true, true]), // mastered
-  };
-  const queue = buildReviewQueue(list, progress, today);
-
-  it("has the reviews that are overdue or due today, the oldest first", () => {
-    expect(queue.map((item) => item.problem.id)).toEqual([2, 3, 1]);
-  });
-
-  it("leaves out upcoming reviews, unsolved and mastered problems", () => {
-    const ids = queue.map((item) => item.problem.id);
-    for (const left of [4, 5, 6]) expect(ids).not.toContain(left);
-  });
-
-  it("says how many days late each one is (0 for today)", () => {
-    expect(queue.map((item) => item.daysLate)).toEqual([18, 8, 0]);
-  });
-
-  it("keeps the stage, due date and urgency of each card", () => {
-    expect(queue[2]).toMatchObject({ stage: "R1", nextDue: "2026-09-29", urgency: "today" });
-    expect(queue[0]).toMatchObject({ urgency: "overdue" });
-  });
-
-  it("breaks ties by the list order", () => {
-    const tie = {
-      1: solved(none, { solvedDate: "2026-09-20" }),
-      2: solved(none, { solvedDate: "2026-09-20" }),
-    };
-    expect(buildReviewQueue(list, tie, today).map((i) => i.problem.id)).toEqual([1, 2]);
-  });
-
-  it("has as many items as the Due Today number of the stats", () => {
-    expect(queue).toHaveLength(computeStats(list, progress, today).dueToday);
-  });
-
-  it("empties as reviews are completed", () => {
-    const done = {
-      ...progress,
-      2: solved([true, false, false, false, false], { solvedDate: "2026-09-10", dates: { review1: today } }),
-    };
-    // R2 of problem 2 is due 2 days after today: no longer in the queue
-    expect(buildReviewQueue(list, done, today).map((i) => i.problem.id)).toEqual([3, 1]);
-  });
-
-  it("is empty when nothing is due", () => {
-    expect(buildReviewQueue(list, {}, today)).toEqual([]);
-    expect(buildReviewQueue([], {}, today)).toEqual([]);
-  });
-
-  it("does not change the progress it reads", () => {
-    const before = JSON.stringify(progress);
-    buildReviewQueue(list, progress, today);
-    expect(JSON.stringify(progress)).toBe(before);
   });
 });
 
@@ -1273,8 +1061,8 @@ describe("completeButtonFor", () => {
 });
 
 describe("emptyMessage", () => {
-  it("has a message for every column of both views", () => {
-    for (const { id } of [...COLUMNS, ...URGENCY_COLUMNS]) {
+  it("has a message for every column", () => {
+    for (const { id } of COLUMNS) {
       expect(emptyMessage(id, false)).not.toBe("Nothing here.");
     }
   });

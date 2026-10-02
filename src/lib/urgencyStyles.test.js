@@ -52,6 +52,7 @@ describe("stripe and badge styles", () => {
   it("uses the same colors as the rest: red overdue, yellow today", () => {
     expect(urgencyStripeStyles.overdue).toContain("red");
     expect(urgencyStripeStyles.today).toContain("yellow");
+    expect(urgencyStripeStyles.inProgress).toContain("green");
     expect(urgencyBadgeStyles.overdue).toContain("red");
     expect(urgencyBadgeStyles.today).toContain("yellow");
   });

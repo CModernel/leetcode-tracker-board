@@ -1,5 +1,4 @@
 import {
-  addDays,
   canCompleteReview,
   daysBetween,
   canUncompleteReview,
@@ -26,10 +25,6 @@ const EMPTY_MESSAGES = {
   "in-progress": "Nothing in progress. Drag a card here to start it.",
   reviewing: "No reviews pending.",
   mastered: "Nothing mastered yet.",
-  overdue: "Nothing overdue.",
-  today: "Nothing due today.",
-  "this-week": "Nothing due this week.",
-  later: "Nothing due later.",
 };
 export const emptyMessage = (columnId, filtered) =>
   filtered
@@ -77,14 +72,6 @@ const makeCard = (problem, entry, today) => {
     nextDue,
     urgency: nextDue ? getUrgency(false, nextDue, today) : null,
   };
-};
-
-// How many cards are overdue, due today or upcoming (cards without a review
-// to wait for are not counted).
-export const countByUrgency = (cards) => {
-  const counts = { overdue: 0, today: 0, upcoming: 0 };
-  for (const card of cards) if (card.urgency) counts[card.urgency] += 1;
-  return counts;
 };
 
 // Sorting inside a column. Sorting is stable, so cards that tie keep the order
@@ -143,50 +130,28 @@ export const buildColumns = (problems, progress, today) => {
       ? [...column.cards].sort(sorters[column.id])
       : column.cards,
     count: column.cards.length,
-    urgencyCounts: countByUrgency(column.cards),
   }));
 };
 
-// What the confirmation dialog shows before reviews are erased.
-// Columns for the "by urgency" view, used for review sessions.
-export const URGENCY_COLUMNS = [
+// Reviewing is split inside into these sections, by how urgent the next review
+// is (the same three states as a card's color and button).
+export const REVIEW_SECTIONS = [
   { id: "overdue", title: "Overdue" },
   { id: "today", title: "Today" },
-  { id: "this-week", title: "This week" },
-  { id: "later", title: "Later" },
+  { id: "upcoming", title: "Upcoming" },
 ];
 
-// Where a due date falls: before today, today, in the next 7 days, or later.
-export const urgencyBucket = (nextDue, today) => {
-  if (nextDue < today) return "overdue";
-  if (nextDue === today) return "today";
-  if (nextDue <= addDays(today, 7)) return "this-week";
-  return "later";
-};
+// The cards of Reviewing grouped in REVIEW_SECTIONS, keeping the order they
+// come in (already by due date, the most urgent first). Empty sections are left
+// out. A card with no urgency (only shown there while a move waits) counts as
+// upcoming.
+export const reviewSections = (cards) =>
+  REVIEW_SECTIONS.map((section) => ({
+    ...section,
+    cards: cards.filter((card) => (card.urgency ?? "upcoming") === section.id),
+  })).filter((section) => section.cards.length > 0);
 
-// Only problems waiting for a review, grouped by when it is due, the soonest
-// on top in each group. Problems that are not solved, or already mastered,
-// are not shown.
-export const buildUrgencyColumns = (problems, progress, today) => {
-  const columns = URGENCY_COLUMNS.map((column) => ({ ...column, cards: [] }));
-  for (const problem of problems) {
-    const card = makeCard(problem, progress[problem.id] || {}, today);
-    if (!card.nextDue) continue;
-    columns
-      .find((column) => column.id === urgencyBucket(card.nextDue, today))
-      .cards.push(card);
-  }
-  return columns.map((column) => ({
-    ...column,
-    cards: [...column.cards].sort(byNextDue),
-    count: column.cards.length,
-    urgencyCounts: countByUrgency(column.cards),
-  }));
-};
-
-// Where a card is dropped to complete its review in the "by urgency" view.
-export const DONE_ZONE = "done";
-
+// What the confirmation dialog shows before a problem is reset.
 export const UNSOLVE_CONFIRM = {
   title: "Reset this problem?",
   message: "You'll lose its reviews and dates.",
@@ -337,22 +302,10 @@ export const cardActionMessage = (action) => {
 //   first only when it has reviews done (their dates are lost).
 // - Mastered -> Reviewing: not allowed. Going back one review is done from the
 //   card menu.
-export const canDrop = (card, targetColumnId, groupBy = "stage") => {
+export const canDrop = (card, targetColumnId) => {
   const from = columnOf(card.stage);
   const reject = (reason) => ({ allowed: false, reason });
   const allow = (action) => ({ allowed: true, action });
-
-  // By urgency the columns are due dates, so the only move is completing the
-  // review the card is waiting for, by dropping it on the "done" zone.
-  if (groupBy === "urgency") {
-    if (targetColumnId !== DONE_ZONE || !card.stage.startsWith("R")) {
-      return reject(null);
-    }
-    const index = Number(card.stage.slice(1)) - 1;
-    return canCompleteReview(card.entry, index)
-      ? allow({ type: "completeReview", index })
-      : reject(null);
-  }
 
   if (!COLUMNS.some((column) => column.id === targetColumnId)) {
     return reject(null);
@@ -408,10 +361,9 @@ export const applyDrop = async (
   card,
   targetColumnId,
   actions,
-  confirm,
-  groupBy = "stage"
+  confirm
 ) => {
-  const result = canDrop(card, targetColumnId, groupBy);
+  const result = canDrop(card, targetColumnId);
   if (!result.allowed) {
     return result.reason
       ? { status: "rejected", reason: result.reason }
@@ -469,25 +421,15 @@ export const moveCardInColumns = (columns, cardId, targetColumnId) => {
   return columns.map((column) => {
     if (column.id === source.id) {
       const cards = column.cards.filter((c) => c !== found);
-      return { ...column, cards, count: cards.length, urgencyCounts: countByUrgency(cards) };
+      return { ...column, cards, count: cards.length };
     }
     if (column.id === target.id) {
       const cards = [...column.cards, card];
-      return { ...column, cards, count: cards.length, urgencyCounts: countByUrgency(cards) };
+      return { ...column, cards, count: cards.length };
     }
     return column;
   });
 };
-
-// The reviews to do today: problems whose next review is overdue or due today,
-// the one waiting longest first (ties keep the list order). Each item is a
-// card plus `daysLate` (0 when due today).
-export const buildReviewQueue = (problems, progress, today) =>
-  problems
-    .map((problem) => makeCard(problem, progress[problem.id] || {}, today))
-    .filter((card) => card.urgency === "overdue" || card.urgency === "today")
-    .sort(byNextDue)
-    .map((card) => ({ ...card, daysLate: daysBetween(card.nextDue, today) }));
 
 export const EARLY_HINT =
   "Reviewing before the due date is easier and helps your long-term memory less.";

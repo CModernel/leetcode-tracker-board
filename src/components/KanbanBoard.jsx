@@ -20,24 +20,18 @@ import KanbanCard from "./KanbanCard";
 import DraggableKanbanCard from "./DraggableKanbanCard";
 import SortableKanbanCard from "./SortableKanbanCard";
 import Toast from "./Toast";
-import DoneDropZone from "./DoneDropZone";
-import GroupByToggle from "./GroupByToggle";
-import ReviewQueue from "./ReviewQueue";
 import OutcomeDialog from "./OutcomeDialog";
 import {
   COLUMNS,
-  DONE_ZONE,
-  URGENCY_COLUMNS,
   applyDrop,
   buildColumns,
-  buildReviewQueue,
-  buildUrgencyColumns,
   canDrop,
   cardForColumn,
   emptyMessage,
   moveCardInColumns,
   reorderIds,
   resolveDrop,
+  reviewSections,
 } from "../lib/board";
 import {
   DRAG_INSTRUCTIONS,
@@ -76,14 +70,9 @@ const KanbanBoard = () => {
     reorder,
   } = useProgress();
   const confirm = useConfirm();
-  // "stage": columns by stage. "urgency": only problems waiting for a review,
-  // grouped by due date, for review sessions.
-  const [groupBy, setGroupBy] = useState("stage");
-  const byUrgency = groupBy === "urgency";
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
-  const [showQueue, setShowQueue] = useState(false);
-  // The review whose outcome dialog is open (card or queue item)
+  // The review whose outcome dialog is open
   const [helpItem, setHelpItem] = useState(null);
   // A move that waits for the confirmation dialog: the card is shown in the
   // column it was dropped on meanwhile, and goes back if the answer is no
@@ -101,7 +90,8 @@ const KanbanBoard = () => {
   const today = localToday();
   const listProgress = progress[selectedList] || {};
   // Same filters as the tracker table, so both views show the same problems.
-  // "Due today" is left out: the board has its own "Review today" queue.
+  // "Due today" is left out: it would empty the other columns. What is due is
+  // in the Overdue and Today sections of Reviewing.
   const problems = filterProblems(
     getProblems(selectedList),
     listProgress,
@@ -109,10 +99,7 @@ const KanbanBoard = () => {
     today
   );
   const filtered = problems.length < getProblems(selectedList).length;
-  const queue = buildReviewQueue(problems, listProgress, today);
-  const columns = byUrgency
-    ? buildUrgencyColumns(problems, listProgress, today)
-    : buildColumns(problems, listProgress, today);
+  const columns = buildColumns(problems, listProgress, today);
   const shownColumns = pendingMove
     ? moveCardInColumns(columns, pendingMove.cardId, pendingMove.targetId)
     : columns;
@@ -137,7 +124,7 @@ const KanbanBoard = () => {
   // the "⋯" menu keep working. Touch: a short press-and-hold starts it, so a
   // swipe still scrolls the board. Keyboard: left and right jump between
   // columns, up and down move a card inside In Progress.
-  const columnIds = new Set([...columns.map((c) => c.id), DONE_ZONE]);
+  const columnIds = new Set(columns.map((c) => c.id));
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
@@ -183,8 +170,7 @@ const KanbanBoard = () => {
       .flatMap((column) => column.cards)
       .find((card) => card.problem.id === id)?.problem.title ?? "card";
   const columnTitle = (id) => {
-    if (id === DONE_ZONE) return "the done zone";
-    const column = [...COLUMNS, ...URGENCY_COLUMNS].find((c) => c.id === id);
+    const column = COLUMNS.find((c) => c.id === id);
     if (column) return column.title;
     // Over another card: name the column that card is in
     const holder = resolveDrop(id, columns);
@@ -192,9 +178,9 @@ const KanbanBoard = () => {
   };
 
   // Column the card being dragged is over (also when over one of its cards)
-  const overColumnId = overId === DONE_ZONE ? null : resolveDrop(overId, columns).columnId;
+  const overColumnId = resolveDrop(overId, columns).columnId;
 
-  // Completing a review (card button, queue, or the dialog's answer): same
+  // Completing a review (card button, or the dialog's answer): same
   // action everywhere, written in the attempt history, with Undo. `option` says
   // how it went: { help, message }.
   const finishReview = (item, option) => {
@@ -232,14 +218,12 @@ const KanbanBoard = () => {
       .find((c) => c.problem.id === active.id);
     if (!card || !over) return;
     const list = selectedList;
-    const target =
-      over.id === DONE_ZONE ? DONE_ZONE : resolveDrop(over.id, columns).columnId;
-    const { overCardId } = resolveDrop(over.id, columns);
+    const { columnId: target, overCardId } = resolveDrop(over.id, columns);
     if (!target) return;
 
     // Inside In Progress: reorder. The whole column is used (not only the
     // visible cards), so filters cannot scramble the saved order.
-    if (!byUrgency && card.stage === "in-progress" && target === "in-progress") {
+    if (card.stage === "in-progress" && target === "in-progress") {
       if (!overCardId || overCardId === card.problem.id) return;
       const allIds = buildColumns(getProblems(list), listProgress, today)
         .find((column) => column.id === "in-progress")
@@ -256,12 +240,11 @@ const KanbanBoard = () => {
       return;
     }
 
-    // The done zone, and Mastered from R5, complete the review like the
-    // Complete button: it asks how it went when the note or the solution was
-    // opened, and the attempt is written in the history (a plain drop would
-    // skip both).
-    if (target === DONE_ZONE || (target === "mastered" && card.stage === "R5")) {
-      if (canDrop(card, target, groupBy).allowed) {
+    // Mastered from R5 completes the last review like the Complete button: it
+    // asks how it went when the note or the solution was opened, and the
+    // attempt is written in the history (a plain drop would skip both).
+    if (target === "mastered" && card.stage === "R5") {
+      if (canDrop(card, target).allowed) {
         completeReviewFromUi({ problem: card.problem, stage: card.stage });
       }
       return;
@@ -288,8 +271,7 @@ const KanbanBoard = () => {
           completeReview,
           uncompleteReview,
         },
-        askAndShow,
-        groupBy
+        askAndShow
       );
     } finally {
       setPendingMove(null);
@@ -300,9 +282,7 @@ const KanbanBoard = () => {
       setNotice({
         id: Date.now(),
         message:
-          target === DONE_ZONE
-            ? `Completed ${card.stage}`
-            : target === "mastered"
+          target === "mastered"
             ? "Marked as mastered"
             : `Moved to ${columnTitle(target)}`,
         undo: () => restoreEntry(list, card.problem.id, before),
@@ -324,36 +304,6 @@ const KanbanBoard = () => {
       onDragEnd={handleDragEnd}
       onDragCancel={stopDragging}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <GroupByToggle value={groupBy} onChange={setGroupBy} />
-        <button
-          onClick={() => setShowQueue((open) => !open)}
-          aria-expanded={showQueue}
-          className="flex items-center gap-2 rounded-lg bg-gray-200 dark:bg-gray-700 px-3 py-1.5 text-sm font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-        >
-          Review today
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-              queue.length === 0
-                ? "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200"
-                : queue.some((item) => item.urgency === "overdue")
-                ? urgencyBadgeStyles.overdue
-                : urgencyBadgeStyles.today
-            }`}
-          >
-            {queue.length}
-          </span>
-        </button>
-      </div>
-      {showQueue && (
-        <ReviewQueue items={queue} onComplete={completeReviewFromUi} />
-      )}
-      {byUrgency && (
-        <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
-          Problems waiting for a review, by due date. Drag a card to the green
-          area, or use its menu, to complete the review.
-        </p>
-      )}
       <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 md:grid md:grid-cols-2 lg:grid-cols-4 md:overflow-visible md:snap-none md:pb-0">
         {shownColumns.map((column) => (
           <KanbanColumn
@@ -361,13 +311,6 @@ const KanbanBoard = () => {
             id={column.id}
             title={column.title}
             count={column.count}
-            urgencyCounts={
-              !byUrgency && column.id === "reviewing"
-                ? column.urgencyCounts
-                : undefined
-            }
-            tone={byUrgency ? column.id : undefined}
-            droppable={!byUrgency}
             highlight={overColumnId === column.id}
             empty={
               column.cards.length === 0
@@ -375,7 +318,7 @@ const KanbanBoard = () => {
                 : undefined
             }
           >
-            {!byUrgency && column.id === "in-progress" ? (
+            {column.id === "in-progress" ? (
               <SortableContext
                 items={column.cards.map((card) => card.problem.id)}
                 strategy={verticalListSortingStrategy}
@@ -388,6 +331,35 @@ const KanbanBoard = () => {
                   />
                 ))}
               </SortableContext>
+            ) : column.id === "reviewing" ? (
+              // Split by how urgent the next review is
+              reviewSections(column.cards).map((section) => (
+                <div
+                  key={section.id}
+                  role="group"
+                  aria-label={section.title}
+                  className="flex flex-col gap-2"
+                >
+                  <h3 className="mt-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {section.title}
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal ${
+                        urgencyBadgeStyles[section.id] ??
+                        "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                      }`}
+                    >
+                      {section.cards.length}
+                    </span>
+                  </h3>
+                  {section.cards.map((card) => (
+                    <DraggableKanbanCard
+                      key={card.problem.id}
+                      card={card}
+                      onComplete={completeReviewFromUi}
+                    />
+                  ))}
+                </div>
+              ))
             ) : (
               column.cards.map((card) => (
                 <DraggableKanbanCard
@@ -400,13 +372,12 @@ const KanbanBoard = () => {
           </KanbanColumn>
         ))}
       </div>
-      {byUrgency && <DoneDropZone />}
       <DragOverlay>
         {activeCard ? (
           <div className="cursor-grabbing shadow-xl rotate-2">
             {/* Dragged over To Do or In Progress it shows without the review */}
             <KanbanCard
-              card={byUrgency ? activeCard : cardForColumn(activeCard, overColumnId)}
+              card={cardForColumn(activeCard, overColumnId)}
               onComplete={() => {}}
             />
           </div>

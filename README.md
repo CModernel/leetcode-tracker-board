@@ -29,8 +29,8 @@ A second view of the same progress, at `/board`. Anything you do in the board ch
 - **Four columns**: To Do, In Progress, Reviewing and Mastered
 - **Drag & drop** (mouse, touch or keyboard) to start a problem, solve it or move it back, with a confirmation before reviews are erased and an **Undo** message
 - **Reorder** the cards inside In Progress
-- **Group by urgency**: Overdue, Today, This week and Later, to run a review session
-- **Review today**: a list of the reviews due, and a **Complete** button on every card
+- **Reviewing sections**: inside Reviewing, the cards are split into Overdue, Today and Upcoming, so what to review now is on top
+- A **Complete** button on every card that is waiting for a review
 - **Due count in the tab title**, for example `(3) CodeTrack Pro`
 - The list and filters at the top apply to both views
 
@@ -51,7 +51,7 @@ Completing a review is one click: it counts as **solved it myself**. If you open
 - **Needed the note**: the same review is repeated in 2 days.
 - **Needed the solution**: the problem goes one review back (R4 to R3), not a full reset.
 
-- Works the same in the tracker, on the board cards and in the **Review today** list, with an **Undo** message.
+- Works the same in the tracker, and on the board cards, with an **Undo** message.
 - Every attempt is saved in a history (date, review and help needed) that is kept when a problem steps back, and included in the export/import file. It is only erased by **Clear All**.
 
 ### 🏆 Mark as mastered
@@ -190,7 +190,7 @@ A: Yes, since data is stored in localStorage. Use the export feature to backup y
 A: Currently no, as data is stored locally. You can export from one device and import to another.
 
 **Q: Will I get a reminder when a review is due?**
-A: Not yet. The app only works while its tab is open: the number of due reviews shows in the tab title, and the board has a "Review today" list.
+A: Not yet. The app only works while its tab is open: the number of due reviews shows in the tab title, and the Reviewing column puts what is overdue or due today on top.
 
 **Q: Can I add custom problems?**
 A: Not currently, but this feature is planned for future releases.

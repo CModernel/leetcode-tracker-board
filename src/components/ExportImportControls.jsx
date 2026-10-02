@@ -1,8 +1,24 @@
+import { useCallback, useState } from "react";
 import { Download, Upload, Trash2 } from "lucide-react";
+import Toast from "./Toast";
 import { useProgress } from "../context/ProgressContext";
+import { useConfirm } from "../context/ConfirmContext";
+
+// Asked before everything is erased. It is the only thing that wipes all three
+// lists at once, so it says so.
+const CLEAR_ALL_CONFIRM = {
+  title: "Clear all progress?",
+  message:
+    "This erases the progress, notes and attempt history of all three lists (Blind 75, LeetCode 75 and NeetCode 150).",
+  confirmLabel: "Clear all",
+};
 
 const ExportImportControls = () => {
-  const { progress, importData: applyImport, clearAll } = useProgress();
+  const { progress, setProgress, importData: applyImport, clearAll } = useProgress();
+  const confirm = useConfirm();
+  // Message with Undo after clearing ({ id, undo })
+  const [notice, setNotice] = useState(null);
+  const closeNotice = useCallback(() => setNotice(null), []);
 
   const exportData = () => {
     const dataStr = JSON.stringify(progress, null, 2);
@@ -33,10 +49,12 @@ const ExportImportControls = () => {
     }
   };
 
-  const clearAllData = () => {
-    if (window.confirm("Are you sure you want to clear all progress?")) {
-      clearAll();
-    }
+  const clearAllData = async () => {
+    if (!(await confirm(CLEAR_ALL_CONFIRM))) return;
+    // Everything as it was, so Undo can put it all back
+    const before = progress;
+    clearAll();
+    setNotice({ id: Date.now(), undo: () => setProgress(before) });
   };
 
   return (
@@ -62,6 +80,16 @@ const ExportImportControls = () => {
       >
         <Trash2 size={16} /> Clear All
       </button>
+      {notice && (
+        <Toast
+          key={notice.id}
+          message="All progress cleared"
+          onClose={closeNotice}
+          duration={6000}
+          actionLabel="Undo"
+          onAction={notice.undo}
+        />
+      )}
     </div>
   );
 };

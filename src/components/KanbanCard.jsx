@@ -24,7 +24,9 @@ const KanbanCard = ({ card, onComplete }) => {
   return (
     <article
       className={`bg-white dark:bg-gray-700 rounded-lg shadow p-3 transition-colors ${
-        urgencyStripeStyles[urgency ?? "none"]
+        urgencyStripeStyles[
+          urgency ?? (stage === "in-progress" ? "inProgress" : "none")
+        ]
       }`}
     >
       <div className="flex items-start justify-between gap-1">
