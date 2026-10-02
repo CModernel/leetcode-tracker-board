@@ -164,15 +164,24 @@ export const uncompleteReview = (progress, list, problemId, index) => {
 // only spaces removes it, so the entry has no empty `note`. The note is not
 // part of the schedule: unsolving and moving the problem keep it. Nothing else
 // in the entry changes, and nothing is created for an empty note.
-export const setNote = (progress, list, problemId, note) => {
+// When `today` is given, every change to the text (a new note or an edit)
+// saves that day as `noteEditedOn`: someone who wrote or edited a note today
+// is not reading it as help (see suggestedHelp). Saving the same text changes
+// nothing; removing the note removes the day.
+export const setNote = (progress, list, problemId, note, today) => {
   const text = typeof note === "string" && note.trim() !== "" ? note : null;
   const current = progress[list]?.[problemId];
   if (text === null && current?.note === undefined) return progress;
   if (text !== null && current?.note === text) return progress;
   return updateEntry(progress, list, problemId, (entry) => {
     const next = { ...entry };
-    if (text === null) delete next.note;
-    else next.note = text;
+    if (text === null) {
+      delete next.note;
+      delete next.noteEditedOn;
+    } else {
+      if (today) next.noteEditedOn = today;
+      next.note = text;
+    }
     return next;
   });
 };

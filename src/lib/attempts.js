@@ -24,9 +24,13 @@ export const VIEW_KINDS = { note: "note", solution: "solution" };
 
 // The help that completing a review today should suggest: the solution when it
 // was opened today, else the note when it was, else null (nothing was opened,
-// so the review is simply completed as solved alone).
+// so the review is simply completed as solved alone). A note that was written
+// or edited today (`noteEditedOn`) was opened to write, not to read as help, so
+// it suggests "solved alone" instead.
 export const suggestedHelp = (entry, today) => {
   if (entry?.helpViewed?.solution === today) return HELP.SOLUTION;
-  if (entry?.helpViewed?.note === today) return HELP.NOTE;
+  if (entry?.helpViewed?.note === today) {
+    return entry.noteEditedOn === today ? HELP.ALONE : HELP.NOTE;
+  }
   return null;
 };

@@ -895,6 +895,62 @@ describe("the review button and how it went", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
+    it("a note written or edited today is not help: it suggests solved alone", () => {
+      seed({ noteEditedOn: "2026-10-20", helpViewed: { note: "2026-10-20" } });
+      const view = renderBoth();
+      fireEvent.click(completeButton(view));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("You wrote or edited this note today, so it does not count as help.")).toBeTruthy();
+      const badges = within(dialog).getAllByText("Suggested");
+      expect(badges).toHaveLength(1);
+      expect(badges[0].closest("button").textContent).toMatch(/Solved it myself/);
+    });
+
+    it("the whole flow: add the note on the card, read it, and Complete suggests solved alone", () => {
+      seed({ note: undefined });
+      const view = renderBoth();
+      fireEvent.click(within(view.card()).getByRole("button", { name: "Add note" }));
+      fireEvent.change(screen.getByLabelText("Note for Two Sum"), { target: { value: "Use a hash map" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(saved().noteEditedOn).toBe("2026-10-20");
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(completeButton(view));
+      const badge = within(screen.getByRole("dialog")).getByText("Suggested");
+      expect(badge.closest("button").textContent).toMatch(/Solved it myself/);
+    });
+
+    it("editing an existing note on the card also suggests solved alone", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      fireEvent.change(screen.getByLabelText("Note for Two Sum"), { target: { value: "Use a hash map and an index" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(saved().noteEditedOn).toBe("2026-10-20");
+      expect(saved().helpViewed).toEqual({ note: "2026-10-20" });
+      fireEvent.click(completeButton(view));
+      const badge = within(screen.getByRole("dialog")).getByText("Suggested");
+      expect(badge.closest("button").textContent).toMatch(/Solved it myself/);
+    });
+
+    it("opening an existing note and closing it without changes still suggests the note", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      expect(saved()).not.toHaveProperty("noteEditedOn");
+      fireEvent.click(completeButton(view));
+      const badge = within(screen.getByRole("dialog")).getByText("Suggested");
+      expect(badge.closest("button").textContent).toMatch(/Needed the note/);
+    });
+
+    it("a note that was there before today is still suggested when read", () => {
+      seed({ noteEditedOn: "2026-10-01", helpViewed: { note: "2026-10-20" } });
+      const view = renderBoth();
+      fireEvent.click(completeButton(view));
+      const badge = within(screen.getByRole("dialog")).getByText("Suggested");
+      expect(badge.closest("button").textContent).toMatch(/Needed the note/);
+    });
+
     it("the solution opened today is suggested instead", () => {
       seed({ helpViewed: { solution: "2026-10-20" } });
       const view = renderBoth();

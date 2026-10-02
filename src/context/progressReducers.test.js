@@ -1121,3 +1121,42 @@ describe("markMastered", () => {
     expect(setNote(mastered, LIST, 1, "x")[LIST][1].masteredBy).toBe("manual");
   });
 });
+
+describe("setNote and the day the note was last written", () => {
+  const TODAY = "2026-10-10";
+
+  it("saves the day when a note is added to a problem that had none", () => {
+    const next = setNote(solvedState(), LIST, 1, "hash map", TODAY);
+    expect(next[LIST][1].noteEditedOn).toBe(TODAY);
+  });
+
+  it("saves the new day when the note is edited later", () => {
+    const first = setNote(solvedState(), LIST, 1, "hash map", "2026-10-02");
+    const edited = setNote(first, LIST, 1, "hash map and index", TODAY);
+    expect(edited[LIST][1].note).toBe("hash map and index");
+    expect(edited[LIST][1].noteEditedOn).toBe(TODAY);
+  });
+
+  it("saving the same text again changes nothing, so the day stays", () => {
+    const first = setNote(solvedState(), LIST, 1, "hash map", "2026-10-02");
+    expect(setNote(first, LIST, 1, "hash map", TODAY)).toBe(first);
+  });
+
+  it("removing the note removes the day, and a new note gets a new day", () => {
+    const first = setNote(solvedState(), LIST, 1, "hash map", "2026-10-02");
+    const removed = setNote(first, LIST, 1, "  ", "2026-10-03");
+    expect(removed[LIST][1]).not.toHaveProperty("note");
+    expect(removed[LIST][1]).not.toHaveProperty("noteEditedOn");
+    expect(setNote(removed, LIST, 1, "again", TODAY)[LIST][1].noteEditedOn).toBe(TODAY);
+  });
+
+  it("does not save a day when none is given", () => {
+    expect(setNote(solvedState(), LIST, 1, "x")[LIST][1]).not.toHaveProperty("noteEditedOn");
+  });
+
+  it("an old note without a day gets one when it is edited", () => {
+    const old = solvedState();
+    old[LIST][1].note = "old";
+    expect(setNote(old, LIST, 1, "older", TODAY)[LIST][1].noteEditedOn).toBe(TODAY);
+  });
+});
