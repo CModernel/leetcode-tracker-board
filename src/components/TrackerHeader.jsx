@@ -150,6 +150,9 @@ const TrackerHeader = ({ title, showDueToday = true }) => {
                 </li>
                 <li>4. Use "Due Today" filter to see what needs review</li>
                 <li>5. Check the Official Roadmap for study guidance</li>
+                <li>
+                  6. Already know one? Use the Mastered button next to Solved
+                </li>
               </ul>
             </div>
           </div>

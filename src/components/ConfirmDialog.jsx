@@ -1,19 +1,23 @@
 import { useEffect, useRef } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCheck } from "lucide-react";
 
 // A centered confirmation dialog, built on the native <dialog> element: the
 // browser gives it a dimmed backdrop, keeps the focus inside and handles
 // Escape. It is shown as soon as it is rendered. Cancel has the focus at the
 // start, so pressing Enter by accident does not confirm something destructive.
+// `tone` is "danger" (red, for what erases things) or "neutral" (blue, for an
+// action that is not bad, like marking a problem as mastered).
 const ConfirmDialog = ({
   title,
   message,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
+  tone = "danger",
   onConfirm,
   onCancel,
 }) => {
   const dialogRef = useRef(null);
+  const neutral = tone === "neutral";
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -42,11 +46,18 @@ const ConfirmDialog = ({
     >
       <div className="p-6">
         <div className="flex items-start gap-4">
-          <div className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
-            <AlertTriangle
-              size={20}
-              className="text-red-600 dark:text-red-400"
-            />
+          <div
+            className={`flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-full ${
+              neutral
+                ? "bg-blue-100 dark:bg-blue-900/40"
+                : "bg-red-100 dark:bg-red-900/40"
+            }`}
+          >
+            {neutral ? (
+              <CheckCheck size={20} className="text-blue-600 dark:text-blue-400" />
+            ) : (
+              <AlertTriangle size={20} className="text-red-600 dark:text-red-400" />
+            )}
           </div>
           <div className="min-w-0">
             <h2 id="confirm-title" className="text-lg font-semibold">
@@ -70,7 +81,9 @@ const ConfirmDialog = ({
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+            className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${
+              neutral ? "bg-blue-600 hover:bg-blue-700" : "bg-red-600 hover:bg-red-700"
+            }`}
           >
             {confirmLabel}
           </button>

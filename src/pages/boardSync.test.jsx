@@ -153,6 +153,17 @@ describe("board and tracker share the same data", () => {
     expect(within(view.row()).getByText("Not Solved")).toBeTruthy();
   });
 
+  it("a card in In Progress has a green stripe on its left, and one in To Do has none", () => {
+    const view = renderBoth();
+    expect(view.card().className).toContain("border-transparent");
+    view.menu("Start");
+    expect(view.card().className).toContain("border-green-500");
+    // Moving on to Reviewing gives it the stripe of its review instead
+    view.menu("Mark as solved");
+    expect(view.card().className).not.toContain("border-green-500");
+    expect(view.card().className).toMatch(/border-(gray|red|yellow)-/);
+  });
+
   it("a filter chosen in one view applies to the other", () => {
     const view = renderBoth();
     // Two Sum is Easy: filtering by Hard from the board's header removes it
@@ -166,30 +177,23 @@ describe("board and tracker share the same data", () => {
     expect(view.card()).not.toBe(null);
   });
 
-  it("grouping by urgency shows only problems waiting for a review, by due date", () => {
+  it("Reviewing is split into sections by how urgent the next review is, and there is no toggle, queue or done zone", () => {
     const view = renderBoth();
     view.menu("Mark as solved"); // R1 is due tomorrow
-
-    fireEvent.click(view.board().getByRole("button", { name: "Urgency" }));
-    const titles = view
-      .board()
-      .getAllByRole("heading", { level: 2 })
-      .map((h) => h.textContent)
-      .filter((t) => ["Overdue", "Today", "This week", "Later"].includes(t));
-    expect(titles).toEqual(["Overdue", "Today", "This week", "Later"]);
-    expect(view.columnOfCard()).toBe("This week");
-    // A problem that was never started is not shown in this view
-    expect(view.board().queryByText("2 - Contains Duplicate")).toBe(null);
-
+    const group = (name) => view.board().getByRole("group", { name });
+    expect(within(group("Upcoming")).getByText("1 - Two Sum")).toBeTruthy();
+    // Sections without cards are not shown
+    expect(view.board().queryByRole("group", { name: "Overdue" })).toBeNull();
+    expect(view.board().queryByRole("group", { name: "Today" })).toBeNull();
+    // The old ways of grouping and of reviewing are gone
+    expect(view.board().queryByRole("button", { name: "Urgency" })).toBeNull();
+    expect(view.board().queryByRole("button", { name: /Review today/ })).toBeNull();
+    expect(view.board().queryByText(/Drop a card here/)).toBeNull();
     // Completing the review from the card still changes the tracker
     view.menu("Complete R1");
     expect(within(view.card()).getByText(/^R2 ·/)).toBeTruthy();
     expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
-
-    // Back to stages: everything is shown again
-    fireEvent.click(view.board().getByRole("button", { name: "Stage" }));
-    expect(view.columnOfCard()).toBe("Reviewing");
-    expect(view.board().getByText("2 - Contains Duplicate")).toBeTruthy();
+    expect(within(group("Upcoming")).getByText("1 - Two Sum")).toBeTruthy();
   });
 
   describe("Complete button on the cards", () => {
@@ -256,16 +260,9 @@ describe("board and tracker share the same data", () => {
       expect(within(view.card()).queryByRole("button", { name: /Complete/ })).toBe(null);
     });
 
-    it("also works in the by-urgency view", () => {
-      const view = renderBoth();
-      view.menu("Mark as solved");
-      fireEvent.click(view.board().getByRole("button", { name: "Urgency" }));
-      fireEvent.click(within(view.card()).getByRole("button", { name: "Complete R1 early" }));
-      expect(within(view.card()).getByText(/^R2 ·/)).toBeTruthy();
-    });
   });
 
-  describe("Review today", () => {
+  describe("Due today on the board", () => {
     // Two Sum solved long ago: its R1 is overdue
     const withOverdueReview = () =>
       localStorage.setItem(
@@ -288,40 +285,12 @@ describe("board and tracker share the same data", () => {
         })
       );
 
-    it("counts the reviews due today on its button", () => {
+    it("an overdue review is in the Overdue section of Reviewing", () => {
       withOverdueReview();
       const view = renderBoth();
-      expect(
-        view.board().getByRole("button", { name: /Review today/ }).textContent
-      ).toContain("1");
-    });
-
-    it("lists what is due, and completing it empties the queue and updates the tracker", async () => {
-      withOverdueReview();
-      const view = renderBoth();
-      fireEvent.click(view.board().getByRole("button", { name: /Review today/ }));
-      const queue = within(screen.getByRole("region", { name: "Review today" }));
-      expect(queue.getByText("1 - Two Sum")).toBeTruthy();
-      expect(queue.getByText(/days late/)).toBeTruthy();
-
-      fireEvent.click(queue.getByRole("button", { name: "Complete R1" }));
-      expect(queue.getByText(/all caught up/)).toBeTruthy();
-      expect(
-        view.board().getByRole("button", { name: /Review today/ }).textContent
-      ).toContain("0");
-      // The tracker shows R2 as the next review to complete
-      expect(within(view.row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
-      expect(within(view.card()).getByText(/^R2 ·/)).toBeTruthy();
-    });
-
-    it("can be undone from the message", async () => {
-      withOverdueReview();
-      const view = renderBoth();
-      fireEvent.click(view.board().getByRole("button", { name: /Review today/ }));
-      const queue = within(screen.getByRole("region", { name: "Review today" }));
-      fireEvent.click(queue.getByRole("button", { name: "Complete R1" }));
-      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
-      expect(queue.getByRole("button", { name: "Complete R1" })).toBeTruthy();
+      const overdue = view.board().getByRole("group", { name: "Overdue" });
+      expect(within(overdue).getByText("1 - Two Sum")).toBeTruthy();
+      expect(within(overdue).getByRole("button", { name: "Complete R1" })).toBeTruthy();
     });
 
     it("has no Due Today filter on the board, and the tracker's filter does not empty the board", () => {
@@ -759,24 +728,6 @@ describe("the review button and how it went", () => {
       expect(saved().attempts).toBeUndefined();
     });
 
-    it("the Review today queue completes the same way", () => {
-      const view = renderBoth();
-      fireEvent.click(view.board().getByRole("button", { name: /Review today/ }));
-      const queue = screen.getByRole("region", { name: "Review today" });
-      fireEvent.click(within(queue).getByRole("button", { name: "Complete R3" }));
-      expect(saved().reviews).toEqual([true, true, true, false, false]);
-      expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 0 }]);
-    });
-
-    it("the queue asks too when the note was opened today", () => {
-      const view = renderBoth();
-      openNoteOnCard(view);
-      closeNote();
-      fireEvent.click(view.board().getByRole("button", { name: /Review today/ }));
-      const queue = screen.getByRole("region", { name: "Review today" });
-      fireEvent.click(within(queue).getByRole("button", { name: "Complete R3" }));
-      expect(screen.getByRole("dialog")).toBeTruthy();
-    });
   });
 
   describe("after opening the note", () => {
@@ -895,6 +846,62 @@ describe("the review button and how it went", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
 
+    it("a note written or edited today is not help: it suggests solved alone", () => {
+      seed({ noteEditedOn: "2026-10-20", helpViewed: { note: "2026-10-20" } });
+      const view = renderBoth();
+      fireEvent.click(completeButton(view));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("You wrote or edited this note today, so it does not count as help.")).toBeTruthy();
+      const badges = within(dialog).getAllByText("Suggested");
+      expect(badges).toHaveLength(1);
+      expect(badges[0].closest("button").textContent).toMatch(/Solved it myself/);
+    });
+
+    it("the whole flow: add the note on the card, read it, and Complete suggests solved alone", () => {
+      seed({ note: undefined });
+      const view = renderBoth();
+      fireEvent.click(within(view.card()).getByRole("button", { name: "Add note" }));
+      fireEvent.change(screen.getByLabelText("Note for Two Sum"), { target: { value: "Use a hash map" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(saved().noteEditedOn).toBe("2026-10-20");
+      openNoteOnCard(view);
+      closeNote();
+      fireEvent.click(completeButton(view));
+      const badge = within(screen.getByRole("dialog")).getByText("Suggested");
+      expect(badge.closest("button").textContent).toMatch(/Solved it myself/);
+    });
+
+    it("editing an existing note on the card also suggests solved alone", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      fireEvent.change(screen.getByLabelText("Note for Two Sum"), { target: { value: "Use a hash map and an index" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(saved().noteEditedOn).toBe("2026-10-20");
+      expect(saved().helpViewed).toEqual({ note: "2026-10-20" });
+      fireEvent.click(completeButton(view));
+      const badge = within(screen.getByRole("dialog")).getByText("Suggested");
+      expect(badge.closest("button").textContent).toMatch(/Solved it myself/);
+    });
+
+    it("opening an existing note and closing it without changes still suggests the note", () => {
+      const view = renderBoth();
+      openNoteOnCard(view);
+      closeNote();
+      expect(saved()).not.toHaveProperty("noteEditedOn");
+      fireEvent.click(completeButton(view));
+      const badge = within(screen.getByRole("dialog")).getByText("Suggested");
+      expect(badge.closest("button").textContent).toMatch(/Needed the note/);
+    });
+
+    it("a note that was there before today is still suggested when read", () => {
+      seed({ noteEditedOn: "2026-10-01", helpViewed: { note: "2026-10-20" } });
+      const view = renderBoth();
+      fireEvent.click(completeButton(view));
+      const badge = within(screen.getByRole("dialog")).getByText("Suggested");
+      expect(badge.closest("button").textContent).toMatch(/Needed the note/);
+    });
+
     it("the solution opened today is suggested instead", () => {
       seed({ helpViewed: { solution: "2026-10-20" } });
       const view = renderBoth();
@@ -910,13 +917,14 @@ describe("the review button and how it went", () => {
       fireEvent.click(completeButton(view));
       fireEvent.click(screen.getByRole("button", { name: option }));
     };
-    const queueButton = (view) => view.board().getByRole("button", { name: /Review today/ });
 
-    it("needed the note takes the review out of the Review today queue until its new date", () => {
+    it("needed the note moves the card from Overdue to Upcoming until its new date", () => {
       const view = renderBoth();
-      expect(queueButton(view).textContent).toContain("1");
+      const group = (name) => view.board().getByRole("group", { name });
+      expect(within(group("Overdue")).getByText("1 - Two Sum")).toBeTruthy();
       answerWithNote(view, /Needed the note/);
-      expect(queueButton(view).textContent).toContain("0");
+      expect(view.board().queryByRole("group", { name: "Overdue" })).toBeNull();
+      expect(within(group("Upcoming")).getByText("1 - Two Sum")).toBeTruthy();
       expect(saved().dueOverride).toEqual({ review: 2, date: "2026-10-22" });
     });
 
@@ -968,5 +976,364 @@ describe("the review button and how it went", () => {
     fireEvent.keyDown(dialog, { key: "Enter", code: "Enter" });
     expect(screen.queryByText(/picked up|dragging/i)).toBeNull();
     expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+});
+
+describe("marking a problem as mastered", () => {
+  const entry = () =>
+    JSON.parse(localStorage.getItem("leetcode-progress-v3")).progress["Blind 75"]["blind75-1"];
+  const trophy = (view) => within(view.row()).queryByRole("button", { name: "Mark as mastered" });
+  // The dialog's own button: the table has a trophy button with the same name on every row
+  const cancelOrConfirm = async (name) => {
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name }));
+    await act(async () => {});
+  };
+
+  it("from To Do, the card menu masters it at once, with a message and Undo, and no dialog", () => {
+    const view = renderBoth();
+    view.menu("Mark as mastered");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByText("Marked as mastered")).toBeTruthy();
+    expect(view.columnOfCard()).toBe("Mastered");
+    expect(entry().masteredBy).toBe("manual");
+    expect(entry().attempts).toBeUndefined();
+    // The tracker shows it too: the button is gone, replaced by the Mastered label
+    expect(trophy(view)).toBeNull();
+    expect(within(view.row()).getByText("Mastered")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(view.columnOfCard()).toBe("To Do");
+    expect(entry().masteredBy).toBeUndefined();
+  });
+
+  it("from In Progress it is the same: no dialog", () => {
+    const view = renderBoth();
+    view.menu("Start");
+    view.menu("Mark as mastered");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(view.columnOfCard()).toBe("Mastered");
+  });
+
+  it("solved but with no review done yet, it masters at once: there is nothing to lose", () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    view.menu("Mark as mastered");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(view.columnOfCard()).toBe("Mastered");
+  });
+
+  it("with a review done it asks first, in a neutral dialog, and Cancel changes nothing", async () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    view.menu("Complete R1");
+    view.menu("Mark as mastered");
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("Mark as mastered?")).toBeTruthy();
+    expect(within(dialog).getByText(/dates of the reviews you completed will be lost/)).toBeTruthy();
+    // Not a warning: no red anywhere in it, and a blue confirm button
+    expect(dialog.innerHTML).not.toMatch(/red-/);
+    expect(within(dialog).getByRole("button", { name: "Mark as mastered" }).className).toMatch(/bg-blue-600/);
+    await cancelOrConfirm("Cancel");
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().masteredBy).toBeUndefined();
+
+    view.menu("Mark as mastered");
+    await cancelOrConfirm("Mark as mastered");
+    expect(view.columnOfCard()).toBe("Mastered");
+    expect(entry().reviews).toEqual([true, true, true, true, true]);
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().reviews).toEqual([true, false, false, false, false]);
+  });
+
+  it("the tracker button on a problem never solved masters it with a message and Undo", () => {
+    const view = renderBoth();
+    fireEvent.click(trophy(view));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(view.columnOfCard()).toBe("Mastered");
+    expect(screen.getByText("Marked as mastered")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(view.columnOfCard()).toBe("To Do");
+    expect(trophy(view)).not.toBeNull();
+  });
+
+  it("the tracker button asks first only when a review is done", async () => {
+    const view = renderBoth();
+    fireEvent.click(within(view.row()).getByText("Not Solved"));
+    fireEvent.click(within(view.row()).getByRole("button", { name: "R1" }));
+    fireEvent.click(trophy(view));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    await cancelOrConfirm("Cancel");
+    expect(view.columnOfCard()).toBe("Reviewing");
+    fireEvent.click(trophy(view));
+    await cancelOrConfirm("Mark as mastered");
+    expect(view.columnOfCard()).toBe("Mastered");
+  });
+
+  it("a mastered row is shown as Mastered with a very light green, and only that row", () => {
+    const view = renderBoth();
+    expect(view.row().className).not.toMatch(/green/);
+    view.menu("Mark as mastered");
+    expect(within(view.row()).getByText("Mastered")).toBeTruthy();
+    expect(view.row().className).toMatch(/bg-green-50\/25/);
+    expect(within(view.row()).queryByText("Solved")).toBeNull();
+  });
+
+  it("going back with an R button after a manual Mastered starts the reviews again", async () => {
+    const view = renderBoth();
+    view.menu("Mark as mastered");
+    fireEvent.click(within(view.row()).getByRole("button", { name: "R1" }));
+    // Going back to R1 erases all five reviews, so it asks first
+    await cancelOrConfirm("Go back");
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().masteredBy).toBeUndefined();
+    expect(entry().reviews).toEqual([false, false, false, false, false]);
+  });
+
+  it("dragging a card from To Do onto the Mastered column masters it, without a dialog", async () => {
+    const view = renderBoth();
+    const column = [...document.querySelectorAll("section")].find(
+      (s) => s.querySelector("h2")?.textContent === "Mastered"
+    );
+    const rect = { left: 0, top: 3000, right: 400, bottom: 3400, width: 400, height: 400, x: 0, y: 3000 };
+    vi.spyOn(column, "getBoundingClientRect").mockReturnValue(rect);
+    const handle = view.card().parentElement;
+    fireEvent.mouseDown(handle, { button: 0, clientX: 5, clientY: 5 });
+    fireEvent.mouseMove(document, { clientX: 5, clientY: 30 });
+    fireEvent.mouseMove(document, { clientX: 100, clientY: 3100 });
+    fireEvent.mouseUp(document, { clientX: 100, clientY: 3100 });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByText("Marked as mastered")).toBeTruthy();
+    expect(view.columnOfCard()).toBe("Mastered");
+  });
+
+  describe("from R5", () => {
+    // Two Sum solved long ago, with R1 to R4 done: only R5 is left
+    const seedR5 = (extra = {}) =>
+      localStorage.setItem(
+        "leetcode-progress-v3",
+        JSON.stringify({
+          version: 3,
+          progress: {
+            "Blind 75": {
+              "blind75-1": {
+                status: "solved",
+                solved: true,
+                solvedDate: "2020-01-01",
+                reviews: [true, true, true, true, false],
+                dates: { initial: "2020-01-01" },
+                ...extra,
+              },
+            },
+            "LeetCode 75": {},
+            "NeetCode 150": {},
+          },
+        })
+      );
+
+    it("the tracker button completes R5 like the review button: no question, and the attempt is written", () => {
+      seedR5();
+      const view = renderBoth();
+      fireEvent.click(trophy(view));
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(view.columnOfCard()).toBe("Mastered");
+      expect(entry().reviews).toEqual([true, true, true, true, true]);
+      expect(entry().attempts).toHaveLength(1);
+      expect(entry().attempts[0]).toMatchObject({ review: 4, help: 0 });
+      expect(entry().masteredBy).toBeUndefined();
+    });
+
+    it("dragging it onto Mastered asks how it went when the note was opened today", async () => {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const todayLocal = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      seedR5({ note: "Use a hash map", helpViewed: { note: todayLocal } });
+      const view = renderBoth();
+      const column = [...document.querySelectorAll("section")].find(
+        (sec) => sec.querySelector("h2")?.textContent === "Mastered"
+      );
+      vi.spyOn(column, "getBoundingClientRect").mockReturnValue({
+        left: 0, top: 3000, right: 400, bottom: 3400, width: 400, height: 400, x: 0, y: 3000,
+      });
+      const handle = view.card().parentElement;
+      fireEvent.mouseDown(handle, { button: 0, clientX: 5, clientY: 5 });
+      fireEvent.mouseMove(document, { clientX: 5, clientY: 30 });
+      fireEvent.mouseMove(document, { clientX: 100, clientY: 3100 });
+      fireEvent.mouseUp(document, { clientX: 100, clientY: 3100 });
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      expect(screen.getByText("How did it go?")).toBeTruthy();
+      expect(entry().reviews).toEqual([true, true, true, true, false]);
+      fireEvent.click(screen.getByRole("button", { name: /Solved it myself/ }));
+      expect(entry().reviews).toEqual([true, true, true, true, true]);
+      expect(entry().attempts[0]).toMatchObject({ review: 4, help: 0 });
+    });
+
+    it("dragging the card onto Mastered does the same", async () => {
+      seedR5();
+      const view = renderBoth();
+      const column = [...document.querySelectorAll("section")].find(
+        (s) => s.querySelector("h2")?.textContent === "Mastered"
+      );
+      vi.spyOn(column, "getBoundingClientRect").mockReturnValue({
+        left: 0, top: 3000, right: 400, bottom: 3400, width: 400, height: 400, x: 0, y: 3000,
+      });
+      const handle = view.card().parentElement;
+      fireEvent.mouseDown(handle, { button: 0, clientX: 5, clientY: 5 });
+      fireEvent.mouseMove(document, { clientX: 5, clientY: 30 });
+      fireEvent.mouseMove(document, { clientX: 100, clientY: 3100 });
+      fireEvent.mouseUp(document, { clientX: 100, clientY: 3100 });
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      expect(view.columnOfCard()).toBe("Mastered");
+      expect(entry().attempts[0]).toMatchObject({ review: 4, help: 0 });
+      expect(entry().masteredBy).toBeUndefined();
+    });
+  });
+});
+
+describe("unsolving from the tracker", () => {
+  const entry = () =>
+    JSON.parse(localStorage.getItem("leetcode-progress-v3")).progress["Blind 75"]["blind75-1"];
+  const solvedButton = (view) => within(view.row()).getByText("Solved").closest("button");
+  const answer = async (name) => {
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name }));
+    await act(async () => {});
+  };
+  // Both pages are on screen here, and the board's own message may still be up
+  const undoUnsolve = () =>
+    fireEvent.click(
+      within(screen.getByText("Unsolved").closest('[role="status"]')).getByRole("button", { name: "Undo" })
+    );
+
+  it("with no review done it unsolves at once, with a message and Undo", () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    fireEvent.click(solvedButton(view));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(view.columnOfCard()).toBe("To Do");
+    expect(screen.getByText("Unsolved")).toBeTruthy();
+    undoUnsolve();
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().solved).toBe(true);
+  });
+
+  it("with a review done it asks first, and Cancel changes nothing", async () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    view.menu("Complete R1");
+    fireEvent.click(solvedButton(view));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("Reset this problem?")).toBeTruthy();
+    await answer("Cancel");
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().reviews).toEqual([true, false, false, false, false]);
+    expect(screen.queryByText("Unsolved")).toBeNull();
+  });
+
+  it("confirming erases the reviews, and Undo brings them back", async () => {
+    const view = renderBoth();
+    view.menu("Mark as solved");
+    view.menu("Complete R1");
+    fireEvent.click(solvedButton(view));
+    await answer("Reset");
+    expect(view.columnOfCard()).toBe("To Do");
+    expect(entry().reviews).toEqual([false, false, false, false, false]);
+    expect(screen.getByText("Unsolved")).toBeTruthy();
+    undoUnsolve();
+    expect(view.columnOfCard()).toBe("Reviewing");
+    expect(entry().reviews).toEqual([true, false, false, false, false]);
+  });
+
+  it("the Mastered label asks too, because it is the same button", async () => {
+    const view = renderBoth();
+    view.menu("Mark as mastered");
+    fireEvent.click(within(view.row()).getByText("Mastered").closest("button"));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    await answer("Reset");
+    expect(view.columnOfCard()).toBe("To Do");
+    expect(entry().masteredBy).toBeUndefined();
+  });
+
+  it("solving a problem is still one click, with no question and no message", () => {
+    const view = renderBoth();
+    fireEvent.click(within(view.row()).getByText("Not Solved"));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByText("Unsolved")).toBeNull();
+    expect(view.columnOfCard()).toBe("Reviewing");
+  });
+});
+
+describe("Clear All", () => {
+  const read = () => JSON.parse(localStorage.getItem("leetcode-progress-v3")).progress;
+  const seed = () =>
+    localStorage.setItem(
+      "leetcode-progress-v3",
+      JSON.stringify({
+        version: 3,
+        progress: {
+          "Blind 75": {
+            "blind75-1": {
+              status: "solved",
+              solved: true,
+              solvedDate: "2026-10-01",
+              reviews: [true, false, false, false, false],
+              dates: { initial: "2026-10-01", review1: "2026-10-02" },
+              note: "Use a hash map",
+              attempts: [{ date: "2026-10-02", review: 0, help: 0 }],
+            },
+          },
+          "LeetCode 75": {
+            "leetcode75-1": { status: "in-progress", solved: false, reviews: [false, false, false, false, false], dates: {} },
+          },
+          "NeetCode 150": {},
+        },
+      })
+    );
+  const clearButton = (view) => view.tracker().getByRole("button", { name: /Clear All/ });
+  const answer = async (name) => {
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name }));
+    await act(async () => {});
+  };
+
+  it("asks in the app's own dialog, not the browser's, and says it erases the three lists", () => {
+    seed();
+    const nativeConfirm = vi.spyOn(window, "confirm");
+    const view = renderBoth();
+    fireEvent.click(clearButton(view));
+    expect(nativeConfirm).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("Clear all progress?")).toBeTruthy();
+    expect(within(dialog).getByText(/all three lists/)).toBeTruthy();
+  });
+
+  it("Cancel keeps everything", async () => {
+    seed();
+    const before = read();
+    const view = renderBoth();
+    fireEvent.click(clearButton(view));
+    await answer("Cancel");
+    expect(read()).toEqual(before);
+    expect(screen.queryByText("All progress cleared")).toBeNull();
+  });
+
+  it("confirming erases every list, and the message has Undo", async () => {
+    seed();
+    const view = renderBoth();
+    fireEvent.click(clearButton(view));
+    await answer("Clear all");
+    expect(read()).toEqual({ "Blind 75": {}, "LeetCode 75": {}, "NeetCode 150": {} });
+    expect(screen.getByText("All progress cleared")).toBeTruthy();
+    expect(view.row().textContent).toContain("Not Solved");
+  });
+
+  it("Undo brings back all the lists, with notes and history", async () => {
+    seed();
+    const before = read();
+    const view = renderBoth();
+    fireEvent.click(clearButton(view));
+    await answer("Clear all");
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    expect(read()).toEqual(before);
+    expect(read()["Blind 75"]["blind75-1"].note).toBe("Use a hash map");
+    expect(read()["LeetCode 75"]["leetcode75-1"].status).toBe("in-progress");
   });
 });

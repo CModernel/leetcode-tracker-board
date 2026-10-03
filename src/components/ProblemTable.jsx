@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   CheckCircle2,
   Circle,
@@ -7,6 +7,7 @@ import {
   Minus,
   Eye,
   EyeOff,
+  CheckCheck,
 } from "lucide-react";
 import {
   localToday,
@@ -16,6 +17,7 @@ import {
   canRewindTo,
 } from "../lib/schedule";
 import { rewindConfirm } from "../lib/rewind";
+import { UNSOLVE_CONFIRM, getStage, masterConfirmFor } from "../lib/board";
 import { HELP, suggestedHelp } from "../lib/attempts";
 import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
@@ -27,9 +29,16 @@ import {
 import { SHOW_NOTES_KEY, parseShowNotes } from "../lib/preferences";
 import NoteCell from "./NoteCell";
 import OutcomeDialog from "./OutcomeDialog";
+import Toast from "./Toast";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { useProgress } from "../context/ProgressContext";
 import { useConfirm } from "../context/ConfirmContext";
+
+// The icon of the state (not solved, solved, mastered): the three are drawn at
+// the same size and thickness, so the circle with a tick is as big as the empty
+// one.
+const STATE_ICON_SIZE = 16;
+const STATE_ICON_STROKE = 2;
 
 const ProblemTable = ({
   problems,
@@ -37,12 +46,15 @@ const ProblemTable = ({
 }) => {
   const {
     filters,
+    selectedList,
     markSolved,
+    markMastered,
     unsolve,
     completeReviewWithHelp,
     setNote,
     markHelpViewed,
     rewindReviews,
+    restoreEntry,
   } = useProgress();
   const confirm = useConfirm();
   const today = localToday();
@@ -83,6 +95,48 @@ const ProblemTable = ({
     const question = rewindConfirm(prob, idx);
     if (question && !(await confirm(question))) return;
     rewindReviews(problem.id, idx);
+  };
+
+  // Message with Undo after marking a problem as mastered or unsolving it
+  // ({ id, message, undo })
+  const [notice, setNotice] = useState(null);
+  const closeNotice = useCallback(() => setNotice(null), []);
+
+  // The Solved button is a switch. Solving is immediate. Unsolving erases the
+  // reviews and their dates, so it asks first (same question as on the board)
+  // when a review is done; with none done nothing real is lost. Either way the
+  // message with Undo follows, so a wrong click can be taken back.
+  const toggleSolved = async (problem, prob) => {
+    if (!prob.solved) return markSolved(problem.id);
+    if (prob.reviews?.some(Boolean) && !(await confirm(UNSOLVE_CONFIRM))) return;
+    const list = selectedList;
+    const before = progress[problem.id];
+    unsolve(problem.id);
+    setNotice({
+      id: Date.now(),
+      message: "Unsolved",
+      undo: () => restoreEntry(list, problem.id, before),
+    });
+  };
+
+  // The double check next to Solved: mastered without going through the
+  // reviews. With reviews done it asks first (same question as on the board:
+  // their dates are lost). With none done nothing is lost, so it only shows the
+  // message with Undo. At R5 it is just completing that last review, as on the
+  // board.
+  const master = async (problem, prob) => {
+    if (getStage(prob) === "mastered") return;
+    if (getStage(prob) === "R5") return toggleReview(problem, prob, 4);
+    const question = masterConfirmFor(prob);
+    if (question && !(await confirm(question))) return;
+    const list = selectedList;
+    const before = progress[problem.id];
+    markMastered(problem.id);
+    setNotice({
+      id: Date.now(),
+      message: "Marked as mastered",
+      undo: () => restoreEntry(list, problem.id, before),
+    });
   };
 
   const filteredProblems = filterProblems(problems, progress, filters, today);
@@ -129,7 +183,7 @@ const ProblemTable = ({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-40">
                 Companies
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-32">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-36">
                 Status
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[200px]">
@@ -149,7 +203,11 @@ const ProblemTable = ({
               return (
                 <tr
                   key={problem.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                    getStage(prob) === "mastered"
+                      ? "bg-green-50/25 dark:bg-green-900/5"
+                      : ""
+                  }`}
                 >
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                     {index + 1}
@@ -237,32 +295,56 @@ const ProblemTable = ({
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
                     <button
-                      onClick={() =>
-                        prob.solved
-                          ? unsolve(problem.id)
-                          : markSolved(problem.id)
-                      }
+                      onClick={() => toggleSolved(problem, prob)}
                       className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                     >
-                      {prob.solved ? (
+                      {getStage(prob) === "mastered" ? (
+                        <CheckCheck
+                          className="shrink-0 text-green-600 dark:text-green-500"
+                          size={STATE_ICON_SIZE}
+                          strokeWidth={STATE_ICON_STROKE}
+                        />
+                      ) : prob.solved ? (
                         <CheckCircle2
-                          className="text-green-600 dark:text-green-500"
-                          size={20}
+                          className="shrink-0 text-green-600 dark:text-green-500"
+                          size={STATE_ICON_SIZE}
+                          strokeWidth={STATE_ICON_STROKE}
                         />
                       ) : (
-                        <Circle size={20} />
+                        <Circle
+                          className="shrink-0"
+                          size={STATE_ICON_SIZE}
+                          strokeWidth={STATE_ICON_STROKE}
+                        />
                       )}
                       <span className="text-xs">
-                        {prob.solved ? "Solved" : "Not Solved"}
+                        {getStage(prob) === "mastered"
+                          ? "Mastered"
+                          : prob.solved
+                          ? "Solved"
+                          : "Not Solved"}
                       </span>
                     </button>
                     {prob.solved && prob.solvedDate && (
                       <div
-                        className="mt-0.5 pl-7 text-[10px] text-gray-500 dark:text-gray-400"
+                        className="mt-0.5 pl-6 text-[10px] text-gray-500 dark:text-gray-400"
                         title={`Solved on ${formatShortDate(prob.solvedDate)}`}
                       >
                         {formatShortDate(prob.solvedDate)}
                       </div>
+                    )}
+                    {/* Under the state and the date, as big as the state above it and
+                        starting at the same edge as its icon */}
+                    {getStage(prob) !== "mastered" && (
+                      <button
+                        onClick={() => master(problem, prob)}
+                        aria-label="Mark as mastered"
+                        title="Mark as mastered (skips the review schedule)"
+                        className="mt-2 flex items-center gap-2 rounded-full border border-gray-300 dark:border-gray-600 py-0.5 pl-1 pr-2.5 text-xs text-gray-500 dark:text-gray-400 hover:border-green-500 hover:text-green-600 dark:hover:border-green-500 dark:hover:text-green-400 transition-colors"
+                      >
+                        <CheckCheck size={14} aria-hidden="true" />
+                        Mastered
+                      </button>
                     )}
                   </td>
                   <td className="px-4 py-4">
@@ -347,6 +429,16 @@ const ProblemTable = ({
             completeReviewWithHelp(problem.id, index, option.help);
           }}
           onClose={() => setHelpFor(null)}
+        />
+      )}
+      {notice && (
+        <Toast
+          key={notice.id}
+          message={notice.message}
+          onClose={closeNotice}
+          duration={3000}
+          actionLabel="Undo"
+          onAction={notice.undo}
         />
       )}
     </div>

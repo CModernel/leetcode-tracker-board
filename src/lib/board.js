@@ -1,5 +1,4 @@
 import {
-  addDays,
   canCompleteReview,
   daysBetween,
   canUncompleteReview,
@@ -26,10 +25,6 @@ const EMPTY_MESSAGES = {
   "in-progress": "Nothing in progress. Drag a card here to start it.",
   reviewing: "No reviews pending.",
   mastered: "Nothing mastered yet.",
-  overdue: "Nothing overdue.",
-  today: "Nothing due today.",
-  "this-week": "Nothing due this week.",
-  later: "Nothing due later.",
 };
 export const emptyMessage = (columnId, filtered) =>
   filtered
@@ -77,14 +72,6 @@ const makeCard = (problem, entry, today) => {
     nextDue,
     urgency: nextDue ? getUrgency(false, nextDue, today) : null,
   };
-};
-
-// How many cards are overdue, due today or upcoming (cards without a review
-// to wait for are not counted).
-export const countByUrgency = (cards) => {
-  const counts = { overdue: 0, today: 0, upcoming: 0 };
-  for (const card of cards) if (card.urgency) counts[card.urgency] += 1;
-  return counts;
 };
 
 // Sorting inside a column. Sorting is stable, so cards that tie keep the order
@@ -143,55 +130,50 @@ export const buildColumns = (problems, progress, today) => {
       ? [...column.cards].sort(sorters[column.id])
       : column.cards,
     count: column.cards.length,
-    urgencyCounts: countByUrgency(column.cards),
   }));
 };
 
-// What the confirmation dialog shows before reviews are erased.
-// Columns for the "by urgency" view, used for review sessions.
-export const URGENCY_COLUMNS = [
+// Reviewing is split inside into these sections, by how urgent the next review
+// is (the same three states as a card's color and button).
+export const REVIEW_SECTIONS = [
   { id: "overdue", title: "Overdue" },
   { id: "today", title: "Today" },
-  { id: "this-week", title: "This week" },
-  { id: "later", title: "Later" },
+  { id: "upcoming", title: "Upcoming" },
 ];
 
-// Where a due date falls: before today, today, in the next 7 days, or later.
-export const urgencyBucket = (nextDue, today) => {
-  if (nextDue < today) return "overdue";
-  if (nextDue === today) return "today";
-  if (nextDue <= addDays(today, 7)) return "this-week";
-  return "later";
-};
+// The cards of Reviewing grouped in REVIEW_SECTIONS, keeping the order they
+// come in (already by due date, the most urgent first). Empty sections are left
+// out. A card with no urgency (only shown there while a move waits) counts as
+// upcoming.
+export const reviewSections = (cards) =>
+  REVIEW_SECTIONS.map((section) => ({
+    ...section,
+    cards: cards.filter((card) => (card.urgency ?? "upcoming") === section.id),
+  })).filter((section) => section.cards.length > 0);
 
-// Only problems waiting for a review, grouped by when it is due, the soonest
-// on top in each group. Problems that are not solved, or already mastered,
-// are not shown.
-export const buildUrgencyColumns = (problems, progress, today) => {
-  const columns = URGENCY_COLUMNS.map((column) => ({ ...column, cards: [] }));
-  for (const problem of problems) {
-    const card = makeCard(problem, progress[problem.id] || {}, today);
-    if (!card.nextDue) continue;
-    columns
-      .find((column) => column.id === urgencyBucket(card.nextDue, today))
-      .cards.push(card);
-  }
-  return columns.map((column) => ({
-    ...column,
-    cards: [...column.cards].sort(byNextDue),
-    count: column.cards.length,
-    urgencyCounts: countByUrgency(column.cards),
-  }));
-};
-
-// Where a card is dropped to complete its review in the "by urgency" view.
-export const DONE_ZONE = "done";
-
+// What the confirmation dialog shows before a problem is reset.
 export const UNSOLVE_CONFIRM = {
   title: "Reset this problem?",
   message: "You'll lose its reviews and dates.",
   confirmLabel: "Reset",
 };
+
+// Asked before mastering a problem that already has reviews done: mastering
+// replaces their dates. It is not a bad thing, so the dialog is neutral. With no
+// review done (To Do, In Progress, or a solved problem still at R1) nothing is
+// lost and nothing is asked: the message with Undo is enough.
+export const MASTER_CONFIRM = {
+  title: "Mark as mastered?",
+  message:
+    "This skips the rest of the review schedule, and the dates of the reviews you completed will be lost.",
+  confirmLabel: "Mark as mastered",
+  tone: "neutral",
+};
+
+// The question to ask before mastering `entry`, or undefined when it has no
+// review done.
+export const masterConfirmFor = (entry) =>
+  entry?.reviews?.some(Boolean) ? MASTER_CONFIRM : undefined;
 
 // Index of the last completed review, or -1 when none is done.
 const lastDoneReview = (entry) => {
@@ -206,11 +188,13 @@ export const getCardActions = (stage, entry = {}) => {
     return [
       { type: "start", label: "Start" },
       { type: "markSolved", label: "Mark as solved" },
+      { type: "markMastered", label: "Mark as mastered" },
     ];
   }
   if (stage === "in-progress") {
     return [
       { type: "markSolved", label: "Mark as solved" },
+      { type: "markMastered", label: "Mark as mastered" },
       { type: "backToTodo", label: "Back to To Do" },
     ];
   }
@@ -240,6 +224,14 @@ export const getCardActions = (stage, entry = {}) => {
       confirm: rewindConfirm(entry, i),
     });
   }
+  // From R5 the way to master it is completing that review
+  if (pending >= 0 && pending < 4) {
+    actions.push({
+      type: "markMastered",
+      label: "Mark as mastered",
+      confirm: masterConfirmFor(entry),
+    });
+  }
   actions.push({
     type: "unsolve",
     label: "Unsolve",
@@ -258,6 +250,8 @@ export const runCardAction = (action, problemId, actions) => {
       return actions.setStatus(problemId, "todo");
     case "markSolved":
       return actions.markSolved(problemId);
+    case "markMastered":
+      return actions.markMastered(problemId);
     case "completeReview":
       return actions.completeReview(problemId, action.index);
     case "undoReview":
@@ -280,6 +274,8 @@ export const cardActionMessage = (action) => {
       return "Moved to To Do";
     case "markSolved":
       return "Marked as solved";
+    case "markMastered":
+      return "Marked as mastered";
     case "completeReview":
       return `Completed R${action.index + 1}`;
     case "undoReview":
@@ -293,15 +289,6 @@ export const cardActionMessage = (action) => {
   }
 };
 
-// "R3, R4 and R5": the reviews left from `stage` (like "R3") to R5.
-const remainingReviews = (stage) => {
-  const left = [];
-  for (let n = Number(stage.slice(1)); n <= 5; n++) left.push(`R${n}`);
-  return left.length === 1
-    ? left[0]
-    : `${left.slice(0, -1).join(", ")} and ${left[left.length - 1]}`;
-};
-
 // Can a card be dropped on a column? Returns { allowed: true, action } with
 // an action that runCardAction understands (it may carry a `confirm`
 // question), or { allowed: false, reason }. `reason` is null when nothing
@@ -310,25 +297,15 @@ const remainingReviews = (stage) => {
 // - To Do <-> In Progress: change the status only.
 // - Anything solved -> To Do / In Progress: unsolve, which erases reviews, so
 //   it asks first.
-// - Reviewing -> Mastered: only from R5 (completes the last review).
-// - Mastered -> Reviewing and To Do / In Progress -> Mastered: not allowed.
-//   Going back one review is done from the card menu.
-export const canDrop = (card, targetColumnId, groupBy = "stage") => {
+// - Reviewing at R5 -> Mastered: completes the last review.
+// - Anything else -> Mastered: marked as mastered without the reviews. It asks
+//   first only when it has reviews done (their dates are lost).
+// - Mastered -> Reviewing: not allowed. Going back one review is done from the
+//   card menu.
+export const canDrop = (card, targetColumnId) => {
   const from = columnOf(card.stage);
   const reject = (reason) => ({ allowed: false, reason });
   const allow = (action) => ({ allowed: true, action });
-
-  // By urgency the columns are due dates, so the only move is completing the
-  // review the card is waiting for, by dropping it on the "done" zone.
-  if (groupBy === "urgency") {
-    if (targetColumnId !== DONE_ZONE || !card.stage.startsWith("R")) {
-      return reject(null);
-    }
-    const index = Number(card.stage.slice(1)) - 1;
-    return canCompleteReview(card.entry, index)
-      ? allow({ type: "completeReview", index })
-      : reject(null);
-  }
 
   if (!COLUMNS.some((column) => column.id === targetColumnId)) {
     return reject(null);
@@ -361,11 +338,13 @@ export const canDrop = (card, targetColumnId, groupBy = "stage") => {
           ? allow({ type: "completeReview", index: 4 })
           : reject("Complete the earlier reviews first.");
       }
-      return reject(
-        from === "reviewing"
-          ? `This one is waiting for ${card.stage}. Complete ${remainingReviews(card.stage)} first.`
-          : "Solve it first, then complete all five reviews (R1 to R5)."
-      );
+      // Any other problem can be mastered without the reviews (someone who
+      // already knows it). It asks first only when it has reviews done, whose
+      // dates would be lost.
+      return allow({
+        type: "markMastered",
+        confirm: masterConfirmFor(card.entry),
+      });
     default:
       return reject(null);
   }
@@ -382,10 +361,9 @@ export const applyDrop = async (
   card,
   targetColumnId,
   actions,
-  confirm,
-  groupBy = "stage"
+  confirm
 ) => {
-  const result = canDrop(card, targetColumnId, groupBy);
+  const result = canDrop(card, targetColumnId);
   if (!result.allowed) {
     return result.reason
       ? { status: "rejected", reason: result.reason }
@@ -443,25 +421,15 @@ export const moveCardInColumns = (columns, cardId, targetColumnId) => {
   return columns.map((column) => {
     if (column.id === source.id) {
       const cards = column.cards.filter((c) => c !== found);
-      return { ...column, cards, count: cards.length, urgencyCounts: countByUrgency(cards) };
+      return { ...column, cards, count: cards.length };
     }
     if (column.id === target.id) {
       const cards = [...column.cards, card];
-      return { ...column, cards, count: cards.length, urgencyCounts: countByUrgency(cards) };
+      return { ...column, cards, count: cards.length };
     }
     return column;
   });
 };
-
-// The reviews to do today: problems whose next review is overdue or due today,
-// the one waiting longest first (ties keep the list order). Each item is a
-// card plus `daysLate` (0 when due today).
-export const buildReviewQueue = (problems, progress, today) =>
-  problems
-    .map((problem) => makeCard(problem, progress[problem.id] || {}, today))
-    .filter((card) => card.urgency === "overdue" || card.urgency === "today")
-    .sort(byNextDue)
-    .map((card) => ({ ...card, daysLate: daysBetween(card.nextDue, today) }));
 
 export const EARLY_HINT =
   "Reviewing before the due date is easier and helps your long-term memory less.";

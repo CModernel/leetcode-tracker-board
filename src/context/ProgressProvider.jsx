@@ -101,11 +101,15 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.markSolved(prev, selectedList, problemId, localToday())
       ),
+    markMastered: (problemId) =>
+      setProgress((prev) =>
+        reducers.markMastered(prev, selectedList, problemId, localToday())
+      ),
     unsolve: (problemId) =>
       setProgress((prev) => reducers.unsolve(prev, selectedList, problemId)),
     setNote: (problemId, note) =>
       setProgress((prev) =>
-        reducers.setNote(prev, selectedList, problemId, note)
+        reducers.setNote(prev, selectedList, problemId, note, localToday())
       ),
     reorder: (orderedIds) =>
       setProgress((prev) => reducers.setOrder(prev, selectedList, orderedIds)),

@@ -67,6 +67,8 @@ const OutcomeDialog = ({ title, options, suggested = null, onChoose, onClose }) 
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             {suggested === HELP.SOLUTION
               ? "You opened the solution today."
+              : suggested === HELP.ALONE
+              ? "You wrote or edited this note today, so it does not count as help."
               : "You opened the note today."}
           </p>
         )}

@@ -38,12 +38,14 @@ export const urgencyBadgeStyles = {
   today: "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300",
 };
 
-// Colored stripe on the left of a board card ("none" for cards with no review
-// to wait for: the space stays, so titles line up).
+// Colored stripe on the left of a board card: by urgency for a review, green
+// for a problem in progress, and "none" for the rest (the space stays, so
+// titles line up).
 export const urgencyStripeStyles = {
   overdue: "border-l-4 border-red-500",
   today: "border-l-4 border-yellow-500",
   upcoming: "border-l-4 border-gray-300 dark:border-gray-500",
+  inProgress: "border-l-4 border-green-500",
   none: "border-l-4 border-transparent",
 };
 
