@@ -34,6 +34,12 @@ import { difficultyColor } from "../lib/difficultyStyles";
 import { useProgress } from "../context/ProgressContext";
 import { useConfirm } from "../context/ConfirmContext";
 
+// The icon of the state (not solved, solved, mastered): the three are drawn at
+// the same size and thickness, so the circle with a tick is as big as the empty
+// one.
+const STATE_ICON_SIZE = 16;
+const STATE_ICON_STROKE = 2;
+
 const ProblemTable = ({
   problems,
   progress,
@@ -177,7 +183,7 @@ const ProblemTable = ({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-40">
                 Companies
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-44">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-36">
                 Status
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[200px]">
@@ -288,50 +294,57 @@ const ProblemTable = ({
                     </div>
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => toggleSolved(problem, prob)}
-                        className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-                      >
-                        {getStage(prob) === "mastered" ? (
-                          <CheckCheck
-                            className="text-green-600 dark:text-green-500"
-                            size={20}
-                          />
-                        ) : prob.solved ? (
-                          <CheckCircle2
-                            className="text-green-600 dark:text-green-500"
-                            size={20}
-                          />
-                        ) : (
-                          <Circle size={20} />
-                        )}
-                        <span className="text-xs">
-                          {getStage(prob) === "mastered"
-                            ? "Mastered"
-                            : prob.solved
-                            ? "Solved"
-                            : "Not Solved"}
-                        </span>
-                      </button>
-                      {getStage(prob) !== "mastered" && (
-                        <button
-                          onClick={() => master(problem, prob)}
-                          aria-label="Mark as mastered"
-                          title="Mark as mastered (skips the review schedule)"
-                          className="rounded p-0.5 text-gray-300 dark:text-gray-600 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                        >
-                          <CheckCheck size={16} />
-                        </button>
+                    <button
+                      onClick={() => toggleSolved(problem, prob)}
+                      className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                    >
+                      {getStage(prob) === "mastered" ? (
+                        <CheckCheck
+                          className="shrink-0 text-green-600 dark:text-green-500"
+                          size={STATE_ICON_SIZE}
+                          strokeWidth={STATE_ICON_STROKE}
+                        />
+                      ) : prob.solved ? (
+                        <CheckCircle2
+                          className="shrink-0 text-green-600 dark:text-green-500"
+                          size={STATE_ICON_SIZE}
+                          strokeWidth={STATE_ICON_STROKE}
+                        />
+                      ) : (
+                        <Circle
+                          className="shrink-0"
+                          size={STATE_ICON_SIZE}
+                          strokeWidth={STATE_ICON_STROKE}
+                        />
                       )}
-                    </div>
+                      <span className="text-xs">
+                        {getStage(prob) === "mastered"
+                          ? "Mastered"
+                          : prob.solved
+                          ? "Solved"
+                          : "Not Solved"}
+                      </span>
+                    </button>
                     {prob.solved && prob.solvedDate && (
                       <div
-                        className="mt-0.5 pl-7 text-[10px] text-gray-500 dark:text-gray-400"
+                        className="mt-0.5 pl-6 text-[10px] text-gray-500 dark:text-gray-400"
                         title={`Solved on ${formatShortDate(prob.solvedDate)}`}
                       >
                         {formatShortDate(prob.solvedDate)}
                       </div>
+                    )}
+                    {/* Under the state and the date, as big as the state above it and
+                        starting at the same edge as its icon */}
+                    {getStage(prob) !== "mastered" && (
+                      <button
+                        onClick={() => master(problem, prob)}
+                        aria-label="Mark as mastered"
+                        title="Mark as mastered (skips the review schedule)"
+                        className="mt-2 flex items-center gap-2 rounded-full border border-gray-300 dark:border-gray-600 py-0.5 pl-1 pr-2.5 text-xs text-gray-500 dark:text-gray-400 hover:border-green-500 hover:text-green-600 dark:hover:border-green-500 dark:hover:text-green-400 transition-colors"
+                      >
+                        <CheckCheck size={14} aria-hidden="true" />
+                        Mastered
+                      </button>
                     )}
                   </td>
                   <td className="px-4 py-4">
