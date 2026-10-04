@@ -173,16 +173,25 @@ These are the dates when every review is done on time. If you do a review late, 
 
 ## 📋 Roadmap
 
+**Done**
 - [x] Dark mode support
-- [x] Kanban board with auto-repetition schedule
-- [x] Notes per task for better retrieval
-- [x] Review outcomes by help needed
-- [ ] Show/hide solution (if attached)
-- [ ] Cloud data persistence
-- [ ] Study streaks tracking
-- [ ] Performance analytics
-- [ ] Mobile app version
+- [x] Notes per problem
+- [x] Kanban board synchronized with the tracker
+- [x] Review outcomes by help needed (solved alone / needed the note / needed the solution)
+- [x] Review rewind, Mark as mastered and Undo
+
+**Planned**
+- [ ] Cloud data persistence (Supabase, local-first, sign in with GitHub, Google or magic link)
+- [ ] Weak-topic analytics and exercise suggestions
+- [ ] Show/hide the solution attached to a problem
+- [ ] Time limits and a timer for attempts
+- [ ] Browser/push notifications for due reviews (needs cloud persistence)
+- [ ] Import progress from LeetCode (needs cloud persistence)
+
+**Ideas**
 - [ ] Custom problem sets
+- [ ] Study streaks tracking
+- [ ] Mobile app version
 
 ## ❓ FAQ
 
