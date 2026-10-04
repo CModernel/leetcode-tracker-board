@@ -73,13 +73,15 @@ describe("the solution icon on the card", () => {
     const view = renderBoard();
     const button = within(view.card()).getByRole("button", { name: "Add solution" });
     expect(button.getAttribute("title")).toBe("Add solution");
+    expect(button.querySelector("svg").getAttribute("fill")).toBe("none");
   });
 
-  it("is highlighted with a solution, and neither the icon nor the tooltip shows the code", () => {
+  it("is grey and filled with a solution, and neither the icon nor the tooltip shows the code", () => {
     seed({ solutions: [sol("secret_code()")] });
     const view = renderBoard();
     const button = within(view.card()).getByRole("button", { name: "Open solution" });
-    expect(button.className).toMatch(/purple/);
+    expect(button.className).not.toMatch(/purple/);
+    expect(button.querySelector("svg").getAttribute("fill")).toBe("currentColor");
     expect(view.card().textContent).not.toContain("secret_code");
     expect(button.getAttribute("title")).not.toContain("secret_code");
   });

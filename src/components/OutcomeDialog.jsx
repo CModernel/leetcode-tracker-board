@@ -68,7 +68,7 @@ const OutcomeDialog = ({ title, options, suggested = null, onChoose, onClose }) 
             {suggested === HELP.SOLUTION
               ? "You opened the solution today."
               : suggested === HELP.ALONE
-              ? "You wrote or edited this note today, so it does not count as help."
+              ? "You wrote or edited the note or solution today, so it does not count as help."
               : "You opened the note today."}
           </p>
         )}
