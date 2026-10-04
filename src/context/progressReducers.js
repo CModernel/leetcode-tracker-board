@@ -8,6 +8,7 @@ import {
 } from "../lib/schedule";
 import { HELP, REPEAT_DAYS, VIEW_KINDS, attemptsOf, isHelp } from "../lib/attempts";
 import { isStatus } from "../lib/status";
+import { canReplace, normalizeSolution } from "../lib/solutions";
 
 // Pure functions that return the next `progress` object. `progress` is
 // { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates, note?, attempts?, helpViewed? } } }.
@@ -183,6 +184,44 @@ export const setNote = (progress, list, problemId, note, today) => {
       next.note = text;
     }
     return next;
+  });
+};
+
+// Saves the solution of a problem (one per problem, see lib/solutions.js).
+// `solution` is normalized; no code (null, empty, spaces) removes it. A
+// solution written by hand is not replaced by an automatic source (canReplace),
+// but a removal always works. Saving the same code, language and source changes
+// nothing. When `today` is given, a change saves that day as `solutionEditedOn`:
+// whoever wrote it today did not look it up as help (see suggestedHelp);
+// removing the solution removes the day. The solution is not part of the
+// schedule: unsolving and moving the problem keep it. Nothing is created for an
+// empty solution on a problem with no progress.
+export const setSolution = (progress, list, problemId, solution, today) => {
+  const next = normalizeSolution(solution, today);
+  const current = progress[list]?.[problemId];
+  if (next === null && current?.solution === undefined) return progress;
+  if (next !== null) {
+    if (!canReplace(current?.solution, next)) return progress;
+    const same = current?.solution;
+    if (
+      same &&
+      same.code === next.code &&
+      same.language === next.language &&
+      same.source === next.source
+    ) {
+      return progress;
+    }
+  }
+  return updateEntry(progress, list, problemId, (entry) => {
+    const result = { ...entry };
+    if (next === null) {
+      delete result.solution;
+      delete result.solutionEditedOn;
+    } else {
+      result.solution = next;
+      if (today) result.solutionEditedOn = today;
+    }
+    return result;
   });
 };
 
