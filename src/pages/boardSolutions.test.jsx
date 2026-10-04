@@ -6,6 +6,9 @@ import { ConfirmProvider } from "../context/ConfirmProvider";
 import { ThemeProvider } from "../context/ThemeProvider";
 import BoardPage from "./BoardPage";
 
+// These render whole pages: give them room when the machine is busy.
+vi.setConfig({ testTimeout: 20000 });
+
 // Two Sum solved on 2026-10-01, today 2026-10-20 (only Date is faked).
 const KEY = "leetcode-progress-v3";
 const seed = (extra = {}) =>

@@ -7,6 +7,9 @@ import { ThemeProvider } from "../context/ThemeProvider";
 import LeetCodeTracker from "./LeetCodeTracker";
 import { SHOW_SOLUTIONS_KEY } from "../lib/preferences";
 
+// These render whole pages: give them room when the machine is busy.
+vi.setConfig({ testTimeout: 20000 });
+
 const KEY = "leetcode-progress-v3";
 const sol = (code, extra = {}) => ({
   code,

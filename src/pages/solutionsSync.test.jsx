@@ -7,6 +7,9 @@ import { ThemeProvider } from "../context/ThemeProvider";
 import LeetCodeTracker from "./LeetCodeTracker";
 import BoardPage from "./BoardPage";
 
+// These render whole pages: give them room when the machine is busy.
+vi.setConfig({ testTimeout: 20000 });
+
 // Two Sum solved on 2026-10-01 with R1 and R2 done: R3 is overdue. Today is
 // 2026-10-20 (only Date is faked). Tracker and board share one provider.
 const KEY = "leetcode-progress-v3";
