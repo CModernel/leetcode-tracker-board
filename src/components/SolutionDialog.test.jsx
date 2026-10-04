@@ -90,6 +90,40 @@ describe("SolutionDialog writing", () => {
     expect(props.onReveal).not.toHaveBeenCalled();
   });
 
+  it("puts the focus on the code field, not on the name, when the editor opens", () => {
+    setup([]);
+    expect(document.activeElement).toBe(screen.getByLabelText("Code for Two Sum"));
+  });
+
+  it("puts the focus on the code field when Edit or Add another is pressed", () => {
+    setup([one]);
+    fireEvent.click(screen.getByText("Show solution"));
+    fireEvent.click(screen.getByText("Edit"));
+    expect(document.activeElement).toBe(screen.getByLabelText("Code for Two Sum"));
+    fireEvent.click(screen.getByText("Cancel"));
+    fireEvent.click(screen.getByText("Add another"));
+    expect(document.activeElement).toBe(screen.getByLabelText("Code for Two Sum"));
+  });
+
+  it("has the code first and the name and language below it, with line numbers", () => {
+    setup([]);
+    const code = screen.getByLabelText("Code for Two Sum");
+    const name = screen.getByLabelText("Name (optional)");
+    const language = screen.getByLabelText("Language");
+    const before = (a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(before(code, name)).toBeTruthy();
+    expect(before(name, language)).toBeTruthy();
+    expect(screen.getByTestId("line-numbers").children.length).toBeGreaterThan(1);
+  });
+
+  it("the line numbers grow with the code typed", () => {
+    setup([]);
+    fireEvent.change(screen.getByLabelText("Code for Two Sum"), {
+      target: { value: Array.from({ length: 30 }, (_, i) => `l${i}`).join("\n") },
+    });
+    expect(screen.getByTestId("line-numbers").children.length).toBe(30);
+  });
+
   it("saves with Ctrl+Enter", () => {
     const props = setup([]);
     const field = screen.getByLabelText("Code for Two Sum");

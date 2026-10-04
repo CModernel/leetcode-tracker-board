@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Eye, Pencil, Plus } from "lucide-react";
 import CodeBlock from "./CodeBlock";
+import CodeEditor from "./CodeEditor";
 import {
   LANGUAGES,
   MAX_SOLUTIONS,
@@ -33,6 +34,7 @@ const primary = `${buttonBase} flex items-center justify-center gap-1.5 bg-blue-
 // new solution; the editor of an existing one starts with its own.
 const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, onClose }) => {
   const dialogRef = useRef(null);
+  const codeRef = useRef(null);
   const copiedTimer = useRef(null);
   const [revealed, setRevealed] = useState(solutions.length === 0);
   const [active, setActive] = useState(0);
@@ -54,9 +56,17 @@ const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, o
     return () => clearTimeout(copiedTimer.current);
   }, []);
 
+  const editing = draft !== null;
+
+  // The code is what is written, so it gets the focus whenever the editor is
+  // shown (also right after showModal(), which would pick the first field).
+  const editingIndex = draft?.index;
+  useEffect(() => {
+    if (editing) codeRef.current?.focus();
+  }, [editing, editingIndex]);
+
   const current = solutions[Math.min(active, solutions.length - 1)];
   const currentIndex = Math.min(active, solutions.length - 1);
-  const editing = draft !== null;
 
   const reveal = () => {
     setRevealed(true);
@@ -149,7 +159,20 @@ const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, o
 
         {editing ? (
           <>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-3">
+              <CodeEditor
+                ref={codeRef}
+                value={draft.code}
+                maxLength={SOLUTION_MAX_LENGTH}
+                placeholder="Paste or write the code here. Ctrl+Enter to save."
+                ariaLabel={`Code for ${label}`}
+                onChange={(code) => setDraft({ ...draft, code })}
+              />
+            </div>
+            <p aria-live="polite" className="mt-1 text-right text-xs text-gray-500 dark:text-gray-400">
+              {draft.code.length}/{SOLUTION_MAX_LENGTH}
+            </p>
+            <div className="mt-1 flex flex-col gap-2 sm:flex-row">
               <input
                 value={draft.name}
                 maxLength={SOLUTION_NAME_MAX_LENGTH}
@@ -171,20 +194,6 @@ const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, o
                 ))}
               </select>
             </div>
-            <textarea
-              autoFocus
-              value={draft.code}
-              maxLength={SOLUTION_MAX_LENGTH}
-              placeholder="Paste or write the code here. Ctrl+Enter to save."
-              aria-label={`Code for ${label}`}
-              rows={14}
-              spellCheck={false}
-              onChange={(event) => setDraft({ ...draft, code: event.target.value })}
-              className="mt-2 w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 font-mono text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
-            <p aria-live="polite" className="mt-1 text-right text-xs text-gray-500 dark:text-gray-400">
-              {draft.code.length}/{SOLUTION_MAX_LENGTH}
-            </p>
             <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
               {draft.index < solutions.length && (
                 <button
