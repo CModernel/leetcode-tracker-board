@@ -28,7 +28,9 @@ const HighlightedCode = ({ code, language, isDark }) => (
     language={language in REGISTERED ? language : "text"}
     style={isDark ? oneDark : oneLight}
     wrapLongLines
-    className="rounded-lg overflow-x-auto !m-0 text-sm"
+    customStyle={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+    codeTagProps={{ style: { whiteSpace: "pre-wrap", wordBreak: "break-word" } }}
+    className="rounded-lg text-sm"
   >
     {code}
   </SyntaxHighlighter>
