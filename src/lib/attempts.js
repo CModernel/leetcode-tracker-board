@@ -28,7 +28,16 @@ export const VIEW_KINDS = { note: "note", solution: "solution" };
 // or edited today (`noteEditedOn`) was opened to write, not to read as help, so
 // it suggests "solved alone" instead.
 export const suggestedHelp = (entry, today) => {
-  if (entry?.helpViewed?.solution === today) return HELP.SOLUTION;
+  if (entry?.helpViewed?.solution === today) {
+    // Same rule as the note: a solution written or edited today was opened to
+    // write it, not to look it up.
+    if (entry.solutionEditedOn === today) {
+      return entry.helpViewed.note === today && entry.noteEditedOn !== today
+        ? HELP.NOTE
+        : HELP.ALONE;
+    }
+    return HELP.SOLUTION;
+  }
   if (entry?.helpViewed?.note === today) {
     return entry.noteEditedOn === today ? HELP.ALONE : HELP.NOTE;
   }

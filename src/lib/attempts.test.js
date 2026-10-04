@@ -56,6 +56,21 @@ describe("suggestedHelp", () => {
     expect(suggestedHelp({ noteEditedOn: TODAY }, TODAY)).toBeNull();
   });
 
+  it("a solution written or edited today is not help: solved alone", () => {
+    const entry = { helpViewed: { solution: TODAY }, solutionEditedOn: TODAY };
+    expect(suggestedHelp(entry, TODAY)).toBe(HELP.ALONE);
+  });
+
+  it("still suggests the solution when it was last edited on another day or the day is unknown", () => {
+    expect(suggestedHelp({ helpViewed: { solution: TODAY }, solutionEditedOn: "2026-10-04" }, TODAY)).toBe(HELP.SOLUTION);
+    expect(suggestedHelp({ helpViewed: { solution: TODAY } }, TODAY)).toBe(HELP.SOLUTION);
+  });
+
+  it("a solution edited today does not hide a note read as help today", () => {
+    const entry = { helpViewed: { solution: TODAY, note: TODAY }, solutionEditedOn: TODAY };
+    expect(suggestedHelp(entry, TODAY)).toBe(HELP.NOTE);
+  });
+
   it("suggests the solution when it was opened today, even if the note was too", () => {
     expect(suggestedHelp({ helpViewed: { solution: TODAY } }, TODAY)).toBe(HELP.SOLUTION);
     expect(suggestedHelp({ helpViewed: { note: TODAY, solution: TODAY } }, TODAY)).toBe(HELP.SOLUTION);
