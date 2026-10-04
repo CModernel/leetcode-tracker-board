@@ -2,6 +2,15 @@
 // The edit field is limited; saved solutions are never cut.
 export const SOLUTION_MAX_LENGTH = 10000;
 
+// A problem can hold up to two solutions (e.g. brute force and optimal), each
+// with an optional short name.
+export const MAX_SOLUTIONS = 2;
+export const SOLUTION_NAME_MAX_LENGTH = 40;
+
+// The saved solutions of an entry, always a list.
+export const solutionsOf = (entry) =>
+  Array.isArray(entry?.solutions) ? entry.solutions : [];
+
 export const LANGUAGES = [
   { id: "javascript", label: "JavaScript" },
   { id: "typescript", label: "TypeScript" },
@@ -29,7 +38,7 @@ const LANGUAGE_IDS = LANGUAGES.map((language) => language.id);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Every source (the editor, an import, an API, an extension) goes through this:
-// { code, language, source, savedAt, meta? }, or null when there is no code.
+// { code, language, source, savedAt, name?, meta? }, or null when there is no code.
 // Unknown languages become "other", an unknown source "manual", and a missing
 // or wrong date is left out of the result by using `fallbackDate`.
 export const normalizeSolution = (raw, fallbackDate) => {
@@ -44,6 +53,8 @@ export const normalizeSolution = (raw, fallbackDate) => {
         : SOLUTION_SOURCES.manual,
     savedAt: DATE.test(raw.savedAt) ? raw.savedAt : fallbackDate,
   };
+  const name = typeof raw.name === "string" ? raw.name.trim().slice(0, SOLUTION_NAME_MAX_LENGTH) : "";
+  if (name !== "") solution.name = name;
   if (typeof raw.meta === "object" && raw.meta !== null && !Array.isArray(raw.meta)) {
     solution.meta = raw.meta;
   }

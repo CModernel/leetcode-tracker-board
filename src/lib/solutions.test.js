@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canReplace, normalizeSolution } from "./solutions";
+import { canReplace, normalizeSolution, solutionsOf } from "./solutions";
 import { importData } from "../context/progressReducers";
 
 describe("normalizeSolution", () => {
@@ -46,6 +46,23 @@ describe("normalizeSolution", () => {
   });
 });
 
+describe("normalizeSolution name", () => {
+  it("trims and cuts the name, and leaves it out when empty", () => {
+    expect(normalizeSolution({ code: "a", name: "  Optimal " }, "d").name).toBe("Optimal");
+    expect(normalizeSolution({ code: "a", name: "x".repeat(60) }, "d").name).toHaveLength(40);
+    expect(normalizeSolution({ code: "a", name: "   " }, "d")).not.toHaveProperty("name");
+    expect(normalizeSolution({ code: "a", name: 5 }, "d")).not.toHaveProperty("name");
+  });
+});
+
+describe("solutionsOf", () => {
+  it("is a list even when there is nothing or bad data", () => {
+    expect(solutionsOf(undefined)).toEqual([]);
+    expect(solutionsOf({ solutions: "x" })).toEqual([]);
+    expect(solutionsOf({ solutions: [{ code: "a" }] })).toEqual([{ code: "a" }]);
+  });
+});
+
 describe("canReplace", () => {
   it("allows when nothing is saved", () => {
     expect(canReplace(undefined, { source: "extension" })).toBe(true);
@@ -61,8 +78,8 @@ describe("canReplace", () => {
 });
 
 describe("export/import", () => {
-  it("keeps the solution of an entry", () => {
-    const data = { "Blind 75": { "blind75-1": { solution: { code: "a" } } } };
-    expect(importData(data)["Blind 75"]["blind75-1"].solution.code).toBe("a");
+  it("keeps the solutions of an entry", () => {
+    const data = { "Blind 75": { "blind75-1": { solutions: [{ code: "a" }] } } };
+    expect(importData(data)["Blind 75"]["blind75-1"].solutions[0].code).toBe("a");
   });
 });
