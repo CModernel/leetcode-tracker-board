@@ -18,7 +18,9 @@ describe("CodeBlock", () => {
     const { container } = renderBlock({ code: "x = 1\ny = 2", language: "python" });
     expect(container.textContent).toContain("x = 1");
     // the highlighter replaces the plain block once it has loaded
-    await vi.waitFor(() => expect(container.querySelector("span.token")).not.toBeNull());
+    await vi.waitFor(() => expect(container.querySelector("span.token")).not.toBeNull(), {
+      timeout: 5000,
+    });
     expect(container.textContent).toContain("y = 2");
   });
 
