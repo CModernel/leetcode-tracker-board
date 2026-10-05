@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, Eye, Pencil, Plus } from "lucide-react";
+import { Check, Copy, Pencil, Plus } from "lucide-react";
 import CodeBlock from "./CodeBlock";
 import CodeEditor from "./CodeEditor";
 import {
@@ -24,19 +24,20 @@ const secondary = `${buttonBase} bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 
 const primary = `${buttonBase} flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white`;
 
 // The solutions of a problem (up to MAX_SOLUTIONS) in a centered dialog
-// (native <dialog>, like NoteDialog). The code stays hidden until "Show
-// solution" is pressed: that is the moment it counts as looking it up
-// (`onReveal`, once). A problem with no solution opens straight in the editor,
-// and what is written there is visible right away (writing is not looking up).
-// Editing an existing one needs the code to be shown first. `onSave(index,
-// solution)` gets the new solution, or null to remove it; the solution saved
-// from here is always "manual". `defaultLanguage` preselects the language of a
-// new solution; the editor of an existing one starts with its own.
-const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, onClose }) => {
+// (native <dialog>), behaving like NoteDialog: a problem with solutions opens
+// to READ the code right away (that is looking it up, reported once with
+// `onRead` when it opens), with Close, Copy, Add another and Edit; a problem
+// with none opens straight in the editor. In the editor Save (or Ctrl/Cmd+Enter)
+// saves and closes, and Close closes without saving. Saving an unchanged
+// solution changes nothing, so it stays just read; a change is a new version
+// written by the user, which the caller does not count as help. `onSave(index,
+// solution)` gets the new solution, or null to remove it; what is saved from
+// here is always "manual". `defaultLanguage` preselects the language of a new
+// solution; the editor of an existing one starts with its own.
+const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onRead, onClose }) => {
   const dialogRef = useRef(null);
   const codeRef = useRef(null);
   const copiedTimer = useRef(null);
-  const [revealed, setRevealed] = useState(solutions.length === 0);
   const [active, setActive] = useState(0);
   // null = reading; { index, code, language, name } = editing that slot
   const [draft, setDraft] = useState(() =>
@@ -53,6 +54,8 @@ const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, o
       if (typeof dialog.showModal === "function") dialog.showModal();
       else dialog.setAttribute("open", "");
     }
+    // opening a problem that has code is reading it
+    if (solutions.length > 0) onRead?.();
     return () => clearTimeout(copiedTimer.current);
   }, []);
 
@@ -68,10 +71,6 @@ const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, o
   const current = solutions[Math.min(active, solutions.length - 1)];
   const currentIndex = Math.min(active, solutions.length - 1);
 
-  const reveal = () => {
-    setRevealed(true);
-    onReveal?.();
-  };
   const startEdit = (index) => {
     const existing = solutions[index];
     setConfirmRemove(false);
@@ -81,12 +80,6 @@ const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, o
       language: existing?.language ?? defaultLanguage,
       name: existing?.name ?? "",
     });
-  };
-  const stopEdit = () => {
-    setDraft(null);
-    setConfirmRemove(false);
-    // an empty dialog has nothing to read
-    if (solutions.length === 0) onClose();
   };
   const save = () => {
     if (draft.code.trim() === "") {
@@ -98,18 +91,12 @@ const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, o
         name: draft.name,
         source: "manual",
       });
-      setActive(draft.index);
     }
-    setDraft(null);
-    setConfirmRemove(false);
-    if (draft.code.trim() === "" && solutions.length <= 1) onClose();
+    onClose();
   };
   const remove = () => {
     onSave(draft.index, null);
-    setDraft(null);
-    setConfirmRemove(false);
-    setActive(0);
-    if (solutions.length <= 1) onClose();
+    onClose();
   };
   const copy = async () => {
     try {
@@ -176,8 +163,8 @@ const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, o
               <input
                 value={draft.name}
                 maxLength={SOLUTION_NAME_MAX_LENGTH}
-                placeholder="Name (optional), e.g. Optimal"
-                aria-label="Name (optional)"
+                placeholder="Label (optional)"
+                aria-label="Label (optional)"
                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
                 className="flex-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
@@ -203,33 +190,15 @@ const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onReveal, o
                   {confirmRemove ? "Yes, remove it" : "Remove"}
                 </button>
               )}
-              <button onClick={stopEdit} className={secondary}>
-                Cancel
+              <button onClick={onClose} className={secondary}>
+                Close
               </button>
               <button onClick={save} className={primary}>
                 Save
               </button>
             </div>
           </>
-        ) : !current ? null : !revealed ? (
-          <>
-            <p className="mt-4 text-sm text-gray-700 dark:text-gray-200">
-              {solutions.length === 1
-                ? "This problem has a solution saved."
-                : `This problem has ${solutions.length} solutions saved.`}{" "}
-              Looking at it counts as help if you complete a review today.
-            </p>
-            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button autoFocus onClick={onClose} className={secondary}>
-                Close
-              </button>
-              <button onClick={reveal} className={primary}>
-                <Eye size={14} aria-hidden="true" />
-                Show solution
-              </button>
-            </div>
-          </>
-        ) : (
+        ) : !current ? null : (
           <>
             {solutions.length > 1 && (
               <div role="tablist" aria-label="Solutions" className="mt-3 flex gap-1">

@@ -15,7 +15,7 @@ const setup = (solutions, extra = {}) => {
     solutions,
     defaultLanguage: "kotlin",
     onSave: vi.fn(),
-    onReveal: vi.fn(),
+    onRead: vi.fn(),
     onClose: vi.fn(),
     ...extra,
   };
@@ -30,31 +30,25 @@ const setup = (solutions, extra = {}) => {
 const text = () => document.body.textContent;
 
 describe("SolutionDialog reading", () => {
-  it("keeps the code hidden and does not count help until it is shown", () => {
+  it("shows the code right away, like a note, and reports the reading once", () => {
     const props = setup([one]);
-    expect(text()).not.toContain("print(1)");
-    expect(screen.getByText(/counts as help/i)).toBeTruthy();
-    expect(props.onReveal).not.toHaveBeenCalled();
-  });
-
-  it("shows the code and reports the reveal once", () => {
-    const props = setup([one]);
-    fireEvent.click(screen.getByText("Show solution"));
     expect(text()).toContain("print(1)");
-    expect(props.onReveal).toHaveBeenCalledTimes(1);
+    expect(text()).not.toContain("Show solution");
+    expect(text()).not.toContain("counts as help");
+    expect(props.onRead).toHaveBeenCalledTimes(1);
     expect(text()).toContain("Python · Written by you · 2026-10-04");
+    expect(document.activeElement).toBe(screen.getByText("Close"));
   });
 
-  it("closing without showing never reports help", () => {
+  it("closing without editing changes nothing", () => {
     const props = setup([one]);
     fireEvent.click(screen.getByText("Close"));
     expect(props.onClose).toHaveBeenCalled();
-    expect(props.onReveal).not.toHaveBeenCalled();
+    expect(props.onSave).not.toHaveBeenCalled();
   });
 
   it("has tabs for two solutions, named or numbered, and switches between them", () => {
     setup([one, two]);
-    fireEvent.click(screen.getByText("Show solution"));
     expect(screen.getByRole("tab", { name: "Solution 1" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(screen.getByRole("tab", { name: "Optimal" }));
     expect(text()).toContain("print(2)");
@@ -66,7 +60,6 @@ describe("SolutionDialog reading", () => {
     const writeText = vi.fn().mockResolvedValue();
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     setup([one]);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Copy"));
     expect(writeText).toHaveBeenCalledWith("print(1)");
     expect(await screen.findByText("Copied")).toBeTruthy();
@@ -78,7 +71,7 @@ describe("SolutionDialog writing", () => {
     const props = setup([]);
     expect(screen.getByLabelText("Language").value).toBe("kotlin");
     fireEvent.change(screen.getByLabelText("Code for Two Sum"), { target: { value: "fun a() {}" } });
-    fireEvent.change(screen.getByLabelText("Name (optional)"), { target: { value: "Brute force" } });
+    fireEvent.change(screen.getByLabelText("Label (optional)"), { target: { value: "Brute force" } });
     fireEvent.change(screen.getByLabelText("Language"), { target: { value: "swift" } });
     fireEvent.click(screen.getByText("Save"));
     expect(props.onSave).toHaveBeenCalledWith(0, {
@@ -87,7 +80,7 @@ describe("SolutionDialog writing", () => {
       name: "Brute force",
       source: "manual",
     });
-    expect(props.onReveal).not.toHaveBeenCalled();
+    expect(props.onRead).not.toHaveBeenCalled();
   });
 
   it("puts the focus on the code field, not on the name, when the editor opens", () => {
@@ -97,10 +90,10 @@ describe("SolutionDialog writing", () => {
 
   it("puts the focus on the code field when Edit or Add another is pressed", () => {
     setup([one]);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Edit"));
     expect(document.activeElement).toBe(screen.getByLabelText("Code for Two Sum"));
-    fireEvent.click(screen.getByText("Cancel"));
+    cleanup();
+    setup([one]);
     fireEvent.click(screen.getByText("Add another"));
     expect(document.activeElement).toBe(screen.getByLabelText("Code for Two Sum"));
   });
@@ -108,7 +101,7 @@ describe("SolutionDialog writing", () => {
   it("has the code first and the name and language below it, with line numbers", () => {
     setup([]);
     const code = screen.getByLabelText("Code for Two Sum");
-    const name = screen.getByLabelText("Name (optional)");
+    const name = screen.getByLabelText("Label (optional)");
     const language = screen.getByLabelText("Language");
     const before = (a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
     expect(before(code, name)).toBeTruthy();
@@ -139,21 +132,19 @@ describe("SolutionDialog writing", () => {
     expect(props.onClose).toHaveBeenCalled();
   });
 
-  it("cancelling a new solution closes without saving", () => {
+  it("closing a new solution closes without saving", () => {
     const props = setup([]);
     fireEvent.change(screen.getByLabelText("Code for Two Sum"), { target: { value: "x" } });
-    fireEvent.click(screen.getByText("Cancel"));
+    fireEvent.click(screen.getByText("Close"));
     expect(props.onSave).not.toHaveBeenCalled();
     expect(props.onClose).toHaveBeenCalled();
   });
 
-  it("an existing solution can only be edited after showing it, with its own language", () => {
+  it("an existing solution is edited from the reading view, with its own language, and Save closes", () => {
     const props = setup([two]);
-    expect(screen.queryByText("Edit")).toBeNull();
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Edit"));
     expect(screen.getByLabelText("Language").value).toBe("go");
-    expect(screen.getByLabelText("Name (optional)").value).toBe("Optimal");
+    expect(screen.getByLabelText("Label (optional)").value).toBe("Optimal");
     fireEvent.change(screen.getByLabelText("Code for Two Sum"), { target: { value: "new" } });
     fireEvent.click(screen.getByText("Save"));
     expect(props.onSave).toHaveBeenCalledWith(0, {
@@ -162,11 +153,28 @@ describe("SolutionDialog writing", () => {
       name: "Optimal",
       source: "manual",
     });
+    expect(props.onClose).toHaveBeenCalled();
+  });
+
+  it("Close in the editor discards the changes and writing never reports a reading", () => {
+    const props = setup([two], { onRead: undefined });
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.change(screen.getByLabelText("Code for Two Sum"), { target: { value: "changed" } });
+    fireEvent.click(screen.getByText("Close"));
+    expect(props.onSave).not.toHaveBeenCalled();
+    expect(props.onClose).toHaveBeenCalled();
+  });
+
+  it("uses Close and Save in the editor, with a short label field", () => {
+    setup([]);
+    expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+    expect(screen.queryByText("Cancel")).toBeNull();
+    expect(screen.getByPlaceholderText("Label (optional)")).toBeTruthy();
   });
 
   it("adds a second solution with the default language, and the button is gone with two", () => {
     const props = setup([one]);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Add another"));
     expect(screen.getByLabelText("Language").value).toBe("kotlin");
     fireEvent.change(screen.getByLabelText("Code for Two Sum"), { target: { value: "b" } });
@@ -174,13 +182,11 @@ describe("SolutionDialog writing", () => {
     expect(props.onSave).toHaveBeenCalledWith(1, expect.objectContaining({ code: "b" }));
     cleanup();
     setup([one, two]);
-    fireEvent.click(screen.getByText("Show solution"));
     expect(screen.queryByText("Add another")).toBeNull();
   });
 
   it("removing asks to confirm first", () => {
     const props = setup([one, two]);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Edit"));
     fireEvent.click(screen.getByText("Remove"));
     expect(props.onSave).not.toHaveBeenCalled();
@@ -190,7 +196,6 @@ describe("SolutionDialog writing", () => {
 
   it("emptying the code of an existing solution removes it", () => {
     const props = setup([one, two]);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Edit"));
     fireEvent.change(screen.getByLabelText("Code for Two Sum"), { target: { value: "  " } });
     fireEvent.click(screen.getByText("Save"));

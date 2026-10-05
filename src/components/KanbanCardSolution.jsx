@@ -3,9 +3,9 @@ import { Braces } from "lucide-react";
 import ProblemSolutionDialog from "./ProblemSolutionDialog";
 
 // The solution icon of a card, next to the note icon. It is grey, and blue and
-// bolder (like the note) when there is a solution; it opens the dialog (the code stays hidden
-// until "Show solution") or, without one, the editor. The tooltip never shows
-// any code.
+// bolder (like the note) when there is a solution; it opens the dialog (the
+// code is read there, like a note) or, without one, the editor. The tooltip
+// never shows any code.
 const KanbanCardSolution = ({ problem, solutions }) => {
   const [open, setOpen] = useState(false);
   const has = solutions.length > 0;

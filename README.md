@@ -45,12 +45,12 @@ One short note per problem (up to 300 characters), to read before a review: the 
 
 ### 💻 Solutions
 
-Keep up to **two solutions** per problem (for example a brute force one and an optimal one), each with an optional name and a language. The code stays hidden until you press **Show solution**, so you do not see it by accident.
+Keep up to **two solutions** per problem (for example a brute force one and an optimal one), each with an optional name and a language. Opening a solution works like opening a note: you read it, and **Edit** changes it.
 
-- **Board**: the `</>` icon on each card opens the solutions in a dialog. With none saved it opens the editor.
+- **Board**: the `{ }` icon on each card opens the solutions in a dialog. With none saved it opens the editor.
 - **Tracker**: turn on **Show solutions** for a Solutions column with a **View solution** (or **Add solution**) button. The choice is remembered.
 - The editor has a language list (Python, JavaScript, TypeScript, Java, C, C++, C#, Go, Rust, Kotlin, Swift, SQL, Other); it starts with the language you used last. The code is shown with syntax colours and can be copied.
-- Pressing **Show solution** counts as looking it up: if you complete a review the same day you are asked **How did it go?** and **Needed the solution** is suggested. Opening the dialog, writing or editing a solution does not count.
+- Opening a solution counts as looking it up: if you complete a review the same day you are asked **How did it go?** and **Needed the solution** is suggested. If you changed the code the same day (for example a better version after a review), it counts as your own work and **Solved on my own** is suggested. Saving it unchanged does not.
 - Both views share the same solutions. They are kept when you unsolve or move a problem and are included in the export/import file.
 
 ### 🧭 Review outcomes

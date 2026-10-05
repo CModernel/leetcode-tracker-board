@@ -3,8 +3,8 @@ import { Braces, Plus } from "lucide-react";
 import ProblemSolutionDialog from "./ProblemSolutionDialog";
 
 // The solutions of a problem in a table row. It never shows code: a plain
-// button opens the dialog (the code stays hidden there until "Show solution"),
-// and without any solution "Add solution" opens the editor.
+// button opens the dialog (which shows the code, like opening a note), and
+// without any solution "Add solution" opens the editor.
 const SolutionCell = ({ problem, solutions }) => {
   const [open, setOpen] = useState(false);
   const has = solutions.length > 0;

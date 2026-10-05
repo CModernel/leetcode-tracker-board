@@ -136,8 +136,8 @@ const TrackerHeader = ({ title, showDueToday = true }) => {
                 </li>
               </ul>
               <p className="text-sm mt-2">
-                Reading a note or showing a solution is free. When you
-                complete a review after reading a note or showing a solution
+                Reading a note or opening a solution is free. When you
+                complete a review after reading a note or opening a solution
                 today, you are asked how it went. Writing or editing your own
                 does not count as help.
               </p>

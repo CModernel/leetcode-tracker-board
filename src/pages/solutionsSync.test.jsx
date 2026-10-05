@@ -97,7 +97,6 @@ describe("a solution is the same in the tracker and on the board", () => {
     showColumn();
     openFromCard(view);
     write("x = 1");
-    fireEvent.click(screen.getByText("Close"));
     expect(within(view.row()).getByRole("button", { name: "Open solution for Two Sum" })).toBeTruthy();
   });
 
@@ -107,7 +106,6 @@ describe("a solution is the same in the tracker and on the board", () => {
     showColumn();
     openFromRow(view);
     write("x = 1");
-    fireEvent.click(screen.getByText("Close"));
     expect(within(view.card()).getByRole("button", { name: "Open solution" })).toBeTruthy();
   });
 
@@ -116,13 +114,10 @@ describe("a solution is the same in the tracker and on the board", () => {
     const view = renderBoth();
     showColumn();
     openFromCard(view);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Add another"));
-    fireEvent.change(screen.getByLabelText("Name (optional)"), { target: { value: "Optimal" } });
+    fireEvent.change(screen.getByLabelText("Label (optional)"), { target: { value: "Optimal" } });
     write("two()");
-    fireEvent.click(screen.getByText("Close"));
     openFromRow(view);
-    fireEvent.click(screen.getByText("Show solution"));
     expect(screen.getByRole("tab", { name: "Brute force" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Optimal" })).toBeTruthy();
   });
@@ -133,7 +128,6 @@ describe("a solution and how a review went", () => {
     seed({ solutions: [sol("secret()")] });
     const view = renderBoth();
     openFromCard(view);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Close"));
     complete(view);
     expect(screen.getByText("You opened the solution today.")).toBeTruthy();
@@ -145,20 +139,30 @@ describe("a solution and how a review went", () => {
     const view = renderBoth();
     showColumn();
     openFromRow(view);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Close"));
     complete(view);
     expect(suggested()).toMatch(/Needed the solution/);
   });
 
-  it("only opening the dialog does not ask: the review completes as solved alone", () => {
+  it("reading it and then saving a changed version is your own work: solved alone is suggested", () => {
     seed({ solutions: [sol("secret()")] });
     const view = renderBoth();
     openFromCard(view);
-    fireEvent.click(screen.getByText("Close"));
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.change(screen.getByLabelText("Code for Two Sum"), { target: { value: "better()" } });
+    fireEvent.click(screen.getByText("Save"));
     complete(view);
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 0 }]);
+    expect(suggested()).toMatch(/Solved it myself/);
+  });
+
+  it("reading it and saving it unchanged is still help", () => {
+    seed({ solutions: [sol("secret()")] });
+    const view = renderBoth();
+    openFromCard(view);
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.click(screen.getByText("Save"));
+    complete(view);
+    expect(suggested()).toMatch(/Needed the solution/);
   });
 
   it("writing a solution today and looking at it is not help: solved alone is suggested", () => {
@@ -166,9 +170,7 @@ describe("a solution and how a review went", () => {
     const view = renderBoth();
     openFromCard(view);
     write("x = 1");
-    fireEvent.click(screen.getByText("Close"));
     openFromCard(view);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Close"));
     complete(view);
     expect(
@@ -181,7 +183,6 @@ describe("a solution and how a review went", () => {
     seed({ solutions: [sol("secret()")], solutionEditedOn: "2026-10-01" });
     const view = renderBoth();
     openFromCard(view);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Close"));
     complete(view);
     expect(suggested()).toMatch(/Needed the solution/);
@@ -191,7 +192,6 @@ describe("a solution and how a review went", () => {
     seed({ solutions: [sol("secret()")] });
     const view = renderBoth();
     openFromCard(view);
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Close"));
     complete(view);
     fireEvent.click(within(screen.getByRole("dialog")).getByText(/Needed the solution/));

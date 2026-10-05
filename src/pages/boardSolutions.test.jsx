@@ -89,25 +89,30 @@ describe("the solution icon on the card", () => {
     expect(button.getAttribute("title")).not.toContain("secret_code");
   });
 
-  it("opening the dialog hides the code and does not count as help", () => {
+  it("opening shows the code like a note, remembers it as looking it up today and changes nothing else", () => {
     seed({ solutions: [sol("secret_code()")] });
     const view = renderBoard();
     view.open();
-    expect(screen.getByText("Show solution")).toBeTruthy();
-    expect(document.body.textContent).not.toContain("secret_code");
-    fireEvent.click(screen.getByText("Close"));
-    expect(saved()).not.toHaveProperty("helpViewed");
-  });
-
-  it("showing the solution is remembered as looking it up today, and nothing else changes", () => {
-    seed({ solutions: [sol("secret_code()")] });
-    const view = renderBoard();
-    view.open();
-    fireEvent.click(screen.getByText("Show solution"));
     expect(document.body.textContent).toContain("secret_code");
     expect(saved().helpViewed).toEqual({ solution: "2026-10-20" });
     expect(saved().reviews).toEqual([true, true, false, false, false]);
     expect(saved().solutions).toEqual([sol("secret_code()")]);
+  });
+
+  it("closing the editor without saving, or saving it unchanged, keeps the solution as it was", () => {
+    seed({ solutions: [sol("keep()")] });
+    const view = renderBoard();
+    view.open();
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.change(screen.getByLabelText("Code for Two Sum"), { target: { value: "changed()" } });
+    fireEvent.click(screen.getByText("Close"));
+    expect(saved().solutions).toEqual([sol("keep()")]);
+    expect(saved()).not.toHaveProperty("solutionEditedOn");
+    view.open();
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.click(screen.getByText("Save"));
+    expect(saved().solutions).toEqual([sol("keep()")]);
+    expect(saved()).not.toHaveProperty("solutionEditedOn");
   });
 });
 
@@ -156,11 +161,11 @@ describe("writing a solution on the card", () => {
     seed({ solutions: [sol("one()", { name: "Brute force" })] });
     const view = renderBoard();
     view.open();
-    fireEvent.click(screen.getByText("Show solution"));
     fireEvent.click(screen.getByText("Add another"));
-    fireEvent.change(screen.getByLabelText("Name (optional)"), { target: { value: "Optimal" } });
+    fireEvent.change(screen.getByLabelText("Label (optional)"), { target: { value: "Optimal" } });
     write("two()");
     expect(saved().solutions.map((s) => s.name)).toEqual(["Brute force", "Optimal"]);
+    view.open();
     fireEvent.click(screen.getByRole("tab", { name: "Brute force" }));
     fireEvent.click(screen.getByText("Edit"));
     fireEvent.click(screen.getByText("Remove"));

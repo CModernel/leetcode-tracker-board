@@ -103,14 +103,11 @@ describe("Solutions column", () => {
     expect(localStorage.getItem(SHOW_SOLUTIONS_KEY)).toBe("false");
   });
 
-  it("opening hides the code and is not help; showing it is remembered as looking it up", () => {
+  it("opening shows the code and is remembered as looking it up", () => {
     seed({ solutions: [sol("secret_code()")] });
     renderTracker();
     fireEvent.click(toggle());
     fireEvent.click(within(row()).getByRole("button", { name: "Open solution for Two Sum" }));
-    expect(document.body.textContent).not.toContain("secret_code");
-    expect(saved()).not.toHaveProperty("helpViewed");
-    fireEvent.click(screen.getByText("Show solution"));
     expect(document.body.textContent).toContain("secret_code");
     expect(saved().helpViewed).toEqual({ solution: "2026-10-20" });
   });
@@ -125,7 +122,6 @@ describe("Solutions column", () => {
     expect(saved().solutions[0].code).toBe("x = 1");
     expect(saved().solutionEditedOn).toBe("2026-10-20");
     expect(saved()).not.toHaveProperty("helpViewed");
-    fireEvent.click(screen.getByText("Close"));
     expect(within(row()).getByRole("button", { name: "Open solution for Two Sum" }).textContent).toBe(
       "View solution",
     );

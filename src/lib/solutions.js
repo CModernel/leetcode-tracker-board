@@ -1,4 +1,4 @@
-// A solution is the code of a problem, kept collapsed until it is revealed.
+// A solution is the code of a problem, read like a note.
 // The edit field is limited; saved solutions are never cut.
 export const SOLUTION_MAX_LENGTH = 10000;
 
