@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* The page behind everything (what shows when scrolling past the end or on
+   overscroll / pull to refresh) takes the colour of the app, not the
+   browser's white: gray-50 in light mode, gray-900 in dark mode. */
+html {
+  background-color: #f9fafb;
+}
+html.dark {
+  background-color: #111827;
+}
+
 /* Toast: appears with a short fade and rise (skipped for reduced motion) */
 @keyframes toast-in {
   from {

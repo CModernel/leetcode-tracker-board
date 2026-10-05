@@ -18,6 +18,13 @@ export const ThemeProvider = ({ children }) => {
     }
   }, [isDark]);
 
+  // The colour of the browser bar on phones follows the page
+  useEffect(() => {
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", isDark ? "#111827" : "#f9fafb");
+  }, [isDark]);
+
   const toggleTheme = () => setIsDark((s) => !s);
 
   return (
