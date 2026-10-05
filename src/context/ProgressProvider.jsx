@@ -111,6 +111,10 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.setNote(prev, selectedList, problemId, note, localToday())
       ),
+    setSolution: (problemId, index, solution) =>
+      setProgress((prev) =>
+        reducers.setSolution(prev, selectedList, problemId, index, solution, localToday())
+      ),
     reorder: (orderedIds) =>
       setProgress((prev) => reducers.setOrder(prev, selectedList, orderedIds)),
     restoreEntries: (list, snapshot) =>

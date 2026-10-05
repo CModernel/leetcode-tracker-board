@@ -851,7 +851,7 @@ describe("the review button and how it went", () => {
       const view = renderBoth();
       fireEvent.click(completeButton(view));
       const dialog = screen.getByRole("dialog");
-      expect(within(dialog).getByText("You wrote or edited this note today, so it does not count as help.")).toBeTruthy();
+      expect(within(dialog).getByText("You wrote or edited the note or solution today, so it does not count as help.")).toBeTruthy();
       const badges = within(dialog).getAllByText("Suggested");
       expect(badges).toHaveLength(1);
       expect(badges[0].closest("button").textContent).toMatch(/Solved it myself/);

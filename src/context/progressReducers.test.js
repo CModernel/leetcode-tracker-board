@@ -14,6 +14,7 @@ import {
   restoreEntry,
   setDueOverride,
   setNote,
+  setSolution,
   rewindReviews,
   setOrder,
   setStatus,
@@ -1158,5 +1159,105 @@ describe("setNote and the day the note was last written", () => {
     const old = solvedState();
     old[LIST][1].note = "old";
     expect(setNote(old, LIST, 1, "older", TODAY)[LIST][1].noteEditedOn).toBe(TODAY);
+  });
+});
+
+describe("setSolution", () => {
+  const sol = { code: "x = 1", language: "python" };
+  const saved = (code, extra = {}) => ({
+    code,
+    language: "python",
+    source: "manual",
+    savedAt: "2026-10-04",
+    ...extra,
+  });
+  const withOne = () => setSolution(solvedState(), LIST, 1, 0, sol, "2026-10-04");
+  const withTwo = () => setSolution(withOne(), LIST, 1, 1, { ...sol, code: "x = 2" }, "2026-10-04");
+
+  it("saves a solution and the day it was written, keeping the rest", () => {
+    const start = solvedState();
+    const next = setSolution(start, LIST, 1, 0, sol, "2026-10-04");
+    expect(next[LIST][1]).toEqual({
+      ...start[LIST][1],
+      solutions: [saved("x = 1")],
+      solutionEditedOn: "2026-10-04",
+    });
+    expect(next[OTHER]).toBe(start[OTHER]);
+  });
+
+  it("saves the name of a solution", () => {
+    const next = setSolution(solvedState(), LIST, 1, 0, { ...sol, name: " Optimal " }, "2026-10-04");
+    expect(next[LIST][1].solutions[0].name).toBe("Optimal");
+  });
+
+  it("creates an entry for a problem with no progress", () => {
+    const next = setSolution({ [LIST]: {} }, LIST, 5, 0, sol, "2026-10-04");
+    expect(next[LIST][5].solved).toBe(false);
+    expect(next[LIST][5].solutions[0].code).toBe("x = 1");
+  });
+
+  it("adds a second solution, and not a third", () => {
+    const two = withTwo();
+    expect(two[LIST][1].solutions.map((s) => s.code)).toEqual(["x = 1", "x = 2"]);
+    expect(setSolution(two, LIST, 1, 2, sol, "2026-10-04")).toBe(two);
+  });
+
+  it("does not leave holes: the next free slot is the only new one", () => {
+    const start = solvedState();
+    expect(setSolution(start, LIST, 1, 1, sol, "2026-10-04")).toBe(start);
+    expect(setSolution(start, LIST, 1, -1, sol, "2026-10-04")).toBe(start);
+    expect(setSolution(start, LIST, 1, 0.5, sol, "2026-10-04")).toBe(start);
+  });
+
+  it("does nothing when the same solution is saved again", () => {
+    const first = withOne();
+    expect(setSolution(first, LIST, 1, 0, sol, "2026-10-09")).toBe(first);
+  });
+
+  it("an edit changes the code and the edited day, only in its slot", () => {
+    const next = setSolution(withTwo(), LIST, 1, 0, { ...sol, code: "x = 9" }, "2026-10-09");
+    expect(next[LIST][1].solutions.map((s) => s.code)).toEqual(["x = 9", "x = 2"]);
+    expect(next[LIST][1].solutionEditedOn).toBe("2026-10-09");
+  });
+
+  it("changing only the name or the language is an edit", () => {
+    const first = withOne();
+    expect(setSolution(first, LIST, 1, 0, { ...sol, name: "A" }, "2026-10-09")).not.toBe(first);
+    expect(setSolution(first, LIST, 1, 0, { ...sol, language: "go" }, "2026-10-09")).not.toBe(first);
+  });
+
+  it("removing the first one moves the second up", () => {
+    const next = setSolution(withTwo(), LIST, 1, 0, null, "2026-10-05");
+    expect(next[LIST][1].solutions.map((s) => s.code)).toEqual(["x = 2"]);
+  });
+
+  it("removing the last one removes the solutions and the day", () => {
+    expect(setSolution(withOne(), LIST, 1, 0, { code: "  " }, "2026-10-04")[LIST][1]).toEqual(
+      solvedState()[LIST][1],
+    );
+  });
+
+  it("creates nothing for an empty solution, or removes one that is not there", () => {
+    const start = { [LIST]: {} };
+    expect(setSolution(start, LIST, 5, 0, null, "2026-10-04")).toBe(start);
+    const one = withOne();
+    expect(setSolution(one, LIST, 1, 1, null, "2026-10-04")).toBe(one);
+  });
+
+  it("does not replace a manual solution with an automatic one", () => {
+    const first = withOne();
+    const auto = { code: "y", source: "leetcode-api" };
+    expect(setSolution(first, LIST, 1, 0, auto, "2026-10-05")).toBe(first);
+  });
+
+  it("an automatic solution can be replaced by a newer one, and removal always works", () => {
+    const first = setSolution(solvedState(), LIST, 1, 0, { code: "y", source: "extension" }, "2026-10-04");
+    const second = setSolution(first, LIST, 1, 0, { code: "z", source: "leetcode-api" }, "2026-10-05");
+    expect(second[LIST][1].solutions[0].code).toBe("z");
+    expect(setSolution(withOne(), LIST, 1, 0, null, "2026-10-05")[LIST][1]).not.toHaveProperty("solutions");
+  });
+
+  it("keeps the solutions when the problem is unsolved", () => {
+    expect(unsolve(withTwo(), LIST, 1)[LIST][1].solutions).toHaveLength(2);
   });
 });

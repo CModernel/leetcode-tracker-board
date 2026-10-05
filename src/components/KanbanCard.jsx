@@ -1,6 +1,8 @@
 import { Calendar, Check, Clock, ExternalLink } from "lucide-react";
 import KanbanCardMenu from "./KanbanCardMenu";
 import KanbanCardNote from "./KanbanCardNote";
+import KanbanCardSolution from "./KanbanCardSolution";
+import { solutionsOf } from "../lib/solutions";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { problemLabel } from "../lib/lists";
 import { completeButtonFor } from "../lib/board";
@@ -30,7 +32,7 @@ const KanbanCard = ({ card, onComplete }) => {
       }`}
     >
       <div className="flex items-start justify-between gap-1">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <a
             href={problem.url}
             target="_blank"
@@ -50,26 +52,28 @@ const KanbanCard = ({ card, onComplete }) => {
               Solved {formatShortDate(card.entry.solvedDate)}
             </p>
           )}
-        </div>
-        <div className="flex flex-shrink-0 items-center">
-          <KanbanCardNote problem={problem} note={card.entry?.note} />
-          <KanbanCardMenu card={card} />
-        </div>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span
-          className={`text-xs font-semibold ${difficultyColor[problem.difficulty]}`}
-        >
-          {problem.difficulty}
-        </span>
-        {(problem.topics || []).map((topic) => (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <span
-            key={topic}
-            className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded"
+            className={`text-xs font-semibold ${difficultyColor[problem.difficulty]}`}
           >
-            {topic}
+            {problem.difficulty}
           </span>
-        ))}
+          {(problem.topics || []).map((topic) => (
+            <span
+              key={topic}
+              className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded"
+            >
+              {topic}
+            </span>
+          ))}
+        </div>
+        </div>
+        {/* One column on the right: the menu, then the note and the solution */}
+        <div className="flex flex-shrink-0 flex-col items-center gap-0.5">
+          <KanbanCardMenu card={card} />
+          <KanbanCardNote problem={problem} note={card.entry?.note} />
+          <KanbanCardSolution problem={problem} solutions={solutionsOf(card.entry)} />
+        </div>
       </div>
       {urgency && !completeButton && (
         <div className="mt-2 flex items-center gap-2">
