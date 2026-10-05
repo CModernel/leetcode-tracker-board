@@ -53,10 +53,11 @@ const KanbanCard = ({ card, onComplete }) => {
             </p>
           )}
         </div>
-        <div className="flex flex-shrink-0 items-center">
+        {/* One column on the right: the menu, then the note and the solution */}
+        <div className="flex flex-shrink-0 flex-col items-center gap-0.5">
+          <KanbanCardMenu card={card} />
           <KanbanCardNote problem={problem} note={card.entry?.note} />
           <KanbanCardSolution problem={problem} solutions={solutionsOf(card.entry)} />
-          <KanbanCardMenu card={card} />
         </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">

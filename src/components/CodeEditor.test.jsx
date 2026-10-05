@@ -55,4 +55,43 @@ describe("CodeEditor", () => {
     expect(gutter.getAttribute("aria-hidden")).toBe("true");
     expect(gutter.className).toMatch(/select-none/);
   });
+
+  describe("Tab", () => {
+    const press = (field, start, end, shiftKey = false) => {
+      field.setSelectionRange(start, end);
+      return fireEvent.keyDown(field, { key: "Tab", shiftKey });
+    };
+
+    it("indents instead of leaving the field", () => {
+      render(<Harness initial="ab" />);
+      const field = screen.getByLabelText("Code");
+      const notCancelled = press(field, 1, 1);
+      expect(notCancelled).toBe(false);
+      expect(field.value).toBe("a    b");
+    });
+
+    it("indents every line of a selection", () => {
+      render(<Harness initial={"a\n\nb\nc"} />);
+      const field = screen.getByLabelText("Code");
+      press(field, 0, 4);
+      expect(field.value).toBe("    a\n\n    b\nc");
+    });
+
+    it("outdents with Shift+Tab, at most one level", () => {
+      render(<Harness initial={"      a"} />);
+      const field = screen.getByLabelText("Code");
+      press(field, 7, 7, true);
+      expect(field.value).toBe("  a");
+      press(field, 3, 3, true);
+      expect(field.value).toBe("a");
+    });
+
+    it("leaves Ctrl+Tab to the browser", () => {
+      render(<Harness initial="ab" />);
+      const field = screen.getByLabelText("Code");
+      field.setSelectionRange(1, 1);
+      expect(fireEvent.keyDown(field, { key: "Tab", ctrlKey: true })).toBe(true);
+      expect(field.value).toBe("ab");
+    });
+  });
 });

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Code2 } from "lucide-react";
+import { Braces } from "lucide-react";
 import ProblemSolutionDialog from "./ProblemSolutionDialog";
 
-// The solution icon of a card, next to the note icon. It is always grey, darker and
-// bolder when there is a solution; it opens the dialog (the code stays hidden
+// The solution icon of a card, next to the note icon. It is grey, and blue and
+// bolder (like the note) when there is a solution; it opens the dialog (the code stays hidden
 // until "Show solution") or, without one, the editor. The tooltip never shows
 // any code.
 const KanbanCardSolution = ({ problem, solutions }) => {
@@ -16,11 +16,13 @@ const KanbanCardSolution = ({ problem, solutions }) => {
         onClick={() => setOpen(true)}
         aria-label={has ? "Open solution" : "Add solution"}
         title={has ? "Open solution" : "Add solution"}
-        className={`p-1 rounded transition-colors hover:bg-gray-100 dark:hover:bg-gray-600 ${
-          has ? "text-gray-700 dark:text-gray-100" : "text-gray-400 dark:text-gray-400"
+        className={`p-1 rounded transition-colors ${
+          has
+            ? "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-600"
+            : "text-gray-400 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600"
         }`}
       >
-        <Code2 size={16} fill={has ? "currentColor" : "none"} fillOpacity={0.15} strokeWidth={has ? 2.5 : 2} />
+        <Braces size={16} strokeWidth={has ? 2.75 : 2} />
       </button>
       {open && (
         <ProblemSolutionDialog
