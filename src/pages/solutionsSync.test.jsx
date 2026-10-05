@@ -70,6 +70,8 @@ const openFromCard = (view) =>
   fireEvent.click(within(view.card()).getByRole("button", { name: /(Open|Add) solution/ }));
 const openFromRow = (view) =>
   fireEvent.click(within(view.row()).getByRole("button", { name: /(Open|Add) solution for Two Sum/ }));
+const openTwoFromRow = (view) =>
+  fireEvent.click(within(view.row()).getByRole("button", { name: "Open Brute force for Two Sum" }));
 const complete = (view) =>
   fireEvent.click(within(view.card()).getByRole("button", { name: /^Complete R3/ }));
 const write = (code) => {
@@ -117,7 +119,7 @@ describe("a solution is the same in the tracker and on the board", () => {
     fireEvent.click(screen.getByText("Add another"));
     fireEvent.change(screen.getByLabelText("Label (optional)"), { target: { value: "Optimal" } });
     write("two()");
-    openFromRow(view);
+    openTwoFromRow(view);
     expect(screen.getByRole("tab", { name: "Brute force" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Optimal" })).toBeTruthy();
   });

@@ -16,7 +16,7 @@ const readLanguage = () => {
 // that has code is remembered as looking it up today (it only matters when a
 // review is completed the same day); writing or editing is not. The language of the last
 // solution saved is offered first the next time.
-const ProblemSolutionDialog = ({ problem, solutions, onClose }) => {
+const ProblemSolutionDialog = ({ problem, solutions, initialIndex, onClose }) => {
   const { setSolution, markHelpViewed } = useProgress();
   const [defaultLanguage] = useState(readLanguage);
 
@@ -24,6 +24,7 @@ const ProblemSolutionDialog = ({ problem, solutions, onClose }) => {
     <SolutionDialog
       label={problem.title}
       solutions={solutions}
+      initialIndex={initialIndex}
       defaultLanguage={defaultLanguage}
       onRead={() => markHelpViewed(problem.id, "solution")}
       onSave={(index, solution) => {

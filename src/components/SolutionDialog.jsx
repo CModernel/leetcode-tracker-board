@@ -34,11 +34,11 @@ const primary = `${buttonBase} flex items-center justify-center gap-1.5 bg-blue-
 // solution)` gets the new solution, or null to remove it; what is saved from
 // here is always "manual". `defaultLanguage` preselects the language of a new
 // solution; the editor of an existing one starts with its own.
-const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onRead, onClose }) => {
+const SolutionDialog = ({ label, solutions, defaultLanguage, onSave, onRead, onClose, initialIndex = 0 }) => {
   const dialogRef = useRef(null);
   const codeRef = useRef(null);
   const copiedTimer = useRef(null);
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(initialIndex);
   // null = reading; { index, code, language, name } = editing that slot
   const [draft, setDraft] = useState(() =>
     solutions.length === 0

@@ -184,4 +184,15 @@ describe("writing a solution on the card", () => {
     expect(saved().solved).toBe(false);
     expect(saved().solutions).toEqual([sol("keep()")]);
   });
+
+  it("keeps the solved date, the difficulty and the topics together on the left of the icon column", () => {
+    seed();
+    const view = renderBoard();
+    const card = view.card();
+    const left = card.querySelector("a").parentElement;
+    expect(left.textContent).toMatch(/Solved/);
+    expect(left.textContent).toMatch(/Easy/);
+    expect(left.textContent).toMatch(/Array/);
+    expect(left.contains(within(card).getByRole("button", { name: "Add solution" }))).toBe(false);
+  });
 });

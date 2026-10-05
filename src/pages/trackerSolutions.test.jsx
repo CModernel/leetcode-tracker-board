@@ -72,14 +72,13 @@ describe("Solutions column", () => {
     expect(document.body.textContent).not.toContain("secret_code");
   });
 
-  it("shows a plain View solution button, never the code", () => {
+  it("shows one plain button per solution, never the code", () => {
     seed({ solutions: [sol("secret_code()", { name: "Optimal" }), sol("other()", { language: "go" })] });
     renderTracker();
     fireEvent.click(toggle());
     expect(screen.getByRole("columnheader", { name: "Solutions" })).toBeTruthy();
-    expect(within(row()).getByRole("button", { name: "Open solution for Two Sum" }).textContent).toBe(
-      "View solution",
-    );
+    expect(within(row()).getByRole("button", { name: "Open Optimal for Two Sum" }).textContent).toBe("Optimal");
+    expect(within(row()).getByRole("button", { name: "Open Solution 2 for Two Sum" })).toBeTruthy();
     expect(document.body.textContent).not.toContain("secret_code");
     expect(toggle().textContent).toBe("Hide solutions");
   });
@@ -125,5 +124,19 @@ describe("Solutions column", () => {
     expect(within(row()).getByRole("button", { name: "Open solution for Two Sum" }).textContent).toBe(
       "View solution",
     );
+  });
+
+  it("with two solutions shows one button each, and each opens the same dialog on its own tab", () => {
+    seed({ solutions: [sol("one()", { name: "Brute force" }), sol("two()")] });
+    renderTracker();
+    fireEvent.click(toggle());
+    expect(within(row()).queryByText("View solution")).toBeNull();
+    fireEvent.click(within(row()).getByRole("button", { name: "Open Solution 2 for Two Sum" }));
+    expect(screen.getByRole("tab", { name: "Solution 2" }).getAttribute("aria-selected")).toBe("true");
+    expect(document.body.textContent).toContain("two()");
+    fireEvent.click(screen.getByText("Close"));
+    fireEvent.click(within(row()).getByRole("button", { name: "Open Brute force for Two Sum" }));
+    expect(screen.getByRole("tab", { name: "Brute force" }).getAttribute("aria-selected")).toBe("true");
+    expect(document.body.textContent).toContain("one()");
   });
 });

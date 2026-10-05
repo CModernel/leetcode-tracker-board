@@ -32,7 +32,7 @@ const KanbanCard = ({ card, onComplete }) => {
       }`}
     >
       <div className="flex items-start justify-between gap-1">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <a
             href={problem.url}
             target="_blank"
@@ -52,6 +52,21 @@ const KanbanCard = ({ card, onComplete }) => {
               Solved {formatShortDate(card.entry.solvedDate)}
             </p>
           )}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span
+            className={`text-xs font-semibold ${difficultyColor[problem.difficulty]}`}
+          >
+            {problem.difficulty}
+          </span>
+          {(problem.topics || []).map((topic) => (
+            <span
+              key={topic}
+              className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded"
+            >
+              {topic}
+            </span>
+          ))}
+        </div>
         </div>
         {/* One column on the right: the menu, then the note and the solution */}
         <div className="flex flex-shrink-0 flex-col items-center gap-0.5">
@@ -59,21 +74,6 @@ const KanbanCard = ({ card, onComplete }) => {
           <KanbanCardNote problem={problem} note={card.entry?.note} />
           <KanbanCardSolution problem={problem} solutions={solutionsOf(card.entry)} />
         </div>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span
-          className={`text-xs font-semibold ${difficultyColor[problem.difficulty]}`}
-        >
-          {problem.difficulty}
-        </span>
-        {(problem.topics || []).map((topic) => (
-          <span
-            key={topic}
-            className="px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded"
-          >
-            {topic}
-          </span>
-        ))}
       </div>
       {urgency && !completeButton && (
         <div className="mt-2 flex items-center gap-2">
