@@ -201,6 +201,19 @@ const KanbanBoard = () => {
     });
   };
 
+  // The Mark as solved button of an In Progress card: like the menu item, with
+  // Undo (which brings the timer back too).
+  const solveFromUi = (item) => {
+    const list = selectedList;
+    const before = listProgress[item.problem.id];
+    markSolved(item.problem.id);
+    setNotice({
+      id: Date.now(),
+      message: "Marked as solved",
+      undo: () => restoreEntry(list, item.problem.id, before),
+    });
+  };
+
   // The Complete button: if the note or the solution was opened today, ask how
   // it went; if not, there is nothing to ask and it was solved alone.
   const completeReviewFromUi = (item) => {
@@ -337,6 +350,7 @@ const KanbanBoard = () => {
                     key={card.problem.id}
                     card={card}
                     onComplete={completeReviewFromUi}
+                    onSolve={solveFromUi}
                   />
                 ))}
               </SortableContext>
@@ -365,6 +379,7 @@ const KanbanBoard = () => {
                       key={card.problem.id}
                       card={card}
                       onComplete={completeReviewFromUi}
+                    onSolve={solveFromUi}
                     />
                   ))}
                 </div>
@@ -388,6 +403,7 @@ const KanbanBoard = () => {
             <KanbanCard
               card={cardForColumn(activeCard, overColumnId)}
               onComplete={() => {}}
+              onSolve={() => {}}
             />
           </div>
         ) : null}

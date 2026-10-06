@@ -2,7 +2,7 @@ import { Calendar, Check, Clock, ExternalLink } from "lucide-react";
 import KanbanCardMenu from "./KanbanCardMenu";
 import KanbanCardNote from "./KanbanCardNote";
 import KanbanCardSolution from "./KanbanCardSolution";
-import KanbanCardTimerReadout from "./KanbanCardTimer";
+import { KanbanCardTimerBar, KanbanCardTimerStart } from "./KanbanCardTimer";
 import { useCardTimer } from "./useCardTimer";
 import { useStartWork } from "./useStartWork";
 import { useNotice } from "../context/NoticeContext";
@@ -23,9 +23,11 @@ import {
 // action in one: "✓ R3 · 3d late" (red, overdue), "✓ R1 · today" (yellow) or,
 // when it is not due yet, "🕒 R1 · Oct 2" as a dashed gray outline. `onComplete(card)`
 // runs when it is pressed (no button when it is not given).
-const KanbanCard = ({ card, onComplete }) => {
+const KanbanCard = ({ card, onComplete, onSolve }) => {
   const { problem, stage, nextDue, urgency } = card;
   const completeButton = onComplete ? completeButtonFor(card) : null;
+  // An In Progress card has its own completing button, like a review has
+  const solveButton = onSolve && stage === "in-progress";
   const timer = useCardTimer(problem, card.entry);
   const { startWork } = useStartWork();
   const showNotice = useNotice();
@@ -82,7 +84,6 @@ const KanbanCard = ({ card, onComplete }) => {
             </span>
           ))}
         </div>
-          <KanbanCardTimerReadout timer={timer} />
         </div>
         {/* One column on the right: the menu, then the note and the solution */}
         <div className="flex flex-shrink-0 flex-col items-center gap-0.5">
@@ -107,23 +108,44 @@ const KanbanCard = ({ card, onComplete }) => {
           </span>
         </div>
       )}
-      {completeButton && (
-        <button
-          onClick={() => onComplete(card)}
-          aria-label={completeButton.label}
-          title={completeButton.title}
-          className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1 text-xs font-semibold transition hover:brightness-95 dark:hover:brightness-125 ${
-            reviewButtonStyles[urgency]
-          }`}
-        >
-          {/* A clock for a review that can wait, a check for one that is due */}
-          {completeButton.early ? (
-            <Clock size={16} aria-hidden="true" />
-          ) : (
-            <Check size={16} aria-hidden="true" />
-          )}
-          {completeButton.text}
-        </button>
+      {(completeButton || solveButton || timer?.hasTime) && (
+        <div className="mt-2 flex flex-col gap-1">
+          {/* The timer bar (with its control at the left) only when there is a time */}
+          <KanbanCardTimerBar timer={timer} />
+          <div className="flex gap-1">
+            {/* Without a time the play button sits at the left of the same row */}
+            {!timer?.hasTime && (completeButton || solveButton) && <KanbanCardTimerStart timer={timer} />}
+            {completeButton && (
+              <button
+                onClick={() => onComplete(card)}
+                aria-label={completeButton.label}
+                title={completeButton.title}
+                className={`flex h-6 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition hover:brightness-95 dark:hover:brightness-125 ${
+                  reviewButtonStyles[urgency]
+                }`}
+              >
+                {/* A clock for a review that can wait, a check for one that is due */}
+                {completeButton.early ? (
+                  <Clock size={14} aria-hidden="true" />
+                ) : (
+                  <Check size={14} aria-hidden="true" />
+                )}
+                {completeButton.text}
+              </button>
+            )}
+            {solveButton && (
+              <button
+                onClick={() => onSolve(card)}
+                aria-label="Mark as solved"
+                title="Mark as solved"
+                className="flex h-6 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg border-2 border-green-500 bg-green-50 text-xs font-semibold text-green-700 transition hover:brightness-95 dark:bg-green-900/30 dark:text-green-300 dark:hover:brightness-125"
+              >
+                <Check size={14} aria-hidden="true" />
+                Mark as solved
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </article>
   );

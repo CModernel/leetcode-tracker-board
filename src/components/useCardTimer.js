@@ -5,11 +5,11 @@ import { activityOf, elapsedMs, limitMsFor, normalizeTimer, timeState } from "..
 
 // What a card needs to show and control the timer of its problem: the time
 // counted, what is being timed (first solve or a review), how it stands against
-// the limit, and `toggle` (tap the time to pause or resume). The timer starts by
-// itself (see useStartWork), so there is no start button. `null` when there is
+// the limit, and the actions: `start` (the small play button), `toggle` (pause or
+// resume) and `reset`. The timer also starts by itself (see useStartWork). `null` when there is
 // nothing to time (every review is done).
 export const useCardTimer = (problem, entry) => {
-  const { pauseTimer } = useProgress();
+  const { pauseTimer, resetTimer } = useProgress();
   const { startAndTell } = useStartWork();
   const timer = normalizeTimer(entry?.timer);
   const running = timer !== null && timer.runningSince !== null;
@@ -24,6 +24,8 @@ export const useCardTimer = (problem, entry) => {
     hasTime: timer !== null,
     ms,
     state: timeState(ms, limitMsFor(activity.kind, problem.difficulty)),
+    start: () => startAndTell(problem.id),
     toggle: () => (running ? pauseTimer(problem.id) : startAndTell(problem.id)),
+    reset: () => resetTimer(problem.id),
   };
 };
