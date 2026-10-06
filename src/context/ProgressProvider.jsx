@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { ProgressContext } from "./ProgressContext";
 import { localToday } from "../lib/schedule";
 import { getProblems } from "../lib/lists";
+import { limitMsFor } from "../lib/timer";
 import { computeStats } from "../lib/stats";
 import { titleWithCount } from "../lib/title";
 import * as reducers from "./progressReducers";
@@ -15,6 +16,13 @@ import {
 } from "../lib/migrate";
 
 const LIST_KEY = "leetcode-selected-list";
+
+// What the timer needs when a problem is finished: the moment it stops and the
+// limit that applies to that problem (null when it is not in the list).
+const timeFor = (list, problemId, kind) => {
+  const problem = getProblems(list).find((p) => p.id === problemId);
+  return { now: Date.now(), limitMs: problem ? limitMsFor(kind, problem.difficulty) : null };
+};
 
 export const ProgressProvider = ({ children }) => {
   const [progress, setProgress] = useState(() => {
@@ -99,7 +107,13 @@ export const ProgressProvider = ({ children }) => {
   const actions = {
     markSolved: (problemId) =>
       setProgress((prev) =>
-        reducers.markSolved(prev, selectedList, problemId, localToday())
+        reducers.markSolved(
+          prev,
+          selectedList,
+          problemId,
+          localToday(),
+          timeFor(selectedList, problemId, "first")
+        )
       ),
     markMastered: (problemId) =>
       setProgress((prev) =>
@@ -175,7 +189,8 @@ export const ProgressProvider = ({ children }) => {
           problemId,
           index,
           help,
-          localToday()
+          localToday(),
+          timeFor(selectedList, problemId, "review")
         )
       ),
     rewindReviews: (problemId, index) =>

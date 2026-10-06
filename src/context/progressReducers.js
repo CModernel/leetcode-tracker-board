@@ -39,6 +39,28 @@ const withoutOverride = (entry) => {
   return rest;
 };
 
+// The time used by an entry's timer, as { ms, limitMs? }, or null when it has
+// no (valid) timer. `time` is { now, limitMs? } from the caller: `now` is the
+// timestamp the timer stops at (without it only the time already counted is
+// used) and `limitMs` the limit that applied, saved so a later change of the
+// limits does not rewrite history.
+const timeUsed = (entry, time) => {
+  const timer = normalizeTimer(entry?.timer);
+  if (!timer) return null;
+  const stop = Number.isFinite(time?.now) ? time.now : timer.runningSince ?? 0;
+  const used = { ms: elapsedMs(timer, stop) };
+  if (Number.isFinite(time?.limitMs) && time.limitMs > 0) used.limitMs = time.limitMs;
+  return used;
+};
+
+// The timer belongs to what is being done (the first solve or one review), so
+// it goes when that changes.
+const withoutTimer = (entry) => {
+  const { timer, ...rest } = entry;
+  void timer;
+  return rest;
+};
+
 const updateEntry = (progress, list, problemId, update) => {
   const listProgress = progress[list] || {};
   const current = listProgress[problemId] || emptyEntry();
@@ -48,15 +70,23 @@ const updateEntry = (progress, list, problemId, update) => {
   };
 };
 
-export const markSolved = (progress, list, problemId, today) => {
+// With a timer, the time used is kept as `firstSolve: { date, ms, limitMs? }`
+// (kept when the problem is un-solved later, like the attempts) and the timer
+// is cleared. Without one nothing is saved: a missing `ms` is unknown, never 0.
+export const markSolved = (progress, list, problemId, today, time) => {
   if (progress[list]?.[problemId]?.solved) return progress;
-  return updateEntry(progress, list, problemId, (current) => ({
-    ...current,
-    status: "solved",
-    solved: true,
-    solvedDate: today,
-    dates: { ...current.dates, initial: today },
-  }));
+  return updateEntry(progress, list, problemId, (current) => {
+    const used = timeUsed(current, time);
+    const next = {
+      ...withoutTimer(current),
+      status: "solved",
+      solved: true,
+      solvedDate: today,
+      dates: { ...current.dates, initial: today },
+    };
+    if (used) next.firstSolve = { date: today, ...used };
+    return next;
+  });
 };
 
 // Marks a problem as mastered without going through the five reviews (someone
@@ -70,7 +100,7 @@ export const markMastered = (progress, list, problemId, today) => {
   const current = progress[list]?.[problemId];
   if (current?.reviews?.length === 5 && current.reviews.every(Boolean)) return progress;
   return updateEntry(progress, list, problemId, (entry) => {
-    const next = withoutOverride(entry);
+    const next = withoutTimer(withoutOverride(entry));
     delete next.helpViewed;
     delete next.startedAt;
     delete next.order;
@@ -142,7 +172,7 @@ export const resetTimer = (progress, list, problemId) => {
 // Un-solving wipes the reviews and their dates.
 export const unsolve = (progress, list, problemId) =>
   updateEntry(progress, list, problemId, (current) => ({
-    ...withoutOverride(current),
+    ...withoutTimer(withoutOverride(current)),
     status: "todo",
     solved: false,
     solvedDate: null,
@@ -191,7 +221,7 @@ export const completeReview = (progress, list, problemId, index, today) => {
     const reviews = [...current.reviews];
     reviews[index] = true;
     return {
-      ...withoutOverride(current),
+      ...withoutTimer(withoutOverride(current)),
       reviews,
       dates: { ...current.dates, [`review${index + 1}`]: today },
     };
@@ -206,7 +236,7 @@ export const uncompleteReview = (progress, list, problemId, index) => {
     reviews[index] = false;
     const dates = { ...current.dates };
     delete dates[`review${index + 1}`];
-    return { ...withoutOverride(current), reviews, dates };
+    return { ...withoutTimer(withoutOverride(current)), reviews, dates };
   });
 };
 
@@ -293,22 +323,30 @@ export const rewindReviews = (progress, list, problemId, index) => {
     const reviews = current.reviews.map((done, i) => (i >= index ? false : done));
     const dates = { ...current.dates };
     for (let i = index; i < reviews.length; i++) delete dates[`review${i + 1}`];
-    return { ...withoutOverride(current), reviews, dates };
+    return { ...withoutTimer(withoutOverride(current)), reviews, dates };
   });
+};
+
+const validUsed = (used) => {
+  if (!used || !Number.isFinite(used.ms) || used.ms < 0) return {};
+  return Number.isFinite(used.limitMs) && used.limitMs > 0
+    ? { ms: used.ms, limitMs: used.limitMs }
+    : { ms: used.ms };
 };
 
 // Adds an attempt to the problem's history: which review (0..4) was tried, how
 // much help it needed (see HELP) and on what day. Only a solved problem has
 // reviews, so anything else does nothing, and so does an invalid review or
 // help. Existing attempts are never changed or removed by this or by any other
-// action except "Clear all".
-export const recordAttempt = (progress, list, problemId, review, help, today) => {
+// action except "Clear all". `used` ({ ms, limitMs? }, the time the attempt
+// took) is saved with it when it is valid; without it the time is unknown.
+export const recordAttempt = (progress, list, problemId, review, help, today, used) => {
   const current = progress[list]?.[problemId];
   const validReview = Number.isInteger(review) && review >= 0 && review < 5;
   if (!current?.solved || !validReview || !isHelp(help)) return progress;
   return updateEntry(progress, list, problemId, (entry) => ({
     ...entry,
-    attempts: [...attemptsOf(entry), { date: today, review, help }],
+    attempts: [...attemptsOf(entry), { date: today, review, help, ...validUsed(used) }],
   }));
 };
 
@@ -366,10 +404,14 @@ export const completeReviewWithHelp = (
   problemId,
   index,
   help,
-  today
+  today,
+  time
 ) => {
   if (!isHelp(help)) return progress;
   if (!canCompleteReview(progress[list]?.[problemId], index)) return progress;
+  // read before the steps below clear the timer; whatever the answer, the
+  // attempt took this long
+  const used = timeUsed(progress[list][problemId], time);
 
   let next = progress;
   if (help === HELP.ALONE) {
@@ -381,8 +423,9 @@ export const completeReviewWithHelp = (
     if (index > 0) next = rewindReviews(next, list, problemId, back);
     next = setDueOverride(next, list, problemId, back, addDays(today, GAPS[back]));
   }
-  next = recordAttempt(next, list, problemId, index, help, today);
-  return updateEntry(next, list, problemId, withoutHelpViewed);
+  next = recordAttempt(next, list, problemId, index, help, today, used);
+  // the attempt is over whatever the answer: the same review starts a new one
+  return updateEntry(next, list, problemId, (entry) => withoutHelpViewed(withoutTimer(entry)));
 };
 
 // Puts a problem's saved entry back as it was (used by "Undo"). `entry` is

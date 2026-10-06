@@ -83,4 +83,44 @@ describe("the timer in the saved progress", () => {
     act(() => api.resetTimer("blind75-1"));
     expect(saved()).not.toHaveProperty("timer");
   });
+
+  it("finishing through the provider saves the time and the limit of that problem", () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        version: 3,
+        progress: {
+          "Blind 75": {
+            "blind75-1": {
+              status: "solved",
+              solved: true,
+              solvedDate: "2026-10-01",
+              reviews: [true, true, false, false, false],
+              dates: { initial: "2026-10-01", review1: "2026-10-02", review2: "2026-10-04" },
+            },
+          },
+        },
+      }),
+    );
+    mount();
+    const t0 = Date.now();
+    act(() => api.startTimer("blind75-1"));
+    vi.setSystemTime(t0 + 12 * 60_000);
+    act(() => api.completeReviewWithHelp("blind75-1", 2, 0));
+    // Two Sum is an Easy: the review limit is 10 minutes
+    expect(saved().attempts.at(-1)).toEqual({ date: "2026-10-20", review: 2, help: 0, ms: 12 * 60_000, limitMs: 10 * 60_000 });
+    expect(saved()).not.toHaveProperty("timer");
+  });
+
+  it("solving a problem through the provider saves the first solve with the first-solve limit", () => {
+    mount();
+    const t0 = Date.now();
+    act(() => api.startTimer("blind75-2"));
+    vi.setSystemTime(t0 + 30 * 60_000);
+    act(() => api.markSolved("blind75-2"));
+    const problem = saved("blind75-2");
+    expect(problem.firstSolve.ms).toBe(30 * 60_000);
+    expect(problem.firstSolve.limitMs).toBeGreaterThan(0);
+    expect(problem).not.toHaveProperty("timer");
+  });
 });
