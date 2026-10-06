@@ -189,11 +189,11 @@ These are the dates when every review is done on time. If you do a review late, 
 - [x] Kanban board synchronized with the tracker
 - [x] Review outcomes by help needed (solved alone / needed the note / needed the solution)
 - [x] Review rewind, Mark as mastered and Undo
+- [x] Show/hide the solution attached to a problem (up to two per problem)
 
 **Planned**
 - [ ] Cloud data persistence (Supabase, local-first, sign in with GitHub, Google or magic link)
 - [ ] Weak-topic analytics and exercise suggestions
-- [ ] Show/hide the solution attached to a problem
 - [ ] Time limits and a timer for attempts
 - [ ] Browser/push notifications for due reviews (needs cloud persistence)
 - [ ] Import progress from LeetCode (needs cloud persistence)
