@@ -191,12 +191,12 @@ These are the dates when every review is done on time. If you do a review late, 
 - [x] Review rewind, Mark as mastered and Undo
 - [x] Show/hide the solution attached to a problem (up to two per problem)
 
-**Planned**
-- [ ] Cloud data persistence (Supabase, local-first, sign in with GitHub, Google or magic link)
-- [ ] Weak-topic analytics and exercise suggestions
+**Planned** (in this order)
 - [ ] Time limits and a timer for attempts
+- [ ] Weak-topic analytics and exercise suggestions
+- [ ] Cloud data persistence (Supabase, local-first, sign in with GitHub, Google or magic link)
 - [ ] Browser/push notifications for due reviews (needs cloud persistence)
-- [ ] Import progress from LeetCode (needs cloud persistence)
+- [ ] Import progress and solutions from a file
 
 **Ideas**
 - [ ] Custom problem sets
