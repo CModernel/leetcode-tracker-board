@@ -2,6 +2,8 @@ import { Calendar, Check, Clock, ExternalLink } from "lucide-react";
 import KanbanCardMenu from "./KanbanCardMenu";
 import KanbanCardNote from "./KanbanCardNote";
 import KanbanCardSolution from "./KanbanCardSolution";
+import { KanbanCardTimerButton, KanbanCardTimerReadout } from "./KanbanCardTimer";
+import { useCardTimer } from "./useCardTimer";
 import { solutionsOf } from "../lib/solutions";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { problemLabel } from "../lib/lists";
@@ -22,6 +24,7 @@ import {
 const KanbanCard = ({ card, onComplete }) => {
   const { problem, stage, nextDue, urgency } = card;
   const completeButton = onComplete ? completeButtonFor(card) : null;
+  const timer = useCardTimer(problem, card.entry);
 
   return (
     <article
@@ -67,12 +70,14 @@ const KanbanCard = ({ card, onComplete }) => {
             </span>
           ))}
         </div>
+          <KanbanCardTimerReadout timer={timer} />
         </div>
-        {/* One column on the right: the menu, then the note and the solution */}
+        {/* One column on the right: the menu, then the note, the solution and the timer */}
         <div className="flex flex-shrink-0 flex-col items-center gap-0.5">
           <KanbanCardMenu card={card} />
           <KanbanCardNote problem={problem} note={card.entry?.note} />
           <KanbanCardSolution problem={problem} solutions={solutionsOf(card.entry)} />
+          <KanbanCardTimerButton timer={timer} />
         </div>
       </div>
       {urgency && !completeButton && (
