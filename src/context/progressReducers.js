@@ -8,6 +8,7 @@ import {
 } from "../lib/schedule";
 import { HELP, REPEAT_DAYS, VIEW_KINDS, attemptsOf, isHelp } from "../lib/attempts";
 import { isStatus } from "../lib/status";
+import { activityOf, elapsedMs, findRunningTimer, normalizeTimer } from "../lib/timer";
 import { MAX_SOLUTIONS, canReplace, normalizeSolution, solutionsOf } from "../lib/solutions";
 
 // Pure functions that return the next `progress` object. `progress` is
@@ -87,6 +88,54 @@ export const markMastered = (progress, list, problemId, today) => {
       dates,
       masteredBy: "manual",
     };
+  });
+};
+
+// The timer of a problem is `timer: { elapsedMs, runningSince }` (see
+// lib/timer.js). `now` is a timestamp in milliseconds. Only one timer runs at a
+// time: starting one pauses the other, wherever it is.
+const pausedAt = (entry, now) => ({
+  ...entry,
+  timer: { elapsedMs: elapsedMs(entry.timer, now), runningSince: null },
+});
+
+// Pauses the running timer, if any (in any list).
+const pauseRunning = (progress, now) => {
+  const running = findRunningTimer(progress);
+  if (!running) return progress;
+  return updateEntry(progress, running.list, running.problemId, (entry) => pausedAt(entry, now));
+};
+
+// Starts (or resumes) the timer of a problem, keeping the time already counted
+// and pausing any other timer. A problem with nothing left to time (every
+// review done) and one that is already running do nothing.
+export const startTimer = (progress, list, problemId, now) => {
+  if (!Number.isFinite(now) || now < 0) return progress;
+  const current = progress[list]?.[problemId];
+  if (activityOf(current) === null) return progress;
+  if (normalizeTimer(current?.timer)?.runningSince != null) return progress;
+  const paused = pauseRunning(progress, now);
+  return updateEntry(paused, list, problemId, (entry) => ({
+    ...entry,
+    timer: { elapsedMs: elapsedMs(entry.timer, now), runningSince: now },
+  }));
+};
+
+// Pauses the timer of a problem (the time so far is kept). Does nothing when
+// it is not running.
+export const pauseTimer = (progress, list, problemId, now) => {
+  const current = progress[list]?.[problemId];
+  if (normalizeTimer(current?.timer)?.runningSince == null) return progress;
+  return updateEntry(progress, list, problemId, (entry) => pausedAt(entry, now));
+};
+
+// Throws the time counted away (running or not). Does nothing without a timer.
+export const resetTimer = (progress, list, problemId) => {
+  if (!progress[list]?.[problemId] || !("timer" in progress[list][problemId])) return progress;
+  return updateEntry(progress, list, problemId, (entry) => {
+    const { timer, ...rest } = entry;
+    void timer;
+    return rest;
   });
 };
 

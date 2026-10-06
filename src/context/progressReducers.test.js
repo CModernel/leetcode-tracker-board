@@ -17,7 +17,10 @@ import {
   setSolution,
   rewindReviews,
   setOrder,
+  pauseTimer,
+  resetTimer,
   setStatus,
+  startTimer,
   uncompleteReview,
   unsolve,
 } from "./progressReducers";
@@ -1259,5 +1262,92 @@ describe("setSolution", () => {
 
   it("keeps the solutions when the problem is unsolved", () => {
     expect(unsolve(withTwo(), LIST, 1)[LIST][1].solutions).toHaveLength(2);
+  });
+});
+
+describe("startTimer, pauseTimer and resetTimer", () => {
+  const T0 = 1_000_000;
+  const timerOf = (progress, list = LIST, id = "1") => progress[list][id].timer;
+
+  it("starts a timer on a problem that has no saved progress", () => {
+    const next = startTimer({}, LIST, "9", T0);
+    expect(next[LIST]["9"].timer).toEqual({ elapsedMs: 0, runningSince: T0 });
+    expect(next[LIST]["9"].status).toBe("todo");
+  });
+
+  it("pauses keeping the time counted, and resumes from it", () => {
+    let state = startTimer(solvedState(), LIST, "1", T0);
+    state = pauseTimer(state, LIST, "1", T0 + 5000);
+    expect(timerOf(state)).toEqual({ elapsedMs: 5000, runningSince: null });
+    state = startTimer(state, LIST, "1", T0 + 60000);
+    expect(timerOf(state)).toEqual({ elapsedMs: 5000, runningSince: T0 + 60000 });
+    state = pauseTimer(state, LIST, "1", T0 + 63000);
+    expect(timerOf(state).elapsedMs).toBe(8000);
+  });
+
+  it("starting one pauses the one that was running, even in another list", () => {
+    const base = { ...solvedState(), [OTHER]: { 2: { status: "in-progress", solved: false, reviews: noReviews, dates: {} } } };
+    let state = startTimer(base, OTHER, "2", T0);
+    state = startTimer(state, LIST, "1", T0 + 4000);
+    expect(timerOf(state, OTHER, "2")).toEqual({ elapsedMs: 4000, runningSince: null });
+    expect(timerOf(state)).toEqual({ elapsedMs: 0, runningSince: T0 + 4000 });
+  });
+
+  it("does nothing when it is already running (the clock is not restarted)", () => {
+    const running = startTimer(solvedState(), LIST, "1", T0);
+    expect(startTimer(running, LIST, "1", T0 + 9000)).toBe(running);
+  });
+
+  it("does nothing for a mastered problem or a bad time", () => {
+    const mastered = {
+      [LIST]: { 1: { solved: true, reviews: [true, true, true, true, true], dates: {} } },
+    };
+    expect(startTimer(mastered, LIST, "1", T0)).toBe(mastered);
+    const state = solvedState();
+    expect(startTimer(state, LIST, "1", NaN)).toBe(state);
+    expect(startTimer(state, LIST, "1", -5)).toBe(state);
+  });
+
+  it("pause does nothing when it is not running or there is no timer", () => {
+    const state = solvedState();
+    expect(pauseTimer(state, LIST, "1", T0)).toBe(state);
+    expect(pauseTimer(state, LIST, "404", T0)).toBe(state);
+  });
+
+  it("a clock that went backwards adds nothing when pausing", () => {
+    let state = startTimer(solvedState(), LIST, "1", T0);
+    state = pauseTimer(state, LIST, "1", T0 - 10000);
+    expect(timerOf(state)).toEqual({ elapsedMs: 0, runningSince: null });
+  });
+
+  it("starting over a damaged timer begins at zero", () => {
+    const damaged = solvedState();
+    damaged[LIST][1].timer = { elapsedMs: "lots", runningSince: "now" };
+    expect(timerOf(startTimer(damaged, LIST, "1", T0))).toEqual({ elapsedMs: 0, runningSince: T0 });
+  });
+
+  it("reset removes the timer, and only the timer", () => {
+    const running = startTimer(solvedState(), LIST, "1", T0);
+    const next = resetTimer(running, LIST, "1");
+    expect(next[LIST][1]).toEqual(solvedState()[LIST][1]);
+    expect(next[LIST][1]).not.toHaveProperty("timer");
+    expect(resetTimer(next, LIST, "1")).toBe(next);
+    expect(resetTimer(next, LIST, "404")).toBe(next);
+  });
+
+  it("does not touch the other fields or other problems", () => {
+    const before = { ...solvedState(), [OTHER]: { 5: { status: "todo", solved: false, reviews: noReviews, dates: {} } } };
+    const next = startTimer(before, LIST, "1", T0);
+    expect(next[OTHER]).toBe(before[OTHER]);
+    const { timer, ...rest } = next[LIST][1];
+    void timer;
+    expect(rest).toEqual(before[LIST][1]);
+  });
+
+  it("Undo (restoreEntry) brings the timer back with the entry", () => {
+    const running = startTimer(solvedState(), LIST, "1", T0);
+    const snapshot = running[LIST][1];
+    const reset = resetTimer(running, LIST, "1");
+    expect(restoreEntry(reset, LIST, "1", snapshot)[LIST][1].timer).toEqual({ elapsedMs: 0, runningSince: T0 });
   });
 });

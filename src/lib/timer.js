@@ -99,3 +99,15 @@ export const activityOf = (entry) => {
   if (next === undefined) return null;
   return { kind: "review", review: next + 1, label: `R${next + 1}` };
 };
+
+// The problem whose timer is running, as { list, problemId }, or null. Only one
+// timer runs at a time (starting another pauses it), so the first one found is
+// the one; `progress` is the whole saved object ({ [list]: { [problemId]: entry } }).
+export const findRunningTimer = (progress) => {
+  for (const [list, entries] of Object.entries(progress || {})) {
+    for (const [problemId, entry] of Object.entries(entries || {})) {
+      if (normalizeTimer(entry?.timer)?.runningSince != null) return { list, problemId };
+    }
+  }
+  return null;
+};

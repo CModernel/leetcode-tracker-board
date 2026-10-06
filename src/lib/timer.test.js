@@ -3,6 +3,7 @@ import {
   LIMITS_MIN,
   activityOf,
   elapsedMs,
+  findRunningTimer,
   formatDuration,
   limitMsFor,
   normalizeTimer,
@@ -174,5 +175,22 @@ describe("activityOf", () => {
 
   it("copes with a missing reviews list", () => {
     expect(activityOf({ solved: true })).toEqual({ kind: "review", review: 1, label: "R1" });
+  });
+});
+
+describe("findRunningTimer", () => {
+  it("finds the problem whose timer is running, in any list", () => {
+    const progress = {
+      A: { 1: { timer: { elapsedMs: 5, runningSince: null } } },
+      B: { 2: { status: "todo" }, 7: { timer: { elapsedMs: 0, runningSince: 99 } } },
+    };
+    expect(findRunningTimer(progress)).toEqual({ list: "B", problemId: "7" });
+  });
+
+  it("is null when none runs, or the data is empty or damaged", () => {
+    expect(findRunningTimer({ A: { 1: { timer: { elapsedMs: 5, runningSince: null } } } })).toBeNull();
+    expect(findRunningTimer({ A: { 1: { timer: { elapsedMs: "x", runningSince: 4 } } } })).toBeNull();
+    expect(findRunningTimer({})).toBeNull();
+    expect(findRunningTimer(null)).toBeNull();
   });
 });
