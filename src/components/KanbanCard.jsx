@@ -2,8 +2,10 @@ import { Calendar, Check, Clock, ExternalLink } from "lucide-react";
 import KanbanCardMenu from "./KanbanCardMenu";
 import KanbanCardNote from "./KanbanCardNote";
 import KanbanCardSolution from "./KanbanCardSolution";
-import { KanbanCardTimerButton, KanbanCardTimerReadout } from "./KanbanCardTimer";
+import KanbanCardTimerReadout from "./KanbanCardTimer";
 import { useCardTimer } from "./useCardTimer";
+import { useStartWork } from "./useStartWork";
+import { useNotice } from "../context/NoticeContext";
 import { solutionsOf } from "../lib/solutions";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { problemLabel } from "../lib/lists";
@@ -25,6 +27,15 @@ const KanbanCard = ({ card, onComplete }) => {
   const { problem, stage, nextDue, urgency } = card;
   const completeButton = onComplete ? completeButtonFor(card) : null;
   const timer = useCardTimer(problem, card.entry);
+  const { startWork } = useStartWork();
+  const showNotice = useNotice();
+  // Opening the problem is starting to work on it: the timer starts by itself
+  const open = () => {
+    const paused = startWork(problem.id)?.paused;
+    if (paused) {
+      showNotice({ message: `Paused ${paused.title} at ${paused.time}`, undo: paused.resume });
+    }
+  };
 
   return (
     <article
@@ -42,6 +53,7 @@ const KanbanCard = ({ card, onComplete }) => {
             rel="noopener noreferrer"
             className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline flex items-start gap-1"
             title={`Open ${problem.title}`}
+            onClick={open}
           >
             <span className="line-clamp-2">{problemLabel(problem)}</span>
             <ExternalLink size={12} className="flex-shrink-0 mt-1" />
@@ -72,12 +84,11 @@ const KanbanCard = ({ card, onComplete }) => {
         </div>
           <KanbanCardTimerReadout timer={timer} />
         </div>
-        {/* One column on the right: the menu, then the note, the solution and the timer */}
+        {/* One column on the right: the menu, then the note and the solution */}
         <div className="flex flex-shrink-0 flex-col items-center gap-0.5">
           <KanbanCardMenu card={card} />
           <KanbanCardNote problem={problem} note={card.entry?.note} />
           <KanbanCardSolution problem={problem} solutions={solutionsOf(card.entry)} />
-          <KanbanCardTimerButton timer={timer} />
         </div>
       </div>
       {urgency && !completeButton && (

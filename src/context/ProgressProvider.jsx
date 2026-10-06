@@ -129,8 +129,8 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.setSolution(prev, selectedList, problemId, index, solution, localToday())
       ),
-    startTimer: (problemId) =>
-      setProgress((prev) => reducers.startTimer(prev, selectedList, problemId, Date.now())),
+    startTimer: (problemId, list = selectedList) =>
+      setProgress((prev) => reducers.startTimer(prev, list, problemId, Date.now())),
     pauseTimer: (problemId) =>
       setProgress((prev) => reducers.pauseTimer(prev, selectedList, problemId, Date.now())),
     resetTimer: (problemId) =>

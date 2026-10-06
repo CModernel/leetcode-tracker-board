@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MoreHorizontal } from "lucide-react";
-import { cardActionMessage, getCardActions, runCardAction } from "../lib/board";
+import { cardActionMessage, getCardActions, runCardAction, withPaused } from "../lib/board";
+import { useStartWork } from "./useStartWork";
 import { useProgress } from "../context/ProgressContext";
 import { useNotice } from "../context/NoticeContext";
 import { useConfirm } from "../context/ConfirmContext";
@@ -20,9 +21,11 @@ const KanbanCardMenu = ({ card }) => {
     completeReview,
     uncompleteReview,
     rewindReviews,
+    resetTimer,
     restoreEntry,
     selectedList,
   } = useProgress();
+  const { startWork } = useStartWork();
   const confirm = useConfirm();
   const showNotice = useNotice();
   const [position, setPosition] = useState(null);
@@ -75,18 +78,25 @@ const KanbanCardMenu = ({ card }) => {
     // What the problem looked like, to bring it back on Undo
     const list = selectedList;
     const before = card.entry;
-    runCardAction(action, card.problem.id, {
+    const outcome = runCardAction(action, card.problem.id, {
       setStatus,
+      startWork,
       markSolved,
       markMastered,
       unsolve,
       completeReview,
       uncompleteReview,
       rewindReviews,
+      resetTimer,
     });
+    // Starting may have paused another timer: say so, and Undo brings it back
+    const paused = outcome?.paused;
     showNotice({
-      message: cardActionMessage(action),
-      undo: () => restoreEntry(list, card.problem.id, before),
+      message: withPaused(cardActionMessage(action), paused),
+      undo: () => {
+        restoreEntry(list, card.problem.id, before);
+        paused?.resume();
+      },
     });
   };
 

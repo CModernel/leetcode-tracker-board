@@ -24,6 +24,7 @@ import OutcomeDialog from "./OutcomeDialog";
 import {
   COLUMNS,
   applyDrop,
+  withPaused,
   buildColumns,
   canDrop,
   cardForColumn,
@@ -39,6 +40,7 @@ import {
   moveToColumn,
 } from "../lib/keyboardDnd";
 import { HELP, suggestedHelp } from "../lib/attempts";
+import { useStartWork } from "./useStartWork";
 import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
@@ -70,6 +72,7 @@ const KanbanBoard = () => {
     reorder,
   } = useProgress();
   const confirm = useConfirm();
+  const { startWork } = useStartWork();
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
   // The review whose outcome dialog is open
@@ -265,6 +268,7 @@ const KanbanBoard = () => {
         target,
         {
           setStatus,
+          startWork,
           markSolved,
           markMastered,
           unsolve,
@@ -281,11 +285,16 @@ const KanbanBoard = () => {
     } else if (result.status === "moved") {
       setNotice({
         id: Date.now(),
-        message:
+        message: withPaused(
           target === "mastered"
             ? "Marked as mastered"
             : `Moved to ${columnTitle(target)}`,
-        undo: () => restoreEntry(list, card.problem.id, before),
+          result.paused
+        ),
+        undo: () => {
+          restoreEntry(list, card.problem.id, before);
+          result.paused?.resume();
+        },
       });
     }
   };
