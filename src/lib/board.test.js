@@ -1174,3 +1174,22 @@ describe("the timer in the card menu and the start", () => {
     );
   });
 });
+
+describe("dragging to another column", () => {
+  const card = (stage, entry = {}) => ({ problem: { id: 7 }, stage, entry });
+
+  it("dragging In Progress to Reviewing is marking it as solved, the same action as the button", () => {
+    expect(canDrop(card("in-progress"), "reviewing")).toEqual({ allowed: true, action: { type: "markSolved" } });
+    expect(getCardActions("in-progress", {}).map((a) => a.type)).toContain("markSolved");
+    const calls = [];
+    runCardAction({ type: "markSolved" }, 7, { markSolved: (id) => calls.push(id) });
+    expect(calls).toEqual([7]);
+  });
+
+  it("dragging R5 to Mastered completes the last review (no confirm) and only that", () => {
+    const entry = { solved: true, reviews: [true, true, true, true, false], dates: {} };
+    const result = canDrop(card("R5", entry), "mastered");
+    expect(result).toEqual({ allowed: true, action: { type: "completeReview", index: 4 } });
+    expect(result.action.confirm).toBeUndefined();
+  });
+});

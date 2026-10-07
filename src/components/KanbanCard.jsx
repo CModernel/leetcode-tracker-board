@@ -5,6 +5,7 @@ import KanbanCardSolution from "./KanbanCardSolution";
 import { KanbanCardTimerBar, KanbanCardTimerStart } from "./KanbanCardTimer";
 import { useCardTimer } from "./useCardTimer";
 import { useStartWork } from "./useStartWork";
+import { useLingering } from "../hooks/useLingering";
 import { useNotice } from "../context/NoticeContext";
 import { solutionsOf } from "../lib/solutions";
 import { difficultyColor } from "../lib/difficultyStyles";
@@ -31,7 +32,10 @@ const KanbanCard = ({ card, onComplete, onSolve }) => {
   const timer = useCardTimer(problem, card.entry);
   // Tall buttons until a timer exists; then they shrink a little to make room
   const compact = Boolean(timer?.hasTime);
-  const height = compact ? "h-6" : "h-8";
+  const height = compact ? "h-7" : "h-8";
+  // The bar folds away (instead of vanishing) when the timer is reset
+  const barTimer = useLingering(compact ? timer : null, 220);
+  const barLeaving = !compact && Boolean(barTimer);
   const iconSize = compact ? 14 : 16;
   const { startWork } = useStartWork();
   const showNotice = useNotice();
@@ -91,7 +95,7 @@ const KanbanCard = ({ card, onComplete, onSolve }) => {
         </div>
         {/* One column on the right: the menu, then the note and the solution */}
         <div className="flex flex-shrink-0 flex-col items-center gap-0.5">
-          <KanbanCardMenu card={card} />
+          <KanbanCardMenu card={card} onComplete={onComplete} />
           <KanbanCardNote problem={problem} note={card.entry?.note} />
           <KanbanCardSolution problem={problem} solutions={solutionsOf(card.entry)} />
         </div>
@@ -112,10 +116,10 @@ const KanbanCard = ({ card, onComplete, onSolve }) => {
           </span>
         </div>
       )}
-      {(completeButton || solveButton || timer?.hasTime) && (
+      {(completeButton || solveButton || barTimer) && (
         <div className="mt-2 flex flex-col gap-1">
           {/* The timer bar (with its control at the left) only when there is a time */}
-          <KanbanCardTimerBar timer={timer} />
+          <KanbanCardTimerBar timer={barTimer} leaving={barLeaving} />
           <div className="flex gap-1">
             {/* Without a time the play button sits at the left of the same row */}
             {!timer?.hasTime && (completeButton || solveButton) && <KanbanCardTimerStart timer={timer} />}

@@ -12,7 +12,7 @@ const MENU_ITEM_HEIGHT = 36;
 
 // The "⋯" menu of a card. It goes through the same progress actions as the
 // tracker table, so a change here shows in the table and the other way round.
-const KanbanCardMenu = ({ card }) => {
+const KanbanCardMenu = ({ card, onComplete }) => {
   const {
     setStatus,
     markSolved,
@@ -75,6 +75,10 @@ const KanbanCardMenu = ({ card }) => {
   const choose = async (action) => {
     close();
     if (action.confirm && !(await confirm(action.confirm))) return;
+    // Completing a review goes the same way as its button: it asks how it went
+    // when the note or the solution was opened, and the attempt (with the time)
+    // is written in the history
+    if (action.type === "completeReview" && onComplete) return onComplete(card);
     // What the problem looked like, to bring it back on Undo
     const list = selectedList;
     const before = card.entry;

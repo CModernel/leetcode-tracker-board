@@ -2,7 +2,7 @@ import { Pause, Play, RotateCcw } from "lucide-react";
 import { formatDuration } from "../lib/timer";
 
 // Every bar of a card has the same small height, so cards stay compact.
-// The small bars (h-6) are used once a timer exists; before, the play button is
+// The compact bars (h-7) are used once a timer exists; before, the play button is
 // as tall as the button it sits next to (h-8).
 const BAR = "flex items-center rounded-lg border text-xs font-semibold transition";
 
@@ -39,17 +39,21 @@ export const KanbanCardTimerStart = ({ timer }) => {
 
 // The timer bar, above the button that completes: the control at the LEFT
 // (play, pause or resume, always the same place) with the time and what is
-// being timed, and a small reset at the right. Only shown when there is a time.
-export const KanbanCardTimerBar = ({ timer }) => {
+// being timed, and a small reset at the right. Only shown when there is a time;
+// when it is reset (`leaving`) it folds away instead of vanishing.
+export const KanbanCardTimerBar = ({ timer, leaving = false }) => {
   if (!timer || !timer.hasTime) return null;
   const action = `${timer.running ? "Pause" : "Resume"} timer (${timer.activity.label})`;
   return (
-    <div className="timer-bar-in flex gap-1 overflow-hidden">
+    <div
+      aria-hidden={leaving || undefined}
+      className={`${leaving ? "timer-bar-out" : "timer-bar-in"} flex gap-1 overflow-hidden`}
+    >
       <button
         onClick={timer.toggle}
         title={action}
         aria-label={action}
-        className={`${BAR} h-6 min-w-0 flex-1 gap-1.5 px-2 hover:brightness-95 dark:hover:brightness-125 ${barStyles(timer)}`}
+        className={`${BAR} h-7 min-w-0 flex-1 gap-1.5 px-2 hover:brightness-95 dark:hover:brightness-125 ${barStyles(timer)}`}
       >
         {timer.running ? <Pause size={13} aria-hidden="true" /> : <Play size={13} aria-hidden="true" />}
         <span role="timer" aria-label={`Time on ${timer.activity.label}`} className="tabular-nums">
@@ -63,7 +67,7 @@ export const KanbanCardTimerBar = ({ timer }) => {
         onClick={timer.reset}
         aria-label="Reset timer"
         title="Reset timer (the time will not be recorded)"
-        className={`${BAR} h-6 w-7 flex-shrink-0 justify-center border-gray-300 bg-gray-50 text-gray-500 hover:bg-gray-100 dark:border-gray-500 dark:bg-gray-800/50 dark:text-gray-300 dark:hover:bg-gray-700`}
+        className={`${BAR} h-7 w-7 flex-shrink-0 justify-center border-gray-300 bg-gray-50 text-gray-500 hover:bg-gray-100 dark:border-gray-500 dark:bg-gray-800/50 dark:text-gray-300 dark:hover:bg-gray-700`}
       >
         <RotateCcw size={13} aria-hidden="true" />
       </button>

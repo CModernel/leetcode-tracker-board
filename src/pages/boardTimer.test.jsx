@@ -97,8 +97,8 @@ describe("the timer starts by itself", () => {
     expect(height("Start timer")).toBe("8");
     expect(height(/^Complete R3/)).toBe("8");
     fireEvent.click(within(card()).getByRole("button", { name: "Start timer" }));
-    expect(height(/^Complete R3/)).toBe("6");
-    expect(height("Pause timer (R3)")).toBe("6");
+    expect(height(/^Complete R3/)).toBe("7");
+    expect(height("Pause timer (R3)")).toBe("7");
   });
 
   it("the timer bar comes in with an animation", () => {
@@ -118,7 +118,7 @@ describe("the timer starts by itself", () => {
     seed({ "blind75-1": twoSum({ timer: { elapsedMs: 5000, runningSince: null } }) });
     renderBoard();
     for (const name of [/timer \(/, "Reset timer", /^Complete R3/]) {
-      expect(within(card()).getByRole("button", { name }).className).toMatch(/\bh-6\b/);
+      expect(within(card()).getByRole("button", { name }).className).toMatch(/\bh-7\b/);
     }
   });
 
@@ -269,6 +269,42 @@ describe("the buttons on an In Progress card", () => {
     seed({ "blind75-2": todo() });
     renderBoard();
     expect(within(card(CD)).queryByRole("button", { name: "Mark as solved" })).toBeNull();
+  });
+});
+
+describe("resetting folds the bar away", () => {
+  it("the bar stays for a moment with the folding class while the buttons grow back at once, then it goes", () => {
+    seed({ "blind75-1": twoSum({ timer: { elapsedMs: 4 * MIN, runningSince: null } }) });
+    renderBoard();
+    const complete = () => within(card()).getByRole("button", { name: /^Complete R3/ });
+    expect(complete().className).toMatch(/\bh-7\b/);
+    fireEvent.click(within(card()).getByRole("button", { name: "Reset timer" }));
+    // right after: buttons tall again, the bar is still there, folding
+    expect(complete().className).toMatch(/\bh-8\b/);
+    const leaving = within(card()).getByRole("button", { name: /^Resume timer/, hidden: true }).parentElement;
+    expect(leaving.className).toMatch(/timer-bar-out/);
+    expect(leaving.getAttribute("aria-hidden")).toBe("true");
+    tick(300);
+    expect(within(card()).queryByRole("button", { name: /^Resume timer/, hidden: true })).toBeNull();
+  });
+});
+
+describe("completing from the card menu", () => {
+  it("records the attempt with the time, like the button", () => {
+    seed({ "blind75-1": twoSum({ timer: { elapsedMs: 4 * MIN, runningSince: null } }) });
+    renderBoard();
+    menu("1 - Two Sum", "Complete R3");
+    expect(saved().attempts.at(-1)).toEqual({ date: "2026-10-20", review: 2, help: 0, ms: 4 * MIN, limitMs: 10 * MIN });
+    expect(saved()).not.toHaveProperty("timer");
+    expect(saved().reviews[2]).toBe(true);
+  });
+
+  it("asks how it went when the solution was opened today, like the button", () => {
+    seed({ "blind75-1": twoSum({ helpViewed: { solution: "2026-10-20" } }) });
+    renderBoard();
+    menu("1 - Two Sum", "Complete R3");
+    expect(screen.getByText("How did it go?")).toBeTruthy();
+    expect(saved().reviews[2]).toBe(false);
   });
 });
 
