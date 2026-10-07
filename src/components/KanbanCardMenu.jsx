@@ -3,12 +3,14 @@ import { createPortal } from "react-dom";
 import { MoreHorizontal } from "lucide-react";
 import { cardActionMessage, getCardActions, runCardAction, withPaused } from "../lib/board";
 import { useStartWork } from "./useStartWork";
+import { useTimerGuard } from "./useTimerGuard";
 import { useProgress } from "../context/ProgressContext";
 import { useNotice } from "../context/NoticeContext";
 import { useConfirm } from "../context/ConfirmContext";
 
 const MENU_WIDTH = 176;
 const MENU_ITEM_HEIGHT = 36;
+const GUARDED = new Set(["markSolved", "markMastered", "completeReview"]);
 
 // The "⋯" menu of a card. It goes through the same progress actions as the
 // tracker table, so a change here shows in the table and the other way round.
@@ -26,6 +28,7 @@ const KanbanCardMenu = ({ card, onComplete }) => {
     selectedList,
   } = useProgress();
   const { startWork } = useStartWork();
+  const guard = useTimerGuard();
   const confirm = useConfirm();
   const showNotice = useNotice();
   const [position, setPosition] = useState(null);
@@ -79,6 +82,12 @@ const KanbanCardMenu = ({ card, onComplete }) => {
     // when the note or the solution was opened, and the attempt (with the time)
     // is written in the history
     if (action.type === "completeReview" && onComplete) return onComplete(card);
+    // Another problem is being timed: ask before finishing this one
+    if (GUARDED.has(action.type)) return guard(card.problem.id, () => run(action));
+    return run(action);
+  };
+
+  const run = (action) => {
     // What the problem looked like, to bring it back on Undo
     const list = selectedList;
     const before = card.entry;

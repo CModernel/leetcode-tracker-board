@@ -41,6 +41,7 @@ import {
 } from "../lib/keyboardDnd";
 import { HELP, suggestedHelp } from "../lib/attempts";
 import { useStartWork } from "./useStartWork";
+import { useTimerGuard } from "./useTimerGuard";
 import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
@@ -73,6 +74,7 @@ const KanbanBoard = () => {
   } = useProgress();
   const confirm = useConfirm();
   const { startWork } = useStartWork();
+  const guard = useTimerGuard();
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
   // The review whose outcome dialog is open
@@ -203,26 +205,28 @@ const KanbanBoard = () => {
 
   // The Mark as solved button of an In Progress card: like the menu item, with
   // Undo (which brings the timer back too).
-  const solveFromUi = (item) => {
-    const list = selectedList;
-    const before = listProgress[item.problem.id];
-    markSolved(item.problem.id);
-    setNotice({
-      id: Date.now(),
-      message: "Marked as solved",
-      undo: () => restoreEntry(list, item.problem.id, before),
+  const solveFromUi = (item) =>
+    guard(item.problem.id, () => {
+      const list = selectedList;
+      const before = listProgress[item.problem.id];
+      markSolved(item.problem.id);
+      setNotice({
+        id: Date.now(),
+        message: "Marked as solved",
+        undo: () => restoreEntry(list, item.problem.id, before),
+      });
     });
-  };
 
   // The Complete button: if the note or the solution was opened today, ask how
   // it went; if not, there is nothing to ask and it was solved alone.
-  const completeReviewFromUi = (item) => {
-    if (suggestedHelp(listProgress[item.problem.id], today) === null) {
-      finishReview(item, { help: HELP.ALONE, message: `Completed ${item.stage}` });
-    } else {
-      setHelpItem(item);
-    }
-  };
+  const completeReviewFromUi = (item) =>
+    guard(item.problem.id, () => {
+      if (suggestedHelp(listProgress[item.problem.id], today) === null) {
+        finishReview(item, { help: HELP.ALONE, message: `Completed ${item.stage}` });
+      } else {
+        setHelpItem(item);
+      }
+    });
 
   // Dropping a card runs the same progress actions as the table and the card
   // menu, so the tracker shows the change too. A drop that is not allowed
@@ -264,6 +268,13 @@ const KanbanBoard = () => {
         completeReviewFromUi({ problem: card.problem, stage: card.stage });
       }
       return;
+    }
+
+    // Solving, completing or mastering another problem while a timer runs asks
+    // first (starting work is not guarded: it pauses the other timer by itself)
+    if (target === "reviewing" || target === "mastered") {
+      const proceed = guard(card.problem.id, () => true);
+      if (proceed !== true && !(await proceed)) return;
     }
 
     // What this problem looked like, to bring it back on Undo

@@ -33,6 +33,7 @@ import {
   parseShowSolutions,
 } from "../lib/preferences";
 import { solutionsOf } from "../lib/solutions";
+import { useTimerGuard } from "./useTimerGuard";
 import NoteCell from "./NoteCell";
 import SolutionCell from "./SolutionCell";
 import OutcomeDialog from "./OutcomeDialog";
@@ -85,6 +86,7 @@ const ProblemTable = ({
     restoreEntry,
   } = useProgress();
   const confirm = useConfirm();
+  const guard = useTimerGuard();
   const today = localToday();
 
   // The Notes and Solutions columns can be hidden to keep the table narrow;
@@ -104,10 +106,12 @@ const ProblemTable = ({
   // one review asks first, because it erases the later ones too.
   const toggleReview = async (problem, prob, idx) => {
     if (!prob.reviews?.[idx]) {
-      if (suggestedHelp(prob, today) === null) {
-        return completeReviewWithHelp(problem.id, idx, HELP.ALONE);
-      }
-      return setHelpFor({ problem, index: idx });
+      return guard(problem.id, () => {
+        if (suggestedHelp(prob, today) === null) {
+          return completeReviewWithHelp(problem.id, idx, HELP.ALONE);
+        }
+        return setHelpFor({ problem, index: idx });
+      });
     }
     const question = rewindConfirm(prob, idx);
     if (question && !(await confirm(question))) return;
@@ -124,7 +128,7 @@ const ProblemTable = ({
   // when a review is done; with none done nothing real is lost. Either way the
   // message with Undo follows, so a wrong click can be taken back.
   const toggleSolved = async (problem, prob) => {
-    if (!prob.solved) return markSolved(problem.id);
+    if (!prob.solved) return guard(problem.id, () => markSolved(problem.id));
     if (prob.reviews?.some(Boolean) && !(await confirm(UNSOLVE_CONFIRM))) return;
     const list = selectedList;
     const before = progress[problem.id];
@@ -146,13 +150,15 @@ const ProblemTable = ({
     if (getStage(prob) === "R5") return toggleReview(problem, prob, 4);
     const question = masterConfirmFor(prob);
     if (question && !(await confirm(question))) return;
-    const list = selectedList;
-    const before = progress[problem.id];
-    markMastered(problem.id);
-    setNotice({
-      id: Date.now(),
-      message: "Marked as mastered",
-      undo: () => restoreEntry(list, problem.id, before),
+    return guard(problem.id, () => {
+      const list = selectedList;
+      const before = progress[problem.id];
+      markMastered(problem.id);
+      setNotice({
+        id: Date.now(),
+        message: "Marked as mastered",
+        undo: () => restoreEntry(list, problem.id, before),
+      });
     });
   };
 

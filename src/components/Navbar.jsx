@@ -1,13 +1,14 @@
 import { Link } from "react-router-dom";
 import { Github, Star, Moon, Sun } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import RunningTimerPill from "./RunningTimerPill";
 
 const Navbar = () => {
   const { isDark, toggleTheme } = useTheme();
 
   return (
     <nav className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 mb-6 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-y-2">
         <div className="flex gap-3 sm:gap-6">
           <Link
             to="/"
@@ -36,7 +37,8 @@ const Navbar = () => {
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <RunningTimerPill />
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}
