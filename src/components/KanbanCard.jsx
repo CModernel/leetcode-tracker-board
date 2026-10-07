@@ -29,6 +29,10 @@ const KanbanCard = ({ card, onComplete, onSolve }) => {
   // An In Progress card has its own completing button, like a review has
   const solveButton = onSolve && stage === "in-progress";
   const timer = useCardTimer(problem, card.entry);
+  // Tall buttons until a timer exists; then they shrink a little to make room
+  const compact = Boolean(timer?.hasTime);
+  const height = compact ? "h-6" : "h-8";
+  const iconSize = compact ? 14 : 16;
   const { startWork } = useStartWork();
   const showNotice = useNotice();
   // Opening the problem is starting to work on it: the timer starts by itself
@@ -120,15 +124,15 @@ const KanbanCard = ({ card, onComplete, onSolve }) => {
                 onClick={() => onComplete(card)}
                 aria-label={completeButton.label}
                 title={completeButton.title}
-                className={`flex h-6 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition hover:brightness-95 dark:hover:brightness-125 ${
+                className={`flex ${height} min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition-[height,filter] duration-200 hover:brightness-95 dark:hover:brightness-125 ${
                   reviewButtonStyles[urgency]
                 }`}
               >
                 {/* A clock for a review that can wait, a check for one that is due */}
                 {completeButton.early ? (
-                  <Clock size={14} aria-hidden="true" />
+                  <Clock size={iconSize} aria-hidden="true" />
                 ) : (
-                  <Check size={14} aria-hidden="true" />
+                  <Check size={iconSize} aria-hidden="true" />
                 )}
                 {completeButton.text}
               </button>
@@ -138,9 +142,9 @@ const KanbanCard = ({ card, onComplete, onSolve }) => {
                 onClick={() => onSolve(card)}
                 aria-label="Mark as solved"
                 title="Mark as solved"
-                className="flex h-6 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg border-2 border-green-500 bg-green-50 text-xs font-semibold text-green-700 transition hover:brightness-95 dark:bg-green-900/30 dark:text-green-300 dark:hover:brightness-125"
+                className={`flex ${height} min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg border border-green-300 bg-green-50/70 text-xs font-semibold text-green-700 transition-[height,filter] duration-200 hover:brightness-95 dark:border-green-500/50 dark:bg-green-900/20 dark:text-green-300 dark:hover:brightness-125`}
               >
-                <Check size={14} aria-hidden="true" />
+                <Check size={iconSize} aria-hidden="true" />
                 Mark as solved
               </button>
             )}

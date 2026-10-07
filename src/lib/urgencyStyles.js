@@ -25,11 +25,11 @@ export const urgencyButtonStyles = {
 // outline, dashed, so it looks like something that can wait.
 export const reviewButtonStyles = {
   overdue:
-    "border-2 border-red-500 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 shadow-sm",
+    "border border-red-300 bg-red-50/70 dark:border-red-400/50 dark:bg-red-900/20 text-red-600 dark:text-red-300",
   today:
-    "border-2 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 shadow-sm",
+    "border border-yellow-300 bg-yellow-50/70 dark:border-yellow-500/50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300",
   upcoming:
-    "border-2 border-dashed border-gray-400 dark:border-gray-500 bg-transparent text-gray-600 dark:text-gray-300",
+    "border border-dashed border-gray-300 dark:border-gray-500 bg-transparent text-gray-500 dark:text-gray-300",
 };
 
 // Count badges in a column header.

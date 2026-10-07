@@ -90,6 +90,30 @@ describe("the timer starts by itself", () => {
     expect(toggle.compareDocumentPosition(reset) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("before a timer the buttons are tall and the play button is as tall as the review button; starting shrinks them", () => {
+    seed();
+    renderBoard();
+    const height = (name) => within(card()).getByRole("button", { name }).className.match(/\bh-(\d+)\b/)[1];
+    expect(height("Start timer")).toBe("8");
+    expect(height(/^Complete R3/)).toBe("8");
+    fireEvent.click(within(card()).getByRole("button", { name: "Start timer" }));
+    expect(height(/^Complete R3/)).toBe("6");
+    expect(height("Pause timer (R3)")).toBe("6");
+  });
+
+  it("the timer bar comes in with an animation", () => {
+    seed();
+    renderBoard();
+    fireEvent.click(within(card()).getByRole("button", { name: "Start timer" }));
+    expect(within(card()).getByRole("button", { name: "Pause timer (R3)" }).parentElement.className).toMatch(/timer-bar-in/);
+  });
+
+  it("an In Progress card has a tall Mark as solved until its timer exists", () => {
+    seed({ "blind75-2": { ...todo(), status: "in-progress" } });
+    renderBoard();
+    expect(within(card(CD)).getByRole("button", { name: "Mark as solved" }).className).toMatch(/\bh-8\b/);
+  });
+
   it("the bars are compact and the same small height", () => {
     seed({ "blind75-1": twoSum({ timer: { elapsedMs: 5000, runningSince: null } }) });
     renderBoard();

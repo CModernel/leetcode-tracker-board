@@ -66,7 +66,8 @@ describe("reviewButtonStyles", () => {
   it("has a style for every level a card button can have", () => {
     for (const level of ["overdue", "today", "upcoming"]) {
       expect(reviewButtonStyles[level]).toBeTruthy();
-      expect(reviewButtonStyles[level]).toMatch(/border-2/);
+      expect(reviewButtonStyles[level]).toMatch(/\bborder\b/);
+      expect(reviewButtonStyles[level]).not.toMatch(/border-2/);
     }
   });
 
