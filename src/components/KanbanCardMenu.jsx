@@ -6,6 +6,7 @@ import { useStartWork } from "./useStartWork";
 import { useTimerGuard } from "./useTimerGuard";
 import { useProgress } from "../context/ProgressContext";
 import { useNotice } from "../context/NoticeContext";
+import { useTimerSettings } from "../context/TimerSettingsContext";
 import { useConfirm } from "../context/ConfirmContext";
 
 const MENU_WIDTH = 176;
@@ -34,7 +35,8 @@ const KanbanCardMenu = ({ card, onComplete }) => {
   const [position, setPosition] = useState(null);
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
-  const actions = getCardActions(card.stage, card.entry);
+  const { showTimer } = useTimerSettings();
+  const actions = getCardActions(card.stage, card.entry, showTimer);
 
   const close = () => setPosition(null);
 

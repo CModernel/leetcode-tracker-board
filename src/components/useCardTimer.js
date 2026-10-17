@@ -1,4 +1,5 @@
 import { useProgress } from "../context/ProgressContext";
+import { useTimerSettings } from "../context/TimerSettingsContext";
 import { useNow } from "../hooks/useNow";
 import { useStartWork } from "./useStartWork";
 import { activityOf, elapsedMs, limitMsFor, normalizeTimer, timeState } from "../lib/timer";
@@ -11,11 +12,13 @@ import { activityOf, elapsedMs, limitMsFor, normalizeTimer, timeState } from "..
 export const useCardTimer = (problem, entry) => {
   const { pauseTimer, resetTimer } = useProgress();
   const { startAndTell } = useStartWork();
+  const { showTimer, limits } = useTimerSettings();
   const timer = normalizeTimer(entry?.timer);
   const running = timer !== null && timer.runningSince !== null;
   const now = useNow(running);
   const activity = activityOf(entry);
-  if (!activity) return null;
+  // Nothing to time, or the timer is switched off in the settings
+  if (!activity || !showTimer) return null;
 
   const ms = timer ? elapsedMs(timer, running ? now : 0) : 0;
   return {
@@ -23,7 +26,7 @@ export const useCardTimer = (problem, entry) => {
     running,
     hasTime: timer !== null,
     ms,
-    state: timeState(ms, limitMsFor(activity.kind, problem.difficulty)),
+    state: timeState(ms, limitMsFor(activity.kind, problem.difficulty, limits)),
     start: () => startAndTell(problem.id),
     toggle: () => (running ? pauseTimer(problem.id) : startAndTell(problem.id)),
     reset: () => resetTimer(problem.id),

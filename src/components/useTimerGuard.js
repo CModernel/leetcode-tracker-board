@@ -1,5 +1,6 @@
 import { useProgress } from "../context/ProgressContext";
 import { useConfirm } from "../context/ConfirmContext";
+import { useTimerSettings } from "../context/TimerSettingsContext";
 import { getProblems } from "../lib/lists";
 import { activityOf, elapsedMs, findRunningTimer, formatDuration } from "../lib/timer";
 
@@ -12,8 +13,11 @@ import { activityOf, elapsedMs, findRunningTimer, formatDuration } from "../lib/
 export const useTimerGuard = () => {
   const { progress, selectedList, pauseTimer } = useProgress();
   const confirm = useConfirm();
+  const { showTimer } = useTimerSettings();
 
   return (problemId, action) => {
+    // A timer that is switched off in the settings is never in the way
+    if (!showTimer) return action();
     const running = findRunningTimer(progress);
     if (!running || (running.list === selectedList && running.problemId === problemId)) return action();
     const entry = progress[running.list][running.problemId];

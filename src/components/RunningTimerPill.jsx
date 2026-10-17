@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Pause } from "lucide-react";
 import { useProgress } from "../context/ProgressContext";
+import { useTimerSettings } from "../context/TimerSettingsContext";
 import { useNow } from "../hooks/useNow";
 import { getProblems } from "../lib/lists";
 import { activityOf, elapsedMs, findRunningTimer, formatDuration } from "../lib/timer";
@@ -10,7 +11,8 @@ import { activityOf, elapsedMs, findRunningTimer, formatDuration } from "../lib/
 // to the board where the card is. Nothing when no timer runs.
 const RunningTimerPill = () => {
   const { progress, pauseTimer } = useProgress();
-  const running = findRunningTimer(progress);
+  const { showTimer } = useTimerSettings();
+  const running = showTimer ? findRunningTimer(progress) : null;
   const now = useNow(running !== null);
   if (!running) return null;
 

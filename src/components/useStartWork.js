@@ -1,5 +1,6 @@
 import { useProgress } from "../context/ProgressContext";
 import { useNotice } from "../context/NoticeContext";
+import { useTimerSettings } from "../context/TimerSettingsContext";
 import { getProblems } from "../lib/lists";
 import { activityOf, elapsedMs, findRunningTimer, formatDuration } from "../lib/timer";
 
@@ -17,11 +18,20 @@ import { activityOf, elapsedMs, findRunningTimer, formatDuration } from "../lib/
 export const useStartWork = () => {
   const { progress, selectedList, setStatus, startTimer } = useProgress();
   const showNotice = useNotice();
+  const { showTimer } = useTimerSettings();
 
   const startWork = (problemId) => {
     const entry = progress[selectedList]?.[problemId];
     const activity = activityOf(entry);
     if (!activity) return null;
+    // With the timer switched off a first solve still goes to In Progress, but
+    // nothing is timed and no other timer is touched
+    if (!showTimer) {
+      if (activity.kind === "first" && entry?.status !== "in-progress") {
+        setStatus(problemId, "in-progress");
+      }
+      return { paused: null };
+    }
     const running = findRunningTimer(progress);
     const other =
       running && !(running.list === selectedList && running.problemId === problemId) ? running : null;

@@ -27,11 +27,13 @@ const isCount = (value) => typeof value === "number" && Number.isFinite(value) &
 
 // The limit in milliseconds for a kind ("first" or "review") and a difficulty.
 // An unknown difficulty is treated as Medium; an unknown kind has no limit
-// (null).
-export const limitMsFor = (kind, difficulty) => {
-  const byDifficulty = LIMITS_MIN[kind];
+// (null). `limits` is the minutes table to use (the person's own, see
+// timerSettings.js); a `null` cell means no limit.
+export const limitMsFor = (kind, difficulty, limits = LIMITS_MIN) => {
+  const byDifficulty = limits?.[kind];
   if (!byDifficulty) return null;
-  return (byDifficulty[difficulty] ?? byDifficulty[DEFAULT_DIFFICULTY]) * MINUTE;
+  const minutes = difficulty in byDifficulty ? byDifficulty[difficulty] : byDifficulty[DEFAULT_DIFFICULTY];
+  return Number.isFinite(minutes) && minutes > 0 ? minutes * MINUTE : null;
 };
 
 // The timer saved in an entry, or null when there is none or it is not valid

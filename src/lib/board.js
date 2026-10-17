@@ -242,10 +242,11 @@ const stageActions = (stage, entry = {}) => {
 };
 
 // The menu of a card: the actions of its stage, plus "Reset timer" when it has
-// a timer (before the destructive "Unsolve", which stays last).
-export const getCardActions = (stage, entry = {}) => {
+// a timer (before the destructive "Unsolve", which stays last), unless the timer
+// is switched off (`showTimer` false).
+export const getCardActions = (stage, entry = {}, showTimer = true) => {
   const actions = stageActions(stage, entry);
-  if (!normalizeTimer(entry?.timer)) return actions;
+  if (!showTimer || !normalizeTimer(entry?.timer)) return actions;
   const last = actions[actions.length - 1];
   const reset = { type: "resetTimer", label: "Reset timer" };
   return last?.type === "unsolve" ? [...actions.slice(0, -1), reset, last] : [...actions, reset];

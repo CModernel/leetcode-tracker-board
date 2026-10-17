@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Github, Star, Moon, Sun } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import RunningTimerPill from "./RunningTimerPill";
+import TimerSettingsButton from "./TimerSettingsButton";
 
 const Navbar = () => {
   const { isDark, toggleTheme } = useTheme();
@@ -39,6 +40,7 @@ const Navbar = () => {
         {/* Buttons */}
         <div className="flex min-w-0 items-center gap-2">
           <RunningTimerPill />
+          <TimerSettingsButton />
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}

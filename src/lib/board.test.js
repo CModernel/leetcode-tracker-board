@@ -1128,6 +1128,10 @@ describe("the timer in the card menu and the start", () => {
     expect(list.indexOf("resetTimer")).toBe(list.length - 2);
   });
 
+  it("does not offer Reset timer when the timer is switched off", () => {
+    expect(getCardActions("in-progress", running, false).map((a) => a.type)).not.toContain("resetTimer");
+  });
+
   it("ignores a damaged timer", () => {
     expect(types("todo", { timer: { elapsedMs: "x" } })).not.toContain("resetTimer");
   });
