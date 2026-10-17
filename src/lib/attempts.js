@@ -26,8 +26,11 @@ export const VIEW_KINDS = { note: "note", solution: "solution" };
 // was opened today, else the note when it was, else null (nothing was opened,
 // so the review is simply completed as solved alone). A note that was written
 // or edited today (`noteEditedOn`) was opened to write, not to read as help, so
-// it suggests "solved alone" instead.
-export const suggestedHelp = (entry, today) => {
+// it suggests "solved alone" instead. A review whose timer ran out
+// (`timedOut`, see isTimedOut in timer.js) suggests the solution, whatever was
+// opened: it is the strongest hint.
+export const suggestedHelp = (entry, today, { timedOut = false } = {}) => {
+  if (timedOut) return HELP.SOLUTION;
   if (entry?.helpViewed?.solution === today) {
     // Same rule as the note: a solution written or edited today was opened to
     // write it, not to look it up.

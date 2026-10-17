@@ -5,6 +5,8 @@ import {
   elapsedMs,
   findRunningTimer,
   formatDuration,
+  isTimedOut,
+  limitCrossing,
   limitMsFor,
   normalizeTimer,
   timeScore,
@@ -192,5 +194,40 @@ describe("findRunningTimer", () => {
     expect(findRunningTimer({ A: { 1: { timer: { elapsedMs: "x", runningSince: 4 } } } })).toBeNull();
     expect(findRunningTimer({})).toBeNull();
     expect(findRunningTimer(null)).toBeNull();
+  });
+});
+
+describe("limitCrossing", () => {
+  const MIN = 60_000;
+  const running = (elapsed, since) => ({ timer: { elapsedMs: elapsed, runningSince: since } });
+  it("is crossed only while running and past the limit", () => {
+    expect(limitCrossing(running(0, 1000), 10 * MIN, 1000 + 10 * MIN)).toEqual({ crossed: false, overBy: 0 });
+    expect(limitCrossing(running(0, 1000), 10 * MIN, 1000 + 10 * MIN + 5000)).toEqual({ crossed: true, overBy: 5000 });
+    expect(limitCrossing(running(9 * MIN, 1000), 10 * MIN, 1000 + 2 * MIN)).toEqual({ crossed: true, overBy: MIN });
+  });
+  it("a paused timer, no timer, no limit or a damaged timer cross nothing", () => {
+    const none = { crossed: false, overBy: 0 };
+    expect(limitCrossing(running(99 * MIN, null), 10 * MIN, 5)).toEqual(none);
+    expect(limitCrossing({}, 10 * MIN, 5)).toEqual(none);
+    expect(limitCrossing(running(0, 1), null, 99 * MIN)).toEqual(none);
+    expect(limitCrossing(running(0, 1), 0, 99 * MIN)).toEqual(none);
+    expect(limitCrossing({ timer: { elapsedMs: "x" } }, 10 * MIN, 5)).toEqual(none);
+  });
+});
+
+describe("isTimedOut", () => {
+  const MIN = 60_000;
+  const solved = (timer) => ({ solved: true, reviews: [true, false, false, false, false], timer });
+  const limits = { first: { Easy: 20, Medium: 35, Hard: 50 }, review: { Easy: 10, Medium: null, Hard: 30 } };
+  it("a review is timed out from twice its limit, paused or running", () => {
+    expect(isTimedOut(solved({ elapsedMs: 20 * MIN, runningSince: null }), "Easy", limits, 0)).toBe(true);
+    expect(isTimedOut(solved({ elapsedMs: 19 * MIN, runningSince: null }), "Easy", limits, 0)).toBe(false);
+    expect(isTimedOut(solved({ elapsedMs: 15 * MIN, runningSince: 1000 }), "Easy", limits, 1000 + 5 * MIN)).toBe(true);
+  });
+  it("is never timed out without a timer, without a limit or on a first solve", () => {
+    expect(isTimedOut(solved(undefined), "Easy", limits, 0)).toBe(false);
+    expect(isTimedOut(solved({ elapsedMs: 999 * MIN, runningSince: null }), "Medium", limits, 0)).toBe(false);
+    const first = { solved: false, timer: { elapsedMs: 999 * MIN, runningSince: null } };
+    expect(isTimedOut(first, "Easy", limits, 0)).toBe(false);
   });
 });

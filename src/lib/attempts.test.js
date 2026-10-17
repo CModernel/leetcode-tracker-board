@@ -27,6 +27,15 @@ describe("attemptsOf", () => {
 });
 
 describe("suggestedHelp", () => {
+  it("suggests the solution for a timed-out review, whatever was opened", () => {
+    expect(suggestedHelp({}, TODAY, { timedOut: true })).toBe(HELP.SOLUTION);
+    expect(suggestedHelp({ helpViewed: { note: TODAY } }, TODAY, { timedOut: true })).toBe(HELP.SOLUTION);
+    expect(
+      suggestedHelp({ helpViewed: { note: TODAY }, noteEditedOn: TODAY }, TODAY, { timedOut: true }),
+    ).toBe(HELP.SOLUTION);
+    expect(suggestedHelp({}, TODAY, { timedOut: false })).toBeNull();
+  });
+
   const TODAY = "2026-10-05";
 
   it("suggests nothing when nothing was opened", () => {

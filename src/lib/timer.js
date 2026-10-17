@@ -113,3 +113,26 @@ export const findRunningTimer = (progress) => {
   }
   return null;
 };
+
+// A running timer that is past its limit at `now`: `{ crossed, overBy }` with
+// `overBy` the milliseconds past the limit. Nothing is crossed for a paused or
+// missing timer, or when there is no limit.
+export const limitCrossing = (entry, limitMs, now) => {
+  const timer = normalizeTimer(entry?.timer);
+  if (!timer || timer.runningSince === null || !isCount(limitMs) || limitMs === 0) {
+    return { crossed: false, overBy: 0 };
+  }
+  const overBy = elapsedMs(timer, now) - limitMs;
+  return overBy > 0 ? { crossed: true, overBy } : { crossed: false, overBy: 0 };
+};
+
+// Whether the time on this problem's REVIEW timer has run out (timed out: at
+// least CAP_FACTOR times the limit) at `now`, paused or running. A first solve
+// is only recorded, never suggests anything; no timer or no limit is never
+// timed out. `limits` is the person's table (see timerSettings.js).
+export const isTimedOut = (entry, difficulty, limits, now) => {
+  const activity = activityOf(entry);
+  const timer = normalizeTimer(entry?.timer);
+  if (!timer || activity?.kind !== "review") return false;
+  return timeState(elapsedMs(timer, now), limitMsFor("review", difficulty, limits)) === "timeout";
+};

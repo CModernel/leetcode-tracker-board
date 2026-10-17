@@ -23,12 +23,13 @@ const STYLES = {
 // "How did it go?" for a review: the three outcomes, each with what it does to
 // the calendar (real dates). Choosing one applies it; Cancel, Escape and a
 // click on the backdrop close the dialog and change nothing. `suggested` is the
-// help the person probably needed (they opened the note or the solution):
+// help the person probably needed (they opened the note or the solution, or the
+// timer ran out: `timedOut`):
 // that choice has a light background and a "Suggested" badge and has the focus, so Enter takes it. Without a
 // suggestion the focus is on "Solved it myself". Native <dialog>
 // like the others; it sits inside a draggable card, so mouse, touch and keys
 // are kept from reaching the card.
-const OutcomeDialog = ({ title, options, suggested = null, onChoose, onClose }) => {
+const OutcomeDialog = ({ title, options, suggested = null, timedOut = false, onChoose, onClose }) => {
   const dialogRef = useRef(null);
 
   useEffect(() => {
@@ -36,6 +37,9 @@ const OutcomeDialog = ({ title, options, suggested = null, onChoose, onClose }) 
     if (dialog.open) return;
     if (typeof dialog.showModal === "function") dialog.showModal();
     else dialog.setAttribute("open", "");
+    // showModal() moves the focus to the first button after React's autoFocus,
+    // so put it on the one Enter should take (the suggested one) by hand
+    dialog.querySelector("[data-initial-focus]")?.focus();
   }, []);
 
   const keep = (event) => event.stopPropagation();
@@ -65,7 +69,9 @@ const OutcomeDialog = ({ title, options, suggested = null, onChoose, onClose }) 
         <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">{title}</p>
         {suggested !== null && (
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            {suggested === HELP.SOLUTION
+            {timedOut
+              ? "The timer ran past twice the limit."
+              : suggested === HELP.SOLUTION
               ? "You opened the solution today."
               : suggested === HELP.ALONE
               ? "You wrote or edited the note or solution today, so it does not count as help."
@@ -77,6 +83,7 @@ const OutcomeDialog = ({ title, options, suggested = null, onChoose, onClose }) 
             <button
               key={option.help}
               autoFocus={option.help === (suggested ?? HELP.ALONE)}
+              data-initial-focus={option.help === (suggested ?? HELP.ALONE) || undefined}
               onClick={() => onChoose(option)}
               className={`rounded-lg border-2 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                 STYLES[option.help].box

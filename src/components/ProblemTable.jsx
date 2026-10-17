@@ -34,6 +34,8 @@ import {
 } from "../lib/preferences";
 import { solutionsOf } from "../lib/solutions";
 import { useTimerGuard } from "./useTimerGuard";
+import { useTimerSettings } from "../context/TimerSettingsContext";
+import { isTimedOut } from "../lib/timer";
 import NoteCell from "./NoteCell";
 import SolutionCell from "./SolutionCell";
 import OutcomeDialog from "./OutcomeDialog";
@@ -87,6 +89,7 @@ const ProblemTable = ({
   } = useProgress();
   const confirm = useConfirm();
   const guard = useTimerGuard();
+  const { showTimer, limits } = useTimerSettings();
   const today = localToday();
 
   // The Notes and Solutions columns can be hidden to keep the table narrow;
@@ -107,10 +110,12 @@ const ProblemTable = ({
   const toggleReview = async (problem, prob, idx) => {
     if (!prob.reviews?.[idx]) {
       return guard(problem.id, () => {
-        if (suggestedHelp(prob, today) === null) {
+        // A review whose timer ran out asks too, suggesting the solution
+        const timedOut = showTimer && isTimedOut(prob, problem.difficulty, limits, Date.now());
+        if (suggestedHelp(prob, today, { timedOut }) === null) {
           return completeReviewWithHelp(problem.id, idx, HELP.ALONE);
         }
-        return setHelpFor({ problem, index: idx });
+        return setHelpFor({ problem, index: idx, timedOut });
       });
     }
     const question = rewindConfirm(prob, idx);
@@ -473,7 +478,10 @@ const ProblemTable = ({
         <OutcomeDialog
           title={`${helpFor.problem.title} · R${helpFor.index + 1}`}
           options={outcomeOptions(progress[helpFor.problem.id], helpFor.index, today)}
-          suggested={suggestedHelp(progress[helpFor.problem.id], today)}
+          suggested={suggestedHelp(progress[helpFor.problem.id], today, {
+            timedOut: helpFor.timedOut,
+          })}
+          timedOut={helpFor.timedOut}
           onChoose={(option) => {
             const { problem, index } = helpFor;
             setHelpFor(null);

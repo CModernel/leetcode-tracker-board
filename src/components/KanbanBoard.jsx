@@ -42,6 +42,8 @@ import {
 import { HELP, suggestedHelp } from "../lib/attempts";
 import { useStartWork } from "./useStartWork";
 import { useTimerGuard } from "./useTimerGuard";
+import { useTimerSettings } from "../context/TimerSettingsContext";
+import { isTimedOut } from "../lib/timer";
 import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
@@ -75,6 +77,7 @@ const KanbanBoard = () => {
   const confirm = useConfirm();
   const { startWork } = useStartWork();
   const guard = useTimerGuard();
+  const { showTimer, limits } = useTimerSettings();
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
   // The review whose outcome dialog is open
@@ -219,12 +222,17 @@ const KanbanBoard = () => {
 
   // The Complete button: if the note or the solution was opened today, ask how
   // it went; if not, there is nothing to ask and it was solved alone.
+  // A review whose timer ran out (twice the limit) always asks, suggesting the
+  // solution, even when nothing was opened.
   const completeReviewFromUi = (item) =>
     guard(item.problem.id, () => {
-      if (suggestedHelp(listProgress[item.problem.id], today) === null) {
+      const entry = listProgress[item.problem.id];
+      const timedOut =
+        showTimer && isTimedOut(entry, item.problem.difficulty, limits, Date.now());
+      if (suggestedHelp(entry, today, { timedOut }) === null) {
         finishReview(item, { help: HELP.ALONE, message: `Completed ${item.stage}` });
       } else {
-        setHelpItem(item);
+        setHelpItem({ ...item, timedOut });
       }
     });
 
@@ -423,7 +431,10 @@ const KanbanBoard = () => {
         <OutcomeDialog
           title={`${helpItem.problem.title} · ${helpItem.stage}`}
           options={helpOptions}
-          suggested={suggestedHelp(listProgress[helpItem.problem.id], today)}
+          suggested={suggestedHelp(listProgress[helpItem.problem.id], today, {
+            timedOut: helpItem.timedOut,
+          })}
+          timedOut={helpItem.timedOut}
           onChoose={(option) => {
             const item = helpItem;
             setHelpItem(null);
