@@ -29,11 +29,15 @@ import {
 import {
   SHOW_NOTES_KEY,
   SHOW_SOLUTIONS_KEY,
+  SHOW_TIME_KEY,
   parseShowNotes,
   parseShowSolutions,
+  parseShowTime,
 } from "../lib/preferences";
 import { solutionsOf } from "../lib/solutions";
 import { useTimerGuard } from "./useTimerGuard";
+import { useStartWork } from "./useStartWork";
+import TimeCell from "./TimeCell";
 import { useTimerSettings } from "../context/TimerSettingsContext";
 import { isTimedOut } from "../lib/timer";
 import NoteCell from "./NoteCell";
@@ -89,12 +93,14 @@ const ProblemTable = ({
   } = useProgress();
   const confirm = useConfirm();
   const guard = useTimerGuard();
+  const { startWork } = useStartWork();
   const { showTimer, limits } = useTimerSettings();
   const today = localToday();
 
   // The Notes and Solutions columns can be hidden to keep the table narrow;
   // each choice is remembered in the browser.
   const [showNotes, toggleNotes] = usePersistedFlag(SHOW_NOTES_KEY, parseShowNotes);
+  const [showTime, toggleTime] = usePersistedFlag(SHOW_TIME_KEY, parseShowTime);
   const [showSolutions, toggleSolutions] = usePersistedFlag(
     SHOW_SOLUTIONS_KEY,
     parseShowSolutions,
@@ -167,6 +173,19 @@ const ProblemTable = ({
     });
   };
 
+  // Opening a problem is starting to work on it: its timer starts by itself (and
+  // another running timer is paused, which is said with Undo)
+  const openProblem = (problem) => {
+    const paused = startWork(problem.id)?.paused;
+    if (paused) {
+      setNotice({
+        id: Date.now(),
+        message: `Paused ${paused.title} at ${paused.time}`,
+        undo: paused.resume,
+      });
+    }
+  };
+
   const filteredProblems = filterProblems(problems, progress, filters, today);
 
   return (
@@ -176,6 +195,24 @@ const ProblemTable = ({
           Problems
         </h2>
         <div className="flex items-center gap-2">
+        {showTimer && (
+          <button
+            onClick={toggleTime}
+            aria-pressed={showTime}
+            className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              showTime
+                ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600"
+            }`}
+          >
+            {showTime ? (
+              <EyeOff size={16} aria-hidden="true" />
+            ) : (
+              <Eye size={16} aria-hidden="true" />
+            )}
+            {showTime ? "Hide time" : "Show time"}
+          </button>
+        )}
         <button
           onClick={toggleNotes}
           aria-pressed={showNotes}
@@ -235,6 +272,11 @@ const ProblemTable = ({
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[200px]">
                 Reviews & Due Dates
               </th>
+              {showTimer && showTime && (
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[150px]">
+                  Time
+                </th>
+              )}
               {showNotes && (
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[220px]">
                   Notes
@@ -271,6 +313,7 @@ const ProblemTable = ({
                         rel="noopener noreferrer"
                         className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline flex items-center gap-1"
                         title={`Open ${problem.name} on NeetCode`}
+                        onClick={() => openProblem(problem)}
                       >
                         <span className="line-clamp-2">{problem.title}</span>
                         <ExternalLink size={14} className="flex-shrink-0" />
@@ -453,6 +496,11 @@ const ProblemTable = ({
                       </span>
                     )}
                   </td>
+                  {showTimer && showTime && (
+                    <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 align-top">
+                      <TimeCell problem={problem} entry={prob} />
+                    </td>
+                  )}
                   {showNotes && (
                     <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 align-top">
                       <NoteCell

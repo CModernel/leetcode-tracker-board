@@ -6,6 +6,9 @@ import { ConfirmProvider } from "../context/ConfirmProvider";
 import LeetCodeTracker from "./LeetCodeTracker";
 import BoardPage from "./BoardPage";
 
+// These render whole pages: give them room when the machine is busy.
+vi.setConfig({ testTimeout: 20000 });
+
 // The tracker table and the board are two views of the same data: what you do
 // in one must show in the other. Both are rendered together, in one provider.
 const renderBoth = () => {

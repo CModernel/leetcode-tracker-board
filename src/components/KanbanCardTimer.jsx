@@ -8,7 +8,7 @@ const BAR = "flex items-center rounded-lg border text-xs font-semibold transitio
 
 // The timer bar by how it stands: blue while running, grey when paused, amber
 // past the limit (and its tolerance), red once it timed out.
-const barStyles = (timer) => {
+export const barStyles = (timer) => {
   if (timer.state === "timeout") {
     return "border-red-400 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-900/30 dark:text-red-300";
   }
