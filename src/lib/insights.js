@@ -5,6 +5,8 @@
 // LeetCode topics differ from list to list.
 import { HELP, attemptsOf } from "./attempts";
 import { timeScore, timeState } from "./timer";
+import { addDays, daysBetween } from "./schedule";
+import { getNextDue, getStage } from "./board";
 
 // A category needs this many review attempts before it is judged at all, so one
 // bad day does not decide.
@@ -130,3 +132,128 @@ export const rankCategories = (stats) =>
       void index;
       return item;
     });
+
+// --- Activity, load and suggestions -------------------------------------
+
+const isDay = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+// How many things were done each day ({ "YYYY-MM-DD": count }): review attempts,
+// first solves (the solved date) and completed reviews that have no attempt of
+// their own (older data, or a review completed from the menu without the
+// outcome). A review with its attempt counts once.
+export const activityDays = (progress = {}) => {
+  const days = {};
+  const add = (day) => {
+    if (isDay(day)) days[day] = (days[day] ?? 0) + 1;
+  };
+  for (const entry of Object.values(progress)) {
+    if (!entry || typeof entry !== "object") continue;
+    const attempts = attemptsOf(entry);
+    attempts.forEach((a) => add(a?.date));
+    if (entry.solved) add(entry.firstSolve?.date ?? entry.solvedDate);
+    for (let index = 0; index < 5; index += 1) {
+      const day = entry.reviews?.[index] && entry.dates?.[`review${index + 1}`];
+      if (day && !attempts.some((a) => a?.review === index && a?.date === day)) add(day);
+    }
+  }
+  return days;
+};
+
+// Days in a row with something done, ending today, or yesterday when nothing
+// was done yet today (the streak is not lost before the day is over).
+export const streak = (days, today) => {
+  let day = days[today] ? today : addDays(today, -1);
+  let count = 0;
+  while (days[day]) {
+    count += 1;
+    day = addDays(day, -1);
+  }
+  return count;
+};
+
+// Active days in the week of `today` (weeks start on Monday).
+export const activeDaysThisWeek = (days, today) => {
+  const [year, month, day] = today.split("-").map(Number);
+  const weekday = (new Date(year, month - 1, day).getDay() + 6) % 7;
+  let count = 0;
+  for (let back = 0; back <= weekday; back += 1) if (days[addDays(today, -back)]) count += 1;
+  return count;
+};
+
+// The heat map: `weeks` columns of 7 days (Monday to Sunday), the last one being
+// the week of `today`; days after today are null.
+export const heatMap = (days, today, weeks = 12) => {
+  const [year, month, day] = today.split("-").map(Number);
+  const weekday = (new Date(year, month - 1, day).getDay() + 6) % 7;
+  const start = addDays(today, -weekday - 7 * (weeks - 1));
+  return Array.from({ length: weeks }, (_, w) =>
+    Array.from({ length: 7 }, (_, d) => {
+      const date = addDays(start, w * 7 + d);
+      return date > today ? null : { date, count: days[date] ?? 0 };
+    }),
+  );
+};
+
+// Reviews coming: for each problem waiting for a review only that next one
+// (the later dates depend on when it is done): how many are overdue, and how
+// many fall on each of the next `span` days starting today.
+export const upcomingLoad = (problems, progress = {}, today, span = 14) => {
+  const days = Array.from({ length: span }, (_, i) => ({ date: addDays(today, i), count: 0 }));
+  let overdue = 0;
+  for (const problem of problems) {
+    const due = getNextDue(progress[problem.id]);
+    if (!due) continue;
+    const offset = daysBetween(today, due);
+    if (offset < 0) overdue += 1;
+    else if (offset < span) days[offset].count += 1;
+  }
+  return { overdue, days };
+};
+
+const DIFFICULTY_ORDER = { Easy: 0, Medium: 1, Hard: 2 };
+const listOrder = (problem) => problem.listMeta?.originalIndex ?? Infinity;
+
+// What to do today: the reviews due today or overdue, those of weak categories
+// first, then the most overdue, then list order. `weakCategories` is a Set.
+export const todayList = (problems, progress = {}, today, weakCategories = new Set(), limit = 5) =>
+  problems
+    .map((problem) => ({ problem, entry: progress[problem.id], due: getNextDue(progress[problem.id]) }))
+    .filter((item) => item.due && item.due <= today)
+    .map((item) => ({
+      ...item,
+      stage: getStage(item.entry),
+      daysLate: daysBetween(item.due, today),
+      weak: weakCategories.has(categoryOf(item.problem)),
+    }))
+    .sort(
+      (a, b) =>
+        Number(b.weak) - Number(a.weak) ||
+        b.daysLate - a.daysLate ||
+        listOrder(a.problem) - listOrder(b.problem),
+    )
+    .slice(0, limit);
+
+// A problem nothing was done with yet: no entry, or To Do / In Progress with no
+// solve and no attempt.
+const untouched = (entry) => !entry || (!entry.solved && attemptsOf(entry).length === 0);
+
+// New problems to try: untouched problems of the weak categories, easiest
+// first, then list order. With no weak category, the next untouched problems in
+// list order (`fromWeak` says which one it is).
+export const suggestNew = (problems, progress = {}, weakCategories = new Set(), limit = 5) => {
+  const fresh = problems.filter((problem) => untouched(progress[problem.id]));
+  const weak = fresh.filter((problem) => weakCategories.has(categoryOf(problem)));
+  if (weak.length === 0) {
+    return { fromWeak: false, problems: [...fresh].sort((a, b) => listOrder(a) - listOrder(b)).slice(0, limit) };
+  }
+  return {
+    fromWeak: true,
+    problems: weak
+      .sort(
+        (a, b) =>
+          (DIFFICULTY_ORDER[a.difficulty] ?? 1) - (DIFFICULTY_ORDER[b.difficulty] ?? 1) ||
+          listOrder(a) - listOrder(b),
+      )
+      .slice(0, limit),
+  };
+};
