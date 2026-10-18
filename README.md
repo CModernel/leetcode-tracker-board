@@ -82,9 +82,8 @@ The **Insights** page reads your history for the selected list and tells you whe
 
 - **What to do today**: the reviews due today or overdue, the ones from categories that need practice first, then the most overdue.
 - **Try next**: new problems from the categories that need practice, easiest first (before there is enough data, simply the next ones in the list).
-- **By category** (Arrays & Hashing, Trees, Graphs...): solved problems, reviews, how much help they needed (alone / note / solution), step-backs and, if you use the timer, the average time against the limit. A category needs practice when 40% or more of at least 3 reviews needed help, and is slow when half of its timed attempts went over the limit. Categories not started yet are only named.
-- **Activity**: your current streak, active days this week and a heat map of the last 12 weeks.
-- **Coming up**: how many reviews fall on each of the next 14 days, and how many are overdue.
+- **Needs practice**: the categories (Arrays & Hashing, Trees, Graphs...) that need it, one sentence each. A category needs practice when 40% or more of at least 3 of its reviews needed help, and is slow when half of its timed attempts went over the limit. **See all categories** opens the full table (solved, reviews, help needed, step-backs and, if you use the timer, the time against the limit).
+- **In one line** under the title: your streak, active days this week, overdue reviews and how many are due tomorrow.
 - Nothing new is saved: it is all computed from your progress, so it works with your existing data and the export/import file.
 
 ### 🏆 Mark as mastered

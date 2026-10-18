@@ -3,9 +3,7 @@ import { Link } from "react-router-dom";
 import ListSelect from "../components/ListSelect";
 import Toast from "../components/Toast";
 import ProblemList from "../components/insights/ProblemList";
-import CategoryTable from "../components/insights/CategoryTable";
-import ActivitySection from "../components/insights/ActivitySection";
-import LoadSection from "../components/insights/LoadSection";
+import NeedsPractice from "../components/insights/NeedsPractice";
 import { useStartWork } from "../components/useStartWork";
 import { useProgress } from "../context/ProgressContext";
 import { useTimerSettings } from "../context/TimerSettingsContext";
@@ -16,7 +14,6 @@ import {
   activityDays,
   categoryOf,
   categoryStats,
-  heatMap,
   rankCategories,
   streak,
   suggestNew,
@@ -35,8 +32,8 @@ const lateText = (daysLate) =>
   daysLate === 0 ? "due today" : `${daysLate} ${daysLate === 1 ? "day" : "days"} late`;
 
 // What the history of the selected list says: what to do today, what to try
-// next, which categories need practice (help, step-backs, time), the activity
-// and the reviews coming. Everything is computed from the saved progress.
+// next, which categories need practice (help, step-backs, time) and, in one
+// line, the streak and the reviews coming. Everything is computed from the saved progress.
 const InsightsPage = () => {
   const { progress, selectedList } = useProgress();
   const { showTimer } = useTimerSettings();
@@ -61,6 +58,15 @@ const InsightsPage = () => {
   const allDue = todayList(problems, listProgress, today, weak, Infinity).length;
   const fresh = suggestNew(problems, listProgress, weak);
   const days = activityDays(listProgress);
+  const load = upcomingLoad(problems, listProgress, today);
+  const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  // Streak, week and reviews coming, in one line
+  const glance = [
+    `Streak: ${count(streak(days, today), "day")}`,
+    `${activeDaysThisWeek(days, today)} of 7 days active this week`,
+    load.overdue > 0 ? `${count(load.overdue, "review")} overdue` : "Nothing overdue",
+    `${load.days[1].count} due tomorrow`,
+  ].join(" · ");
 
   // Opening a problem starts working on it, as on the board and in the table
   const open = (problem) => {
@@ -85,6 +91,9 @@ const InsightsPage = () => {
             </div>
             <ListSelect />
           </div>
+          <p className="mt-4 border-t border-gray-100 pt-3 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
+            {glance}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -121,29 +130,16 @@ const InsightsPage = () => {
           </Card>
         </div>
 
-        <Card title="By category">
+        <Card title="Needs practice">
           {anyHistory ? (
-            <CategoryTable rows={startedRows} showTime={showTime} notStarted={notStarted} />
+            <NeedsPractice rows={startedRows} showTime={showTime} notStarted={notStarted} />
           ) : (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Nothing to analyse yet. Solve problems and complete reviews: each review you complete says how much
-              help it needed, and this table shows which categories need more practice.
+              help it needed, and this shows which categories need more practice.
             </p>
           )}
         </Card>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card title="Activity">
-            <ActivitySection
-              streak={streak(days, today)}
-              thisWeek={activeDaysThisWeek(days, today)}
-              grid={heatMap(days, today)}
-            />
-          </Card>
-          <Card title="Coming up">
-            <LoadSection load={upcomingLoad(problems, listProgress, today)} />
-          </Card>
-        </div>
       </div>
       {notice && (
         <Toast
