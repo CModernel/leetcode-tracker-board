@@ -145,6 +145,10 @@ const TrackerHeader = ({ title, showDueToday = true }) => {
                   card or in the Time column. Limits are in Timer settings
                   (stopwatch icon)
                 </li>
+                <li>
+                  8. Open Insights to see which categories need practice
+                  and what to do next
+                </li>
               </ul>
             </div>
           </div>
