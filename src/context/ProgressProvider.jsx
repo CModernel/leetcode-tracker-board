@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { ProgressContext } from "./ProgressContext";
+import { useTimerSettings } from "./TimerSettingsContext";
 import { localToday } from "../lib/schedule";
 import { getProblems } from "../lib/lists";
+import { limitMsFor } from "../lib/timer";
 import { computeStats } from "../lib/stats";
 import { titleWithCount } from "../lib/title";
 import * as reducers from "./progressReducers";
@@ -16,7 +18,16 @@ import {
 
 const LIST_KEY = "leetcode-selected-list";
 
+// What the timer needs when a problem is finished: the moment it stops and the
+// limit that applies to that problem (null when it is not in the list).
+const timeFor = (list, problemId, kind, limits) => {
+  const problem = getProblems(list).find((p) => p.id === problemId);
+  return { now: Date.now(), limitMs: problem ? limitMsFor(kind, problem.difficulty, limits) : null };
+};
+
 export const ProgressProvider = ({ children }) => {
+  // The person's own time limits (the defaults without a TimerSettingsProvider)
+  const { limits } = useTimerSettings();
   const [progress, setProgress] = useState(() => {
     try {
       return loadProgress((key) => localStorage.getItem(key));
@@ -99,7 +110,13 @@ export const ProgressProvider = ({ children }) => {
   const actions = {
     markSolved: (problemId) =>
       setProgress((prev) =>
-        reducers.markSolved(prev, selectedList, problemId, localToday())
+        reducers.markSolved(
+          prev,
+          selectedList,
+          problemId,
+          localToday(),
+          timeFor(selectedList, problemId, "first", limits)
+        )
       ),
     markMastered: (problemId) =>
       setProgress((prev) =>
@@ -115,6 +132,12 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.setSolution(prev, selectedList, problemId, index, solution, localToday())
       ),
+    startTimer: (problemId, list = selectedList) =>
+      setProgress((prev) => reducers.startTimer(prev, list, problemId, Date.now())),
+    pauseTimer: (problemId, list = selectedList) =>
+      setProgress((prev) => reducers.pauseTimer(prev, list, problemId, Date.now())),
+    resetTimer: (problemId) =>
+      setProgress((prev) => reducers.resetTimer(prev, selectedList, problemId)),
     reorder: (orderedIds) =>
       setProgress((prev) => reducers.setOrder(prev, selectedList, orderedIds)),
     restoreEntries: (list, snapshot) =>
@@ -169,7 +192,8 @@ export const ProgressProvider = ({ children }) => {
           problemId,
           index,
           help,
-          localToday()
+          localToday(),
+          timeFor(selectedList, problemId, "review", limits)
         )
       ),
     rewindReviews: (problemId, index) =>

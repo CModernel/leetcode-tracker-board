@@ -4,6 +4,8 @@ import {
   SHOW_SOLUTIONS_KEY,
   parseShowNotes,
   parseShowSolutions,
+  parseShowTime,
+  SHOW_TIME_KEY,
   parseSolutionLanguage,
 } from "./preferences";
 
@@ -44,5 +46,14 @@ describe("parseShowSolutions", () => {
     expect(parseShowSolutions("false")).toBe(false);
     expect(parseShowSolutions("true")).toBe(true);
     expect(SHOW_SOLUTIONS_KEY).toBe("leetcode-show-solutions");
+  });
+});
+
+describe("parseShowTime", () => {
+  it("is hidden unless it was saved as true", () => {
+    expect(parseShowTime(null)).toBe(false);
+    expect(parseShowTime("false")).toBe(false);
+    expect(parseShowTime("true")).toBe(true);
+    expect(SHOW_TIME_KEY).toBe("leetcode-show-time");
   });
 });

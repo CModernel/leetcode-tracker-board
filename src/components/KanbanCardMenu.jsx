@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MoreHorizontal } from "lucide-react";
-import { cardActionMessage, getCardActions, runCardAction } from "../lib/board";
+import { cardActionMessage, getCardActions, runCardAction, withPaused } from "../lib/board";
+import { useStartWork } from "./useStartWork";
+import { useTimerGuard } from "./useTimerGuard";
 import { useProgress } from "../context/ProgressContext";
 import { useNotice } from "../context/NoticeContext";
+import { useTimerSettings } from "../context/TimerSettingsContext";
 import { useConfirm } from "../context/ConfirmContext";
 
 const MENU_WIDTH = 176;
 const MENU_ITEM_HEIGHT = 36;
+const GUARDED = new Set(["markSolved", "markMastered", "completeReview"]);
 
 // The "⋯" menu of a card. It goes through the same progress actions as the
 // tracker table, so a change here shows in the table and the other way round.
-const KanbanCardMenu = ({ card }) => {
+const KanbanCardMenu = ({ card, onComplete }) => {
   const {
     setStatus,
     markSolved,
@@ -20,15 +24,19 @@ const KanbanCardMenu = ({ card }) => {
     completeReview,
     uncompleteReview,
     rewindReviews,
+    resetTimer,
     restoreEntry,
     selectedList,
   } = useProgress();
+  const { startWork } = useStartWork();
+  const guard = useTimerGuard();
   const confirm = useConfirm();
   const showNotice = useNotice();
   const [position, setPosition] = useState(null);
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
-  const actions = getCardActions(card.stage, card.entry);
+  const { showTimer } = useTimerSettings();
+  const actions = getCardActions(card.stage, card.entry, showTimer);
 
   const close = () => setPosition(null);
 
@@ -72,21 +80,38 @@ const KanbanCardMenu = ({ card }) => {
   const choose = async (action) => {
     close();
     if (action.confirm && !(await confirm(action.confirm))) return;
+    // Completing a review goes the same way as its button: it asks how it went
+    // when the note or the solution was opened, and the attempt (with the time)
+    // is written in the history
+    if (action.type === "completeReview" && onComplete) return onComplete(card);
+    // Another problem is being timed: ask before finishing this one
+    if (GUARDED.has(action.type)) return guard(card.problem.id, () => run(action));
+    return run(action);
+  };
+
+  const run = (action) => {
     // What the problem looked like, to bring it back on Undo
     const list = selectedList;
     const before = card.entry;
-    runCardAction(action, card.problem.id, {
+    const outcome = runCardAction(action, card.problem.id, {
       setStatus,
+      startWork,
       markSolved,
       markMastered,
       unsolve,
       completeReview,
       uncompleteReview,
       rewindReviews,
+      resetTimer,
     });
+    // Starting may have paused another timer: say so, and Undo brings it back
+    const paused = outcome?.paused;
     showNotice({
-      message: cardActionMessage(action),
-      undo: () => restoreEntry(list, card.problem.id, before),
+      message: withPaused(cardActionMessage(action), paused),
+      undo: () => {
+        restoreEntry(list, card.problem.id, before);
+        paused?.resume();
+      },
     });
   };
 

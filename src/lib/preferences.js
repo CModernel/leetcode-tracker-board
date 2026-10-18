@@ -18,3 +18,8 @@ export const DEFAULT_SOLUTION_LANGUAGE = "python";
 // A saved language id if it is a known one, otherwise the default.
 export const parseSolutionLanguage = (raw) =>
   LANGUAGES.some((language) => language.id === raw) ? raw : DEFAULT_SOLUTION_LANGUAGE;
+
+// Whether the Time column is shown in the tracker table. Hidden by default.
+export const SHOW_TIME_KEY = "leetcode-show-time";
+
+export const parseShowTime = (raw) => raw === "true";

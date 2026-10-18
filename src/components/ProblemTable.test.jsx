@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { ProgressProvider } from "../context/ProgressProvider";
 import { ConfirmProvider } from "../context/ConfirmProvider";
+import { TimerSettingsProvider } from "../context/TimerSettingsProvider";
 import LeetCodeTracker from "../pages/LeetCodeTracker";
 import { NOTE_MAX_LENGTH } from "../lib/notes";
-import { SHOW_NOTES_KEY } from "../lib/preferences";
+import { SHOW_NOTES_KEY, SHOW_TIME_KEY } from "../lib/preferences";
 import { V3_KEY, serializeProgress } from "../lib/migrate";
 
 const withNote = (note) =>
@@ -330,5 +331,38 @@ describe("completing a review in the table", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(saved().reviews).toEqual([true, false, false, false, false]);
     expect(saved().attempts).toBeUndefined();
+  });
+});
+
+describe("Time column", () => {
+  const timeToggle = () => screen.getByRole("button", { name: /(show|hide) time/i });
+
+  it("is hidden by default, shows with the toggle and is remembered", () => {
+    renderTracker();
+    expect(screen.queryByRole("columnheader", { name: "Time" })).toBeNull();
+    expect(timeToggle().getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(timeToggle());
+    expect(screen.getByRole("columnheader", { name: "Time" })).toBeTruthy();
+    expect(timeToggle().textContent).toBe("Hide time");
+    expect(localStorage.getItem(SHOW_TIME_KEY)).toBe("true");
+    cleanup();
+    renderTracker();
+    expect(screen.getByRole("columnheader", { name: "Time" })).toBeTruthy();
+  });
+
+  it("is not offered when the timer is switched off", () => {
+    localStorage.setItem("leetcode-show-timer", "false");
+    localStorage.setItem(SHOW_TIME_KEY, "true");
+    render(
+      <TimerSettingsProvider>
+        <ProgressProvider>
+          <ConfirmProvider>
+            <LeetCodeTracker />
+          </ConfirmProvider>
+        </ProgressProvider>
+      </TimerSettingsProvider>,
+    );
+    expect(screen.queryByRole("button", { name: /(show|hide) time/i })).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "Time" })).toBeNull();
   });
 });

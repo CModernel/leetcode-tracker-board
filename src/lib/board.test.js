@@ -19,6 +19,7 @@ import {
   resolveDrop,
   reviewSections,
   runCardAction,
+  withPaused,
 } from "./board";
 import { computeStats } from "./stats";
 
@@ -1110,5 +1111,89 @@ describe("cardActionMessage", () => {
     expect(message("undoReview", 0)).toBe("Undid R1");
     expect(message("rewind", 1)).toBe("Went back to R2");
     expect(message("unsolve")).toBe("Unsolved");
+  });
+});
+
+describe("the timer in the card menu and the start", () => {
+  const running = { timer: { elapsedMs: 5000, runningSince: null } };
+  const types = (stage, entry) => getCardActions(stage, entry).map((a) => a.type);
+
+  it("offers Reset timer only when the card has a timer, before Unsolve", () => {
+    expect(types("todo", {})).not.toContain("resetTimer");
+    expect(types("in-progress", running)).toContain("resetTimer");
+    const reviewing = { solved: true, reviews: [true, false, false, false, false], dates: { review1: "2026-10-01" }, ...running };
+    const list = types("R2", reviewing);
+    expect(list).toContain("resetTimer");
+    expect(list.at(-1)).toBe("unsolve");
+    expect(list.indexOf("resetTimer")).toBe(list.length - 2);
+  });
+
+  it("does not offer Reset timer when the timer is switched off", () => {
+    expect(getCardActions("in-progress", running, false).map((a) => a.type)).not.toContain("resetTimer");
+  });
+
+  it("ignores a damaged timer", () => {
+    expect(types("todo", { timer: { elapsedMs: "x" } })).not.toContain("resetTimer");
+  });
+
+  it("Reset timer runs resetTimer and says so", () => {
+    const calls = [];
+    runCardAction({ type: "resetTimer" }, 7, { resetTimer: (id) => calls.push(id) });
+    expect(calls).toEqual([7]);
+    expect(cardActionMessage({ type: "resetTimer" })).toBe("Timer reset");
+  });
+
+  it("start goes through startWork when it is given, and returns what it says", () => {
+    const paused = { title: "Two Sum", time: "0:15" };
+    const calls = [];
+    const result = runCardAction({ type: "start" }, 7, {
+      startWork: (id) => (calls.push(id), { paused }),
+      setStatus: () => calls.push("setStatus"),
+    });
+    expect(calls).toEqual([7]);
+    expect(result).toEqual({ paused });
+  });
+
+  it("start only moves the card when there is no startWork", () => {
+    const calls = [];
+    runCardAction({ type: "start" }, 7, { setStatus: (id, status) => calls.push([id, status]) });
+    expect(calls).toEqual([[7, "in-progress"]]);
+  });
+
+  it("a drop that starts reports the timer it paused", async () => {
+    const paused = { title: "Two Sum", time: "0:15" };
+    const result = await applyDrop(
+      { problem: { id: 7 }, stage: "todo", entry: {} },
+      "in-progress",
+      { startWork: () => ({ paused }), setStatus: () => {} },
+      () => true,
+    );
+    expect(result).toEqual({ status: "moved", paused });
+  });
+
+  it("withPaused adds the paused timer to a message, or leaves it", () => {
+    expect(withPaused("Moved to In Progress", null)).toBe("Moved to In Progress");
+    expect(withPaused("Moved to In Progress", { title: "Two Sum", time: "0:15" })).toBe(
+      "Moved to In Progress. Paused Two Sum at 0:15.",
+    );
+  });
+});
+
+describe("dragging to another column", () => {
+  const card = (stage, entry = {}) => ({ problem: { id: 7 }, stage, entry });
+
+  it("dragging In Progress to Reviewing is marking it as solved, the same action as the button", () => {
+    expect(canDrop(card("in-progress"), "reviewing")).toEqual({ allowed: true, action: { type: "markSolved" } });
+    expect(getCardActions("in-progress", {}).map((a) => a.type)).toContain("markSolved");
+    const calls = [];
+    runCardAction({ type: "markSolved" }, 7, { markSolved: (id) => calls.push(id) });
+    expect(calls).toEqual([7]);
+  });
+
+  it("dragging R5 to Mastered completes the last review (no confirm) and only that", () => {
+    const entry = { solved: true, reviews: [true, true, true, true, false], dates: {} };
+    const result = canDrop(card("R5", entry), "mastered");
+    expect(result).toEqual({ allowed: true, action: { type: "completeReview", index: 4 } });
+    expect(result.action.confirm).toBeUndefined();
   });
 });

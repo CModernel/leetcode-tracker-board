@@ -24,6 +24,7 @@ import OutcomeDialog from "./OutcomeDialog";
 import {
   COLUMNS,
   applyDrop,
+  withPaused,
   buildColumns,
   canDrop,
   cardForColumn,
@@ -39,6 +40,10 @@ import {
   moveToColumn,
 } from "../lib/keyboardDnd";
 import { HELP, suggestedHelp } from "../lib/attempts";
+import { useStartWork } from "./useStartWork";
+import { useTimerGuard } from "./useTimerGuard";
+import { useTimerSettings } from "../context/TimerSettingsContext";
+import { isTimedOut } from "../lib/timer";
 import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
@@ -70,6 +75,9 @@ const KanbanBoard = () => {
     reorder,
   } = useProgress();
   const confirm = useConfirm();
+  const { startWork } = useStartWork();
+  const guard = useTimerGuard();
+  const { showTimer, limits } = useTimerSettings();
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
   // The review whose outcome dialog is open
@@ -198,15 +206,35 @@ const KanbanBoard = () => {
     });
   };
 
+  // The Mark as solved button of an In Progress card: like the menu item, with
+  // Undo (which brings the timer back too).
+  const solveFromUi = (item) =>
+    guard(item.problem.id, () => {
+      const list = selectedList;
+      const before = listProgress[item.problem.id];
+      markSolved(item.problem.id);
+      setNotice({
+        id: Date.now(),
+        message: "Marked as solved",
+        undo: () => restoreEntry(list, item.problem.id, before),
+      });
+    });
+
   // The Complete button: if the note or the solution was opened today, ask how
   // it went; if not, there is nothing to ask and it was solved alone.
-  const completeReviewFromUi = (item) => {
-    if (suggestedHelp(listProgress[item.problem.id], today) === null) {
-      finishReview(item, { help: HELP.ALONE, message: `Completed ${item.stage}` });
-    } else {
-      setHelpItem(item);
-    }
-  };
+  // A review whose timer ran out (twice the limit) always asks, suggesting the
+  // solution, even when nothing was opened.
+  const completeReviewFromUi = (item) =>
+    guard(item.problem.id, () => {
+      const entry = listProgress[item.problem.id];
+      const timedOut =
+        showTimer && isTimedOut(entry, item.problem.difficulty, limits, Date.now());
+      if (suggestedHelp(entry, today, { timedOut }) === null) {
+        finishReview(item, { help: HELP.ALONE, message: `Completed ${item.stage}` });
+      } else {
+        setHelpItem({ ...item, timedOut });
+      }
+    });
 
   // Dropping a card runs the same progress actions as the table and the card
   // menu, so the tracker shows the change too. A drop that is not allowed
@@ -250,6 +278,13 @@ const KanbanBoard = () => {
       return;
     }
 
+    // Solving, completing or mastering another problem while a timer runs asks
+    // first (starting work is not guarded: it pauses the other timer by itself)
+    if (target === "reviewing" || target === "mastered") {
+      const proceed = guard(card.problem.id, () => true);
+      if (proceed !== true && !(await proceed)) return;
+    }
+
     // What this problem looked like, to bring it back on Undo
     const before = listProgress[card.problem.id];
     // While the dialog is open the card already sits in the column it was
@@ -265,6 +300,7 @@ const KanbanBoard = () => {
         target,
         {
           setStatus,
+          startWork,
           markSolved,
           markMastered,
           unsolve,
@@ -281,11 +317,16 @@ const KanbanBoard = () => {
     } else if (result.status === "moved") {
       setNotice({
         id: Date.now(),
-        message:
+        message: withPaused(
           target === "mastered"
             ? "Marked as mastered"
             : `Moved to ${columnTitle(target)}`,
-        undo: () => restoreEntry(list, card.problem.id, before),
+          result.paused
+        ),
+        undo: () => {
+          restoreEntry(list, card.problem.id, before);
+          result.paused?.resume();
+        },
       });
     }
   };
@@ -328,6 +369,7 @@ const KanbanBoard = () => {
                     key={card.problem.id}
                     card={card}
                     onComplete={completeReviewFromUi}
+                    onSolve={solveFromUi}
                   />
                 ))}
               </SortableContext>
@@ -356,6 +398,7 @@ const KanbanBoard = () => {
                       key={card.problem.id}
                       card={card}
                       onComplete={completeReviewFromUi}
+                    onSolve={solveFromUi}
                     />
                   ))}
                 </div>
@@ -379,6 +422,7 @@ const KanbanBoard = () => {
             <KanbanCard
               card={cardForColumn(activeCard, overColumnId)}
               onComplete={() => {}}
+              onSolve={() => {}}
             />
           </div>
         ) : null}
@@ -387,7 +431,10 @@ const KanbanBoard = () => {
         <OutcomeDialog
           title={`${helpItem.problem.title} · ${helpItem.stage}`}
           options={helpOptions}
-          suggested={suggestedHelp(listProgress[helpItem.problem.id], today)}
+          suggested={suggestedHelp(listProgress[helpItem.problem.id], today, {
+            timedOut: helpItem.timedOut,
+          })}
+          timedOut={helpItem.timedOut}
           onChoose={(option) => {
             const item = helpItem;
             setHelpItem(null);

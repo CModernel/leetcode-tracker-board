@@ -64,6 +64,18 @@ Completing a review is one click: it counts as **solved it myself**. If you open
 - Works the same in the tracker, and on the board cards, with an **Undo** message.
 - Every attempt is saved in a history (date, review and help needed) that is kept when a problem steps back, and included in the export/import file. It is only erased by **Clear All**.
 
+### ⏱️ Timer
+
+Time yourself on the first solve and on every review. It is optional: if you never start it, nothing is timed and no time is saved.
+
+- **It starts by itself** when you open a problem (the title), use **Start** in the ⋯ menu or drag a card to **In Progress**. There is also a small ▶ next to the complete button. Only **one timer runs at a time**: starting another pauses the first, with a message and **Undo**.
+- **Cards**: a bar above the complete button shows `⏸ 4:12 · R3` (pause or resume, and ↺ to reset). It is blue while running, grey when paused, amber past the limit and red when the time ran out. **In Progress** cards have a green **Mark as solved** button, like reviews have theirs.
+- **Time limits** by difficulty (first solve 20 / 35 / 50 min, review 10 / 20 / 30 min). Up to 1.25 times the limit counts as on time; from there the score drops from 100 to 50, and at twice the limit the time ran out. Change the limits, choose **No limit**, or turn the timer off in **Timer settings** (the stopwatch icon in the navbar).
+- **Past the limit** you get one quiet message per problem and session: **Keep going**, **Read the note** (it counts as help) or **Learn** (the Patterns page). If you complete a review whose time ran out, **Needed the solution** is suggested; you can still choose another answer. Time never changes the schedule by itself.
+- **Another problem running?** Completing, solving or mastering a different problem asks first, so a timer does not keep counting unseen. The running timer is also shown in the navbar on every page.
+- **Tracker**: turn on **Show time** for a Time column with the running timer and the last recorded time (with its limit and score in the tooltip). Opening a problem from the table also starts its timer.
+- The time is saved with each attempt and first solve (kept in the export/import file) together with the limit it had, so changing limits later never rewrites history. The timer itself survives a reload.
+
 ### 🏆 Mark as mastered
 
 If you already know a problem, you do not need to tap R1 to R5: mark it as mastered.
@@ -190,9 +202,9 @@ These are the dates when every review is done on time. If you do a review late, 
 - [x] Review outcomes by help needed (solved alone / needed the note / needed the solution)
 - [x] Review rewind, Mark as mastered and Undo
 - [x] Show/hide the solution attached to a problem (up to two per problem)
+- [x] Time limits and a timer for attempts
 
 **Planned** (in this order)
-- [ ] Time limits and a timer for attempts
 - [ ] Weak-topic analytics and exercise suggestions
 - [ ] Cloud data persistence (Supabase, local-first, sign in with GitHub, Google or magic link)
 - [ ] Browser/push notifications for due reviews (needs cloud persistence)

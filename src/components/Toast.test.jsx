@@ -91,6 +91,30 @@ describe("Toast", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("shows several actions, each runs and closes the message", () => {
+    const onClose = vi.fn();
+    const keep = vi.fn();
+    const learn = vi.fn();
+    render(
+      <Toast
+        message="Time"
+        onClose={onClose}
+        actions={[{ label: "Keep going", onClick: keep }, { label: "Learn", onClick: learn }]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Learn" }));
+    expect(learn).toHaveBeenCalledTimes(1);
+    expect(keep).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(FADE_MS));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Keep going" })).toBeTruthy();
+  });
+
+  it("can be raised above another message", () => {
+    const { container } = render(<Toast message="Hi" onClose={() => {}} raised />);
+    expect(container.firstChild.className).toMatch(/bottom-20/);
+  });
+
   it("does not close after it is removed", () => {
     const onClose = vi.fn();
     const { unmount } = render(<Toast message="Hi" onClose={onClose} />);

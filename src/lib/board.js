@@ -9,6 +9,7 @@ import {
 import { rewindConfirm } from "./rewind";
 import { getStatus } from "./status";
 import { getUrgency } from "./urgencyStyles";
+import { normalizeTimer } from "./timer";
 
 // Board columns, left to right.
 export const COLUMNS = [
@@ -183,7 +184,7 @@ const lastDoneReview = (entry) => {
 
 // Actions offered in a card's menu, from its stage and saved entry. Each is
 // { type, label, index?, confirm? }; `confirm` is a question to ask first.
-export const getCardActions = (stage, entry = {}) => {
+const stageActions = (stage, entry = {}) => {
   if (stage === "todo") {
     return [
       { type: "start", label: "Start" },
@@ -240,12 +241,30 @@ export const getCardActions = (stage, entry = {}) => {
   return actions;
 };
 
+// The menu of a card: the actions of its stage, plus "Reset timer" when it has
+// a timer (before the destructive "Unsolve", which stays last), unless the timer
+// is switched off (`showTimer` false).
+export const getCardActions = (stage, entry = {}, showTimer = true) => {
+  const actions = stageActions(stage, entry);
+  if (!showTimer || !normalizeTimer(entry?.timer)) return actions;
+  const last = actions[actions.length - 1];
+  const reset = { type: "resetTimer", label: "Reset timer" };
+  return last?.type === "unsolve" ? [...actions.slice(0, -1), reset, last] : [...actions, reset];
+};
+
+// What the message says when starting paused another timer.
+export const withPaused = (message, paused) =>
+  paused ? `${message}. Paused ${paused.title} at ${paused.time}.` : message;
+
 // Runs a menu action through the shared progress actions, so the tracker and
 // the board always change the same data.
 export const runCardAction = (action, problemId, actions) => {
   switch (action.type) {
     case "start":
-      return actions.setStatus(problemId, "in-progress");
+      // starting also starts the timer (and may pause another one)
+      return actions.startWork
+        ? actions.startWork(problemId)
+        : actions.setStatus(problemId, "in-progress");
     case "backToTodo":
       return actions.setStatus(problemId, "todo");
     case "markSolved":
@@ -260,6 +279,8 @@ export const runCardAction = (action, problemId, actions) => {
       return actions.rewindReviews(problemId, action.index);
     case "unsolve":
       return actions.unsolve(problemId);
+    case "resetTimer":
+      return actions.resetTimer?.(problemId);
     default:
       return undefined;
   }
@@ -284,6 +305,8 @@ export const cardActionMessage = (action) => {
       return `Went back to R${action.index + 1}`;
     case "unsolve":
       return "Unsolved";
+    case "resetTimer":
+      return "Timer reset";
     default:
       return "Done";
   }
@@ -372,8 +395,8 @@ export const applyDrop = async (
   if (result.action.confirm && !(await confirm(result.action.confirm))) {
     return { status: "cancelled" };
   }
-  runCardAction(result.action, card.problem.id, actions);
-  return { status: "moved" };
+  const outcome = runCardAction(result.action, card.problem.id, actions);
+  return outcome?.paused ? { status: "moved", paused: outcome.paused } : { status: "moved" };
 };
 
 // Moves `activeId` to the position `overId` has in `ids` (what dragging a card

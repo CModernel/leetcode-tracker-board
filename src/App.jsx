@@ -1,12 +1,14 @@
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { LeetCodeTracker, Patterns, InterviewRoadmap, BoardPage } from "./pages";
 import { Navbar } from "./components";
+import TimeLimitWatcher from "./components/TimeLimitWatcher";
 
 const App = () => {
   return (
     <HashRouter>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
         <Navbar />
+        <TimeLimitWatcher />
         <Routes>
           <Route path="/" element={<LeetCodeTracker />} />
           <Route path="/board" element={<BoardPage />} />

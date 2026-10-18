@@ -10,13 +10,17 @@ export const FADE_MS = 200;
 // again and restart the timer. With `actionLabel` and `onAction` it also shows
 // a button (for example "Undo"); pressing it runs the action and closes the
 // message. `variant="warning"` (something was not allowed) is amber, with an
-// icon, so it stands out from the plain messages.
+// icon, so it stands out from the plain messages. `actions` ([{ label, onClick }])
+// shows several buttons instead, each running its action and closing the
+// message. `raised` lifts it above another message at the bottom.
 const Toast = ({
   message,
   onClose,
   duration = 4000,
   actionLabel,
   onAction,
+  actions,
+  raised = false,
   variant = "info",
 }) => {
   const [leaving, setLeaving] = useState(false);
@@ -43,7 +47,11 @@ const Toast = ({
   }, [onClose, duration]);
 
   return (
-    <div className="fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 pointer-events-none">
+    <div
+      className={`fixed inset-x-0 ${
+        raised ? "bottom-20" : "bottom-4"
+      } z-50 flex justify-center px-4 pointer-events-none`}
+    >
       <div
         role="status"
         aria-live="polite"
@@ -60,6 +68,18 @@ const Toast = ({
           <AlertTriangle size={16} className="flex-shrink-0" aria-hidden="true" />
         )}
         <span>{message}</span>
+        {actions?.map((action) => (
+          <button
+            key={action.label}
+            onClick={() => {
+              action.onClick?.();
+              dismiss();
+            }}
+            className="flex-shrink-0 font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity"
+          >
+            {action.label}
+          </button>
+        ))}
         {actionLabel && (
           <button
             onClick={() => {

@@ -155,6 +155,11 @@ const TrackerHeader = ({ title, showDueToday = true }) => {
                 <li>
                   6. Already know one? Use the Mastered button next to Solved
                 </li>
+                <li>
+                  7. Opening a problem starts its timer; pause it on the
+                  card or in the Time column. Limits are in Timer settings
+                  (stopwatch icon)
+                </li>
               </ul>
             </div>
           </div>
