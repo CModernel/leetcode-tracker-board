@@ -42,8 +42,9 @@ const HelpBar = ({ row }) => {
   );
 };
 
-// One row per category, the ones that need practice first.
-const CategoryTable = ({ rows, showTime }) => (
+// One row per category, the ones that need practice first; the categories not
+// started yet are only named below.
+const CategoryTable = ({ rows, showTime, notStarted = [] }) => (
   <>
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
@@ -94,6 +95,9 @@ const CategoryTable = ({ rows, showTime }) => (
         </tbody>
       </table>
     </div>
+    {notStarted.length > 0 && (
+      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Not started yet: {notStarted.join(", ")}.</p>
+    )}
     <details className="mt-3 text-xs text-gray-500 dark:text-gray-400">
       <summary className="cursor-pointer select-none text-blue-600 dark:text-blue-400">
         How is this calculated?

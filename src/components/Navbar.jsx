@@ -10,34 +10,34 @@ const Navbar = () => {
   return (
     <nav className="bg-white dark:bg-gray-900 shadow dark:shadow-gray-800 mb-6 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-y-2">
-        <div className="flex gap-3 sm:gap-6">
+        <div className="flex gap-2 sm:gap-6">
           <Link
             to="/"
-            className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+            className="text-sm sm:text-base font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
           >
             Tracker
           </Link>
           <Link
             to="/board"
-            className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+            className="text-sm sm:text-base font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
           >
             Board
           </Link>
           <Link
             to="/insights"
-            className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+            className="text-sm sm:text-base font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
           >
             Insights
           </Link>
           <Link
             to="/patterns"
-            className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+            className="text-sm sm:text-base font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
           >
             Patterns
           </Link>
           <Link
             to="/roadmap"
-            className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+            className="text-sm sm:text-base font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
           >
             Roadmap
           </Link>

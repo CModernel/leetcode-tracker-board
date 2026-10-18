@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { Link } from "react-router-dom";
 import ListSelect from "../components/ListSelect";
 import Toast from "../components/Toast";
 import ProblemList from "../components/insights/ProblemList";
@@ -49,10 +50,15 @@ const InsightsPage = () => {
 
   const ranked = rankCategories(categoryStats(problems, listProgress));
   const weak = new Set(ranked.filter((row) => row.weak).map((row) => row.category));
-  const anyHistory = ranked.some((row) => row.attempts > 0 || row.timed > 0 || row.solved > 0);
+  // A category with nothing solved and no time yet is only named, not a row
+  const started = (row) => row.attempts > 0 || row.timed > 0 || row.solved > 0;
+  const startedRows = ranked.filter(started);
+  const notStarted = ranked.filter((row) => !started(row)).map((row) => row.category);
+  const anyHistory = startedRows.length > 0;
   const showTime = showTimer && ranked.some((row) => row.timed > 0);
 
   const due = todayList(problems, listProgress, today, weak);
+  const allDue = todayList(problems, listProgress, today, weak, Infinity).length;
   const fresh = suggestNew(problems, listProgress, weak);
   const days = activityDays(listProgress);
 
@@ -92,6 +98,14 @@ const InsightsPage = () => {
               onOpen={open}
               empty="No reviews due today."
             />
+            {allDue > due.length && (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Showing {due.length} of {allDue} ·{" "}
+                <Link to="/board" className="text-blue-600 hover:underline dark:text-blue-400">
+                  see all on the Board
+                </Link>
+              </p>
+            )}
           </Card>
           <Card title="Try next">
             <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
@@ -109,7 +123,7 @@ const InsightsPage = () => {
 
         <Card title="By category">
           {anyHistory ? (
-            <CategoryTable rows={ranked} showTime={showTime} />
+            <CategoryTable rows={startedRows} showTime={showTime} notStarted={notStarted} />
           ) : (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Nothing to analyse yet. Solve problems and complete reviews: each review you complete says how much

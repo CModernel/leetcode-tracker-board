@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { ProgressProvider } from "../context/ProgressProvider";
 import { ConfirmProvider } from "../context/ConfirmProvider";
 import { ThemeProvider } from "../context/ThemeProvider";
@@ -31,7 +32,9 @@ const renderPage = () =>
       <TimerSettingsProvider>
         <ProgressProvider>
           <ConfirmProvider>
-            <InsightsPage />
+            <MemoryRouter>
+              <InsightsPage />
+            </MemoryRouter>
           </ConfirmProvider>
         </ProgressProvider>
       </TimerSettingsProvider>
@@ -85,7 +88,9 @@ describe("the Insights page", () => {
     expect(within(row).getByRole("img").getAttribute("aria-label")).toBe(
       "1 alone, 1 with the note, 1 with the solution",
     );
-    expect(categoryRow("Two Pointers").textContent).toContain("Not enough data yet");
+    // Two Pointers has nothing done: it is only named below the table
+    expect(within(section("By category")).queryByRole("cell", { name: "Two Pointers" })).toBeNull();
+    expect(within(section("By category")).getByText(/Not started yet: .*Two Pointers/)).toBeTruthy();
   });
 
   it("hides the time column when the timer is switched off", () => {
@@ -124,6 +129,22 @@ describe("the Insights page", () => {
     const entry = JSON.parse(localStorage.getItem(KEY)).progress["Blind 75"]["blind75-1"];
     expect(entry.status).toBe("in-progress");
     expect(entry.timer.runningSince).not.toBeNull();
+  });
+
+  it("says when there are more reviews due than the ones listed", () => {
+    const due = (n) =>
+      solved({ solvedDate: "2026-09-01", reviews: [false, false, false, false, false], dates: { initial: "2026-09-01" } });
+    seed(Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((n) => [`blind75-${n}`, due(n)])));
+    renderPage();
+    expect(within(section("What to do today")).getAllByRole("listitem")).toHaveLength(5);
+    expect(section("What to do today").textContent).toContain("Showing 5 of 7");
+    expect(within(section("What to do today")).getByRole("link", { name: "see all on the Board" })).toBeTruthy();
+  });
+
+  it("a category with something solved but few reviews says there is not enough data", () => {
+    seed({ "blind75-9": solved({ attempts: [attempt(0)] }) });
+    renderPage();
+    expect(categoryRow("Two Pointers").textContent).toContain("Not enough data yet");
   });
 
   it("shows the streak, the week and the reviews coming", () => {
