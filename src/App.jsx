@@ -1,5 +1,5 @@
 import { HashRouter, Routes, Route } from "react-router-dom";
-import { LeetCodeTracker, Patterns, InterviewRoadmap, BoardPage } from "./pages";
+import { LeetCodeTracker, Patterns, InterviewRoadmap, BoardPage, InsightsPage } from "./pages";
 import { Navbar } from "./components";
 import TimeLimitWatcher from "./components/TimeLimitWatcher";
 
@@ -12,6 +12,7 @@ const App = () => {
         <Routes>
           <Route path="/" element={<LeetCodeTracker />} />
           <Route path="/board" element={<BoardPage />} />
+          <Route path="/insights" element={<InsightsPage />} />
           <Route path="/patterns" element={<Patterns />} />
           <Route path="/roadmap" element={<InterviewRoadmap />} />
         </Routes>

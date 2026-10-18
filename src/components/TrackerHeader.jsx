@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Info, ExternalLink, Map } from "lucide-react";
 import Filters from "./Filters";
+import ListSelect from "./ListSelect";
 import CircularStatsCard from "./CircularStatsCard";
 import ExportImportControls from "./ExportImportControls";
-import { problemLists, roadmapLinks, getProblems } from "../lib/lists";
+import { roadmapLinks, getProblems } from "../lib/lists";
 import { computeStats } from "../lib/stats";
 import { localToday } from "../lib/schedule";
 import { useProgress } from "../context/ProgressContext";
@@ -11,8 +12,7 @@ import { useProgress } from "../context/ProgressContext";
 // Everything above the problem list: list selector, spaced repetition help,
 // stats, export/import and filters. Shared by the tracker and the board.
 const TrackerHeader = ({ title, showDueToday = true }) => {
-  const { progress, selectedList, setSelectedList, filters, setFilter } =
-    useProgress();
+  const { progress, selectedList, filters, setFilter } = useProgress();
 
   const [showExplanation, setShowExplanation] = useState(false);
 
@@ -40,22 +40,7 @@ const TrackerHeader = ({ title, showDueToday = true }) => {
         </div>
         <div className="flex sm:flex-row gap-2 items-start sm:items-center">
           {/* Dropdown for problem list */}
-          <select
-            id="problem-list"
-            value={selectedList}
-            title="Select a problem list"
-            onChange={(e) => setSelectedList(e.target.value)}
-            className="px-4 py-2 cursor-pointer rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none"
-          >
-            <option value="" disabled>
-              Select List
-            </option>
-            {Object.keys(problemLists).map((listName) => (
-              <option key={listName} value={listName}>
-                {listName}
-              </option>
-            ))}
-          </select>
+          <ListSelect />
 
           {/* Official Roadmap */}
           <a

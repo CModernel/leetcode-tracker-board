@@ -24,6 +24,12 @@ const Navbar = () => {
             Board
           </Link>
           <Link
+            to="/insights"
+            className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
+          >
+            Insights
+          </Link>
+          <Link
             to="/patterns"
             className="font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
           >
