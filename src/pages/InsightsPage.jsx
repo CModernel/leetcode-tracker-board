@@ -19,6 +19,7 @@ import {
   rankCategories,
   streak,
   suggestNew,
+  timeSummary,
   todayList,
   upcomingLoad,
 } from "../lib/insights";
@@ -65,6 +66,7 @@ const InsightsPage = () => {
   const fresh = suggestNew(problems, listProgress, weak, SHOWN);
   const days = activityDays(listProgress);
   const load = upcomingLoad(problems, listProgress, today);
+  const time = showTimer ? { state: "on", ...timeSummary(problems, listProgress) } : { state: "off" };
 
   // Opening a problem starts working on it, as on the board and in the table
   const open = (problem) => {
@@ -94,6 +96,9 @@ const InsightsPage = () => {
             thisWeek={activeDaysThisWeek(days, today)}
             overdue={load.overdue}
             tomorrow={load.days[1].count}
+            mastered={ranked.reduce((sum, row) => sum + row.mastered, 0)}
+            total={problems.length}
+            time={time}
             grid={heatMap(days, today)}
           />
         </div>

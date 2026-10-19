@@ -76,7 +76,10 @@ describe("the Insights page", () => {
     expect(within(section("Try next")).getByText("1 - Two Sum")).toBeTruthy();
     expect(stat("Current streak")).toBe("0 days");
     expect(stat("Reviews overdue")).toBe("0");
-    expect(stat("Actions, last 12 weeks")).toBe("0");
+    expect(stat("Mastered")).toBe("0/75");
+    // no timer data yet: the slot stays, with the reason
+    expect(stat("Average time")).toBe("-");
+    expect(screen.getByText(/Needs 3 timed attempts \(0\)/)).toBeTruthy();
   });
 
   it("shows the table with the weak and slow category first, and every number", () => {
@@ -178,8 +181,38 @@ describe("the Insights page", () => {
     // R2 of Two Sum was due Oct 4: overdue
     expect(stat("Reviews overdue")).toBe("1");
     expect(stat("Due tomorrow")).toBe("0");
-    // solved Oct 1, review Oct 2 and the two attempts
-    expect(stat("Actions, last 12 weeks")).toBe("4");
+  });
+
+  it("counts the mastered problems", () => {
+    seed({ "blind75-1": solved({ reviews: [true, true, true, true, true] }), "blind75-2": solved() });
+    renderPage();
+    expect(stat("Mastered")).toBe("1/75");
+  });
+
+  it("compares the average time with the limit: under in green, over in amber", () => {
+    const timed = (ms) => ({ attempts: [attempt(0, { ms: ms * MIN, limitMs: 10 * MIN }), attempt(0, { ms: ms * MIN, limitMs: 10 * MIN }), attempt(0, { ms: ms * MIN, limitMs: 10 * MIN })] });
+    seed({ "blind75-1": solved(timed(8)) });
+    renderPage();
+    expect(stat("Average time")).toBe("20% under limit");
+    expect(screen.getByText("avg 8:00 of 10:00")).toBeTruthy();
+    expect(screen.getByText("20% under limit").className).toMatch(/green/);
+    cleanup();
+    seed({ "blind75-1": solved(timed(12)) });
+    renderPage();
+    expect(stat("Average time")).toBe("20% over limit");
+    expect(screen.getByText("20% over limit").className).toMatch(/amber/);
+  });
+
+  it("says why there is no average time: too few attempts, or the timer is off", () => {
+    seed({ "blind75-1": solved({ attempts: [attempt(0, { ms: 5 * MIN, limitMs: 10 * MIN })] }) });
+    renderPage();
+    expect(stat("Average time")).toBe("-");
+    expect(screen.getByText("Needs 3 timed attempts (1)")).toBeTruthy();
+    cleanup();
+    localStorage.setItem("leetcode-show-timer", "false");
+    renderPage();
+    expect(stat("Average time")).toBe("-");
+    expect(screen.getByText("Timer is off")).toBeTruthy();
   });
 
   it("the activity comes before the lists, not after", () => {

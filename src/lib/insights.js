@@ -101,6 +101,22 @@ export const categoryStats = (problems, progress = {}) => {
   }));
 };
 
+// The times of the whole list at once: how many records have a time and a limit,
+// the average of `ms / limitMs` (below 1 = quicker than the limit) and the
+// average time and limit. Records with no limit are left out (nothing to
+// compare with); null averages when there are none.
+export const timeSummary = (problems, progress = {}) => {
+  const records = problems
+    .flatMap((problem) => timedRecords(progress[problem.id]))
+    .filter((record) => Number.isFinite(record.limitMs) && record.limitMs > 0);
+  return {
+    count: records.length,
+    averageRatio: average(records.map((record) => record.ms / record.limitMs)),
+    averageMs: average(records.map((record) => record.ms)),
+    averageLimitMs: average(records.map((record) => record.limitMs)),
+  };
+};
+
 // How a category stands: "unknown" with too few attempts, else whether it
 // needs practice (help rate) and whether it is slow (time over the limit).
 // `weak` is the same as needing practice; slow on top of it is the worst case.

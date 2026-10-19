@@ -12,6 +12,7 @@ import {
   rankCategories,
   streak,
   suggestNew,
+  timeSummary,
   todayList,
   upcomingLoad,
 } from "./insights";
@@ -287,5 +288,36 @@ describe("suggestNew", () => {
   it("a problem with attempts is not new", () => {
     const progress = { p2: { status: "todo", solved: false, attempts: [attempt(HELP.ALONE)] } };
     expect(suggestNew(problems, progress, new Set(["A"])).problems.map((p) => p.id)).not.toContain("p2");
+  });
+});
+
+describe("timeSummary", () => {
+  const problems = [problem("p1", "A"), problem("p2", "A")];
+
+  it("averages the time against the limit over the whole list", () => {
+    const progress = {
+      p1: solved({
+        firstSolve: { date: "2026-10-01", ms: 10 * MIN, limitMs: 20 * MIN },
+        attempts: [attempt(0, { ms: 5 * MIN, limitMs: 10 * MIN }), attempt(0, { ms: 15 * MIN, limitMs: 10 * MIN })],
+      }),
+      p2: solved({ attempts: [attempt(0, { ms: 6 * MIN, limitMs: 10 * MIN })] }),
+    };
+    const summary = timeSummary(problems, progress);
+    expect(summary.count).toBe(4);
+    expect(summary.averageRatio).toBeCloseTo((0.5 + 0.5 + 1.5 + 0.6) / 4);
+    expect(summary.averageMs).toBeCloseTo((10 + 5 + 15 + 6) * MIN / 4);
+    expect(summary.averageLimitMs).toBeCloseTo((20 + 10 + 10 + 10) * MIN / 4);
+  });
+
+  it("leaves out records with no time or no limit, and is empty without any", () => {
+    const progress = {
+      p1: solved({ attempts: [attempt(0), attempt(0, { ms: 5 * MIN })] }),
+    };
+    expect(timeSummary(problems, progress)).toEqual({
+      count: 0,
+      averageRatio: null,
+      averageMs: null,
+      averageLimitMs: null,
+    });
   });
 });
