@@ -34,6 +34,7 @@ import {
 } from "../lib/preferences";
 import { useTimerGuard } from "./useTimerGuard";
 import { useStartWork } from "./useStartWork";
+import SolvedNotePrompt from "./SolvedNotePrompt";
 import TimeCell from "./TimeCell";
 import { useTimerSettings } from "../context/TimerSettingsContext";
 import { isTimedOut } from "../lib/timer";
@@ -124,6 +125,8 @@ const ProblemTable = ({
   // Message with Undo after marking a problem as mastered or unsolving it
   // ({ id, message, undo })
   const [notice, setNotice] = useState(null);
+  // The problem just marked as solved whose note is being offered
+  const [notePrompt, setNotePrompt] = useState(null);
   const closeNotice = useCallback(() => setNotice(null), []);
 
   // The Solved button is a switch. Solving is immediate. Unsolving erases the
@@ -131,7 +134,13 @@ const ProblemTable = ({
   // when a review is done; with none done nothing real is lost. Either way the
   // message with Undo follows, so a wrong click can be taken back.
   const toggleSolved = async (problem, prob) => {
-    if (!prob.solved) return guard(problem.id, () => markSolved(problem.id));
+    if (!prob.solved) {
+      return guard(problem.id, () => {
+        markSolved(problem.id);
+        // Solving is the moment to write what was learned
+        setNotePrompt(problem);
+      });
+    }
     if (prob.reviews?.some(Boolean) && !(await confirm(UNSOLVE_CONFIRM))) return;
     const list = selectedList;
     const before = progress[problem.id];
@@ -502,6 +511,15 @@ const ProblemTable = ({
             completeReviewWithHelp(problem.id, index, option.help);
           }}
           onClose={() => setHelpFor(null)}
+        />
+      )}
+      {notePrompt && (
+        <SolvedNotePrompt
+          key={notePrompt.id}
+          problem={notePrompt}
+          note={progress[notePrompt.id]?.note}
+          onSave={(text) => setNote(notePrompt.id, text)}
+          onClose={() => setNotePrompt(null)}
         />
       )}
       {notice && (

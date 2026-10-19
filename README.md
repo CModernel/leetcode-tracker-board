@@ -42,6 +42,7 @@ One short note per problem (up to 300 characters), to read before a review: the 
 - **Board**: the note icon on each card opens the note in a dialog to read or edit it.
 - Both views share the same note. It is kept when you unsolve or move a problem, and it is included in the export/import file.
 - Reading a note never changes the review schedule.
+- **When you solve a problem** (drag it to Reviewing, **Mark as solved** on the card or in its menu, or **Solved** in the tracker) the note opens in the editor asking "Solved. Anything to remember?". **Save** keeps it, **Skip** closes without changes; the problem is solved either way.
 - Earlier versions could also keep code solutions per problem. That feature was removed: any saved solutions are dropped when the app loads, and an attempt that "needed the solution" now counts as "needed help". Export your progress first if you want to keep a copy.
 
 ### 🧭 Review outcomes

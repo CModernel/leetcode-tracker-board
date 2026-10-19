@@ -1042,6 +1042,8 @@ describe("marking a problem as mastered", () => {
   it("the tracker button asks first only when a review is done", async () => {
     const view = renderBoth();
     fireEvent.click(within(view.row()).getByText("Not Solved"));
+    // solving offers the note: skip it
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
     fireEvent.click(within(view.row()).getByRole("button", { name: "R1" }));
     fireEvent.click(trophy(view));
     expect(screen.getByRole("alertdialog")).toBeTruthy();

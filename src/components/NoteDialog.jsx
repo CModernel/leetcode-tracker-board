@@ -8,11 +8,21 @@ import { NOTE_HINT, NOTE_MAX_LENGTH } from "../lib/notes";
 // like editing). A problem with no note opens straight in the editor. In the
 // editor, Save or Ctrl/Cmd+Enter saves (an empty text removes the note);
 // Cancel closes without saving. Escape and a click on the backdrop close the
-// dialog in both. `onSave` gets the new text.
-const NoteDialog = ({ label, note, onSave, onClose }) => {
+// dialog in both. `onSave` gets the new text. `startEditing` opens the editor
+// even when there is a note; `intro` adds a line under the problem's name and
+// `cancelLabel` renames the Cancel button (for example "Skip").
+const NoteDialog = ({
+  label,
+  note,
+  onSave,
+  onClose,
+  startEditing = false,
+  intro = null,
+  cancelLabel = "Cancel",
+}) => {
   const dialogRef = useRef(null);
   const [draft, setDraft] = useState(note ?? "");
-  const [mode, setMode] = useState(note ? "read" : "edit");
+  const [mode, setMode] = useState(note && !startEditing ? "read" : "edit");
   const editing = mode === "edit";
 
   useEffect(() => {
@@ -61,6 +71,9 @@ const NoteDialog = ({ label, note, onSave, onClose }) => {
           Note
         </h2>
         <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">{label}</p>
+        {intro && (
+          <p className="mt-2 text-sm font-medium text-gray-800 dark:text-gray-100">{intro}</p>
+        )}
         {editing ? (
           <>
             <textarea
@@ -84,7 +97,7 @@ const NoteDialog = ({ label, note, onSave, onClose }) => {
                 onClick={onClose}
                 className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 transition-colors"
               >
-                Cancel
+                {cancelLabel}
               </button>
               <button
                 onClick={save}
