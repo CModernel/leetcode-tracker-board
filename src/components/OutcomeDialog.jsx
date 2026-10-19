@@ -2,9 +2,9 @@ import { useEffect, useRef } from "react";
 import { HELP } from "../lib/attempts";
 
 // Each option carries a barely visible hint of its color (green alone, yellow
-// note, red solution) in the border, the fill and the title: enough to tell
-// them apart without drawing the eye. The suggested one is told apart by its
-// badge, not by another color, so the three colors keep their meaning.
+// needed help) in the border, the fill and the title: enough to tell them apart
+// without drawing the eye. The suggested one is told apart by its badge, not by
+// another color, so the colors keep their meaning.
 const STYLES = {
   [HELP.ALONE]: {
     box: "border-green-200/70 bg-green-50/30 hover:bg-green-50/60 dark:border-green-900/40 dark:bg-green-900/5 dark:hover:bg-green-900/15",
@@ -14,17 +14,13 @@ const STYLES = {
     box: "border-yellow-200/70 bg-yellow-50/30 hover:bg-yellow-50/60 dark:border-yellow-900/40 dark:bg-yellow-900/5 dark:hover:bg-yellow-900/15",
     label: "text-gray-800 dark:text-gray-100",
   },
-  [HELP.SOLUTION]: {
-    box: "border-red-200/70 bg-red-50/30 hover:bg-red-50/60 dark:border-red-900/40 dark:bg-red-900/5 dark:hover:bg-red-900/15",
-    label: "text-gray-800 dark:text-gray-100",
-  },
 };
 
-// "How did it go?" for a review: the three outcomes, each with what it does to
+// "How did it go?" for a review: the outcomes, each with what it does to
 // the calendar (real dates). Choosing one applies it; Cancel, Escape and a
 // click on the backdrop close the dialog and change nothing. `suggested` is the
-// help the person probably needed (they opened the note or the solution, or the
-// timer ran out: `timedOut`):
+// help the person probably needed (they opened the note, or the timer ran out:
+// `timedOut`):
 // that choice has a light background and a "Suggested" badge and has the focus, so Enter takes it. Without a
 // suggestion the focus is on "Solved it myself". Native <dialog>
 // like the others; it sits inside a draggable card, so mouse, touch and keys
@@ -71,10 +67,8 @@ const OutcomeDialog = ({ title, options, suggested = null, timedOut = false, onC
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             {timedOut
               ? "The timer ran past twice the limit."
-              : suggested === HELP.SOLUTION
-              ? "You opened the solution today."
               : suggested === HELP.ALONE
-              ? "You wrote or edited the note or solution today, so it does not count as help."
+              ? "You wrote or edited the note today, so it does not count as help."
               : "You opened the note today."}
           </p>
         )}

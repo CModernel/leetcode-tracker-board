@@ -213,10 +213,60 @@ describe("importing a file", () => {
     const data = v3Data();
     data["Blind 75"][1].attempts = [
       { date: "2026-10-02", review: 0, help: 0 },
-      { date: "2026-10-05", review: 1, help: 2 },
+      { date: "2026-10-05", review: 1, help: 1 },
     ];
     expect(migrate(JSON.parse(JSON.stringify(data))).progress).toEqual(data);
     expect(parseStored(serializeProgress(data))).toEqual(data);
+  });
+
+  describe("the removed solutions feature", () => {
+    const withSolutions = () => {
+      const data = v3Data();
+      data["Blind 75"][1] = {
+        ...data["Blind 75"][1],
+        note: "keep me",
+        solutions: [{ code: "x = 1", language: "python", source: "manual", savedAt: "2026-10-01" }],
+        solutionEditedOn: "2026-10-05",
+        helpViewed: { note: "2026-10-05", solution: "2026-10-05" },
+        attempts: [
+          { date: "2026-10-02", review: 0, help: 0 },
+          { date: "2026-10-04", review: 1, help: 2, ms: 60000, limitMs: 120000 },
+        ],
+      };
+      return data;
+    };
+
+    it("drops the saved solutions and their markers when loading, keeping the rest", () => {
+      const entry = migrate(withSolutions()).progress["Blind 75"][1];
+      expect(entry).not.toHaveProperty("solutions");
+      expect(entry).not.toHaveProperty("solutionEditedOn");
+      expect(entry.helpViewed).toEqual({ note: "2026-10-05" });
+      expect(entry.note).toBe("keep me");
+      expect(entry.reviews).toEqual(v3Data()["Blind 75"][1].reviews);
+    });
+
+    it("removes helpViewed when only the solution was there", () => {
+      const data = withSolutions();
+      data["Blind 75"][1].helpViewed = { solution: "2026-10-05" };
+      expect(migrate(data).progress["Blind 75"][1]).not.toHaveProperty("helpViewed");
+    });
+
+    it("turns attempts that needed the solution into needed help and keeps their times", () => {
+      const attempts = migrate(withSolutions()).progress["Blind 75"][1].attempts;
+      expect(attempts.map((a) => a.help)).toEqual([0, 1]);
+      expect(attempts[1]).toMatchObject({ review: 1, ms: 60000, limitMs: 120000 });
+    });
+
+    it("also cleans an imported file and is safe to run twice", () => {
+      const once = migrate(JSON.parse(serializeProgress(withSolutions())));
+      expect(migrate(once)).toEqual(once);
+      expect(JSON.stringify(once)).not.toContain("solution");
+    });
+
+    it("removes nothing from data that never had solutions", () => {
+      const data = v3Data();
+      expect(migrate(JSON.parse(JSON.stringify(data))).progress).toEqual(data);
+    });
   });
 
   it("loads data saved before attempts existed", () => {

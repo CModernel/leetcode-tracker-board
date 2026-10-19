@@ -6,6 +6,7 @@ import { useStartWork } from "./useStartWork";
 import { useTimerGuard } from "./useTimerGuard";
 import { useProgress } from "../context/ProgressContext";
 import { useNotice } from "../context/NoticeContext";
+import { useNotePrompt } from "../context/NotePromptContext";
 import { useTimerSettings } from "../context/TimerSettingsContext";
 import { useConfirm } from "../context/ConfirmContext";
 
@@ -32,6 +33,7 @@ const KanbanCardMenu = ({ card, onComplete }) => {
   const guard = useTimerGuard();
   const confirm = useConfirm();
   const showNotice = useNotice();
+  const askNote = useNotePrompt();
   const [position, setPosition] = useState(null);
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
@@ -81,7 +83,7 @@ const KanbanCardMenu = ({ card, onComplete }) => {
     close();
     if (action.confirm && !(await confirm(action.confirm))) return;
     // Completing a review goes the same way as its button: it asks how it went
-    // when the note or the solution was opened, and the attempt (with the time)
+    // when the note was opened, and the attempt (with the time)
     // is written in the history
     if (action.type === "completeReview" && onComplete) return onComplete(card);
     // Another problem is being timed: ask before finishing this one
@@ -113,6 +115,8 @@ const KanbanCardMenu = ({ card, onComplete }) => {
         paused?.resume();
       },
     });
+    // Solving is the moment to write what was learned
+    if (action.type === "markSolved") askNote(card.problem);
   };
 
   return (

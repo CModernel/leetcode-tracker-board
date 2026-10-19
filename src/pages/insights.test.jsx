@@ -46,12 +46,12 @@ const stat = (label) => screen.getByText(label).previousSibling.textContent;
 const heat = () => screen.getByRole("img", { name: "Activity of the last weeks" });
 const categoryRow = (name) => within(section("Categories")).getByText(name).closest("tr");
 
-// Arrays & Hashing: 3 reviews, 2 with help (one solution), all timed over the limit
+// Arrays & Hashing: 3 reviews, 2 needed help, all timed over the limit
 const weakArrays = () => ({
   "blind75-1": solved({
     attempts: [
       attempt(1, { ms: 15 * MIN, limitMs: 10 * MIN }),
-      attempt(2, { ms: 25 * MIN, limitMs: 10 * MIN }),
+      attempt(1, { ms: 25 * MIN, limitMs: 10 * MIN }),
       attempt(0, { ms: 14 * MIN, limitMs: 10 * MIN }),
     ],
   }),
@@ -98,7 +98,7 @@ describe("the Insights page", () => {
     expect(row.textContent).toContain("1.8x the limit");
     expect(row.textContent).toContain("100% over · 3 timed");
     expect(within(row).getByRole("img").getAttribute("aria-label")).toBe(
-      "1 alone, 1 with the note, 1 with the solution",
+      "1 alone, 2 needed help",
     );
     expect(categoryRow("Trees").textContent).toContain("Doing well");
     // Two Pointers has nothing done: it is only named below the table

@@ -299,8 +299,8 @@ describe("completing from the card menu", () => {
     expect(saved().reviews[2]).toBe(true);
   });
 
-  it("asks how it went when the solution was opened today, like the button", () => {
-    seed({ "blind75-1": twoSum({ helpViewed: { solution: "2026-10-20" } }) });
+  it("asks how it went when the note was opened today, like the button", () => {
+    seed({ "blind75-1": twoSum({ helpViewed: { note: "2026-10-20" } }) });
     renderBoard();
     menu("1 - Two Sum", "Complete R3");
     expect(screen.getByText("How did it go?")).toBeTruthy();

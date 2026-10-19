@@ -42,6 +42,8 @@ import {
 import { HELP, suggestedHelp } from "../lib/attempts";
 import { useStartWork } from "./useStartWork";
 import { useTimerGuard } from "./useTimerGuard";
+import SolvedNotePrompt from "./SolvedNotePrompt";
+import { NotePromptContext } from "../context/NotePromptContext";
 import { useTimerSettings } from "../context/TimerSettingsContext";
 import { isTimedOut } from "../lib/timer";
 import { outcomeOptions } from "../lib/outcomes";
@@ -67,6 +69,7 @@ const KanbanBoard = () => {
     markSolved,
     markMastered,
     unsolve,
+    setNote,
     completeReview,
     completeReviewWithHelp,
     uncompleteReview,
@@ -82,6 +85,8 @@ const KanbanBoard = () => {
   const [overId, setOverId] = useState(null);
   // The review whose outcome dialog is open
   const [helpItem, setHelpItem] = useState(null);
+  // The problem just marked as solved whose note is being offered
+  const [notePrompt, setNotePrompt] = useState(null);
   // A move that waits for the confirmation dialog: the card is shown in the
   // column it was dropped on meanwhile, and goes back if the answer is no
   const [pendingMove, setPendingMove] = useState(null);
@@ -218,12 +223,13 @@ const KanbanBoard = () => {
         message: "Marked as solved",
         undo: () => restoreEntry(list, item.problem.id, before),
       });
+      setNotePrompt(item.problem);
     });
 
-  // The Complete button: if the note or the solution was opened today, ask how
+  // The Complete button: if the note was opened today, ask how
   // it went; if not, there is nothing to ask and it was solved alone.
   // A review whose timer ran out (twice the limit) always asks, suggesting the
-  // solution, even when nothing was opened.
+  // help, even when nothing was opened.
   const completeReviewFromUi = (item) =>
     guard(item.problem.id, () => {
       const entry = listProgress[item.problem.id];
@@ -269,7 +275,7 @@ const KanbanBoard = () => {
     }
 
     // Mastered from R5 completes the last review like the Complete button: it
-    // asks how it went when the note or the solution was opened, and the
+    // asks how it went when the note was opened, and the
     // attempt is written in the history (a plain drop would skip both).
     if (target === "mastered" && card.stage === "R5") {
       if (canDrop(card, target).allowed) {
@@ -315,6 +321,10 @@ const KanbanBoard = () => {
     if (result.status === "rejected") {
       setNotice({ id: Date.now(), message: result.reason, variant: "warning" });
     } else if (result.status === "moved") {
+      // Dropped on Reviewing from To Do or In Progress it was marked as solved
+      if (target === "reviewing" && (card.stage === "todo" || card.stage === "in-progress")) {
+        setNotePrompt(card.problem);
+      }
       setNotice({
         id: Date.now(),
         message: withPaused(
@@ -333,6 +343,7 @@ const KanbanBoard = () => {
 
   return (
     <NoticeContext.Provider value={showNotice}>
+    <NotePromptContext.Provider value={setNotePrompt}>
     <DndContext
       sensors={sensors}
       collisionDetection={collisionDetection}
@@ -443,6 +454,15 @@ const KanbanBoard = () => {
           onClose={() => setHelpItem(null)}
         />
       )}
+      {notePrompt && (
+        <SolvedNotePrompt
+          key={notePrompt.id}
+          problem={notePrompt}
+          note={listProgress[notePrompt.id]?.note}
+          onSave={(text) => setNote(notePrompt.id, text)}
+          onClose={() => setNotePrompt(null)}
+        />
+      )}
       {notice && (
         <Toast
           key={notice.id}
@@ -455,6 +475,7 @@ const KanbanBoard = () => {
         />
       )}
     </DndContext>
+    </NotePromptContext.Provider>
     </NoticeContext.Provider>
   );
 };

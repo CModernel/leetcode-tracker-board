@@ -56,15 +56,15 @@ describe("categoryStats", () => {
     expect(stats[0].averageRatio).toBeNull();
   });
 
-  it("counts attempts by help, the help rate, the help level and the step-backs", () => {
+  it("counts attempts by help and the help rate", () => {
     const progress = {
-      p1: solved({ attempts: [attempt(HELP.ALONE), attempt(HELP.NOTE), attempt(HELP.SOLUTION)] }),
+      p1: solved({ attempts: [attempt(HELP.ALONE), attempt(HELP.NOTE), attempt(HELP.NOTE)] }),
       p2: solved({ attempts: [attempt(HELP.ALONE)] }),
     };
     const [arrays] = categoryStats(problems, progress);
-    expect(arrays).toMatchObject({ solved: 2, attempts: 4, alone: 2, note: 1, solution: 1, stepBacks: 1 });
+    expect(arrays).toMatchObject({ solved: 2, attempts: 4, alone: 2, helped: 2 });
     expect(arrays.helpRate).toBe(0.5);
-    expect(arrays.helpLevel).toBe(3 / 8);
+    expect(arrays).not.toHaveProperty("stepBacks");
   });
 
   it("ignores damaged attempts", () => {
@@ -136,7 +136,6 @@ describe("rankCategories", () => {
     category,
     attempts: 5,
     helpRate: 0,
-    helpLevel: 0,
     timed: 0,
     overLimitShare: null,
     ...extra,
@@ -144,11 +143,11 @@ describe("rankCategories", () => {
 
   it("puts weak and slow first, then weak, then slow, then the rest, then no data", () => {
     const ranked = rankCategories([
-      row("none", { attempts: 0, helpRate: null, helpLevel: null }),
+      row("none", { attempts: 0, helpRate: null }),
       row("fine"),
       row("slow", { timed: 3, overLimitShare: 1 }),
-      row("weak", { helpRate: 0.5, helpLevel: 0.3 }),
-      row("both", { helpRate: 0.5, helpLevel: 0.3, timed: 3, overLimitShare: 1 }),
+      row("weak", { helpRate: 0.5 }),
+      row("both", { helpRate: 0.5, timed: 3, overLimitShare: 1 }),
     ]);
     expect(ranked.map((r) => r.category)).toEqual(["both", "weak", "slow", "fine", "none"]);
     expect(ranked[0]).toMatchObject({ weak: true, slow: true });
@@ -156,10 +155,10 @@ describe("rankCategories", () => {
 
   it("orders inside a group by help level, then keeps list order", () => {
     const ranked = rankCategories([
-      row("a", { helpRate: 0.5, helpLevel: 0.3 }),
-      row("b", { helpRate: 0.8, helpLevel: 0.6 }),
-      row("c", { attempts: 0, helpRate: null, helpLevel: null }),
-      row("d", { attempts: 0, helpRate: null, helpLevel: null }),
+      row("a", { helpRate: 0.5 }),
+      row("b", { helpRate: 0.8 }),
+      row("c", { attempts: 0, helpRate: null }),
+      row("d", { attempts: 0, helpRate: null }),
     ]);
     expect(ranked.map((r) => r.category)).toEqual(["b", "a", "c", "d"]);
   });

@@ -9,8 +9,7 @@ import {
 
 export const OUTCOME_LABELS = {
   [HELP.ALONE]: "Solved it myself",
-  [HELP.NOTE]: "Needed the note",
-  [HELP.SOLUTION]: "Needed the solution",
+  [HELP.NOTE]: "Needed help",
 };
 
 // "today", "tomorrow", "in 4 days"
@@ -50,16 +49,11 @@ const texts = (preview, index, help) => {
   if (help === HELP.ALONE) {
     return { detail: `Next review: ${name} ${date}`, message: `Completed R${index + 1}` };
   }
-  if (help === HELP.NOTE) {
-    return { detail: `Repeat ${name} ${date}`, message: `${name} again ${when(preview.days)}` };
-  }
-  // Solution: one review back, or R1 again when there is nothing before it
-  return preview.review < index
-    ? { detail: `Back to ${name} ${date}`, message: `Back to ${name} ${when(preview.days)}` }
-    : { detail: `${name} again ${date}`, message: `${name} again ${when(preview.days)}` };
+  // Needed help: the same review is repeated
+  return { detail: `Repeat ${name} ${date}`, message: `${name} again ${when(preview.days)}` };
 };
 
-// The three choices for a review with what each one does, in order.
+// The choices for a review with what each one does, in order.
 // Empty when the review cannot be completed.
 export const outcomeOptions = (entry, index, today) =>
   Object.values(HELP).flatMap((help) => {

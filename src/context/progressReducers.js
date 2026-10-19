@@ -9,7 +9,6 @@ import {
 import { HELP, REPEAT_DAYS, VIEW_KINDS, attemptsOf, isHelp } from "../lib/attempts";
 import { isStatus } from "../lib/status";
 import { activityOf, elapsedMs, findRunningTimer, normalizeTimer } from "../lib/timer";
-import { MAX_SOLUTIONS, canReplace, normalizeSolution, solutionsOf } from "../lib/solutions";
 
 // Pure functions that return the next `progress` object. `progress` is
 // { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates, note?, attempts?, helpViewed? } } }.
@@ -266,54 +265,6 @@ export const setNote = (progress, list, problemId, note, today) => {
   });
 };
 
-// Saves one of the (up to MAX_SOLUTIONS) solutions of a problem: `index` is its
-// position, and it can only be an existing one or the next free one, so there
-// are no holes. `solution` is normalized (see lib/solutions.js); no code (null,
-// empty, spaces) removes it and the later one moves up. A solution written by
-// hand is not replaced by an automatic source (canReplace), but a removal
-// always works. Saving the same content changes nothing. When `today` is given,
-// a change saves that day as `solutionEditedOn`: whoever wrote it today did not
-// look it up as help (see suggestedHelp); removing the last solution removes
-// the day. Solutions are not part of the schedule: unsolving and moving the
-// problem keep them. Nothing is created for an empty solution on a problem
-// with no progress.
-export const setSolution = (progress, list, problemId, index, solution, today) => {
-  const current = solutionsOf(progress[list]?.[problemId]);
-  if (!Number.isInteger(index) || index < 0 || index >= MAX_SOLUTIONS) return progress;
-  if (index > current.length) return progress;
-  const next = normalizeSolution(solution, today);
-  let solutions;
-  if (next === null) {
-    if (index >= current.length) return progress;
-    solutions = current.filter((_, i) => i !== index);
-  } else {
-    const existing = current[index];
-    if (!canReplace(existing, next)) return progress;
-    if (
-      existing &&
-      existing.code === next.code &&
-      existing.language === next.language &&
-      existing.source === next.source &&
-      existing.name === next.name
-    ) {
-      return progress;
-    }
-    solutions = [...current];
-    solutions[index] = next;
-  }
-  return updateEntry(progress, list, problemId, (entry) => {
-    const result = { ...entry };
-    if (solutions.length === 0) {
-      delete result.solutions;
-      delete result.solutionEditedOn;
-    } else {
-      result.solutions = solutions;
-      if (today) result.solutionEditedOn = today;
-    }
-    return result;
-  });
-};
-
 // Goes back to review `index`: it and every later review are erased, with
 // their dates, so it is the next one to do. Reviews before it stay. Does
 // nothing when that review is not done.
@@ -350,7 +301,7 @@ export const recordAttempt = (progress, list, problemId, review, help, today, us
   }));
 };
 
-// Remembers that the note (or solution) of a solved problem was opened on
+// Remembers that the note of a solved problem was opened on
 // `today`. Nothing else changes. Does nothing for a problem that is not solved,
 // an unknown kind, or when that day is already saved.
 export const markHelpViewed = (progress, list, problemId, kind, today) => {
@@ -392,10 +343,8 @@ export const setDueOverride = (progress, list, problemId, review, date) => {
 // Completes the next review saying how much help it needed. Every outcome is
 // written in the attempt history. What happens to the calendar:
 // - HELP.ALONE: the review is done, as with completeReview.
-// - HELP.NOTE: it is not done; the same review comes back in REPEAT_DAYS days.
-// - HELP.SOLUTION: one step back. The previous review is pending again, due
-//   after its own gap counted from today (R4 -> R3 in 4 days). At R1 there is
-//   nothing before it, so R1 comes back tomorrow. Not a full reset.
+// - HELP.NOTE (needed help): it is not done; the same review comes back in
+//   REPEAT_DAYS days.
 // Only the next pending review can be completed (see canCompleteReview);
 // anything else, or an unknown help level, does nothing.
 export const completeReviewWithHelp = (
@@ -416,12 +365,8 @@ export const completeReviewWithHelp = (
   let next = progress;
   if (help === HELP.ALONE) {
     next = completeReview(next, list, problemId, index, today);
-  } else if (help === HELP.NOTE) {
-    next = setDueOverride(next, list, problemId, index, addDays(today, REPEAT_DAYS));
   } else {
-    const back = Math.max(index - 1, 0);
-    if (index > 0) next = rewindReviews(next, list, problemId, back);
-    next = setDueOverride(next, list, problemId, back, addDays(today, GAPS[back]));
+    next = setDueOverride(next, list, problemId, index, addDays(today, REPEAT_DAYS));
   }
   next = recordAttempt(next, list, problemId, index, help, today, used);
   // the attempt is over whatever the answer: the same review starts a new one

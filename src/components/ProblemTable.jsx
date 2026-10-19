@@ -28,20 +28,17 @@ import {
 } from "../lib/urgencyStyles";
 import {
   SHOW_NOTES_KEY,
-  SHOW_SOLUTIONS_KEY,
   SHOW_TIME_KEY,
   parseShowNotes,
-  parseShowSolutions,
   parseShowTime,
 } from "../lib/preferences";
-import { solutionsOf } from "../lib/solutions";
 import { useTimerGuard } from "./useTimerGuard";
 import { useStartWork } from "./useStartWork";
+import SolvedNotePrompt from "./SolvedNotePrompt";
 import TimeCell from "./TimeCell";
 import { useTimerSettings } from "../context/TimerSettingsContext";
 import { isTimedOut } from "../lib/timer";
 import NoteCell from "./NoteCell";
-import SolutionCell from "./SolutionCell";
 import OutcomeDialog from "./OutcomeDialog";
 import Toast from "./Toast";
 import { difficultyColor } from "../lib/difficultyStyles";
@@ -97,26 +94,22 @@ const ProblemTable = ({
   const { showTimer, limits } = useTimerSettings();
   const today = localToday();
 
-  // The Notes and Solutions columns can be hidden to keep the table narrow;
-  // each choice is remembered in the browser.
+  // The Time and Notes columns can be hidden to keep the table narrow; each
+  // choice is remembered in the browser.
   const [showNotes, toggleNotes] = usePersistedFlag(SHOW_NOTES_KEY, parseShowNotes);
   const [showTime, toggleTime] = usePersistedFlag(SHOW_TIME_KEY, parseShowTime);
-  const [showSolutions, toggleSolutions] = usePersistedFlag(
-    SHOW_SOLUTIONS_KEY,
-    parseShowSolutions,
-  );
 
   // The review whose "how did it go?" dialog is open: { problem, index }
   const [helpFor, setHelpFor] = useState(null);
 
   // A review that is not done is completed: at once, as solved alone, unless
-  // the note or the solution was opened today (then it asks how it went, like
+  // the note was opened today (then it asks how it went, like
   // the board). A done review can be undone at any time; going back more than
   // one review asks first, because it erases the later ones too.
   const toggleReview = async (problem, prob, idx) => {
     if (!prob.reviews?.[idx]) {
       return guard(problem.id, () => {
-        // A review whose timer ran out asks too, suggesting the solution
+        // A review whose timer ran out asks too, suggesting help
         const timedOut = showTimer && isTimedOut(prob, problem.difficulty, limits, Date.now());
         if (suggestedHelp(prob, today, { timedOut }) === null) {
           return completeReviewWithHelp(problem.id, idx, HELP.ALONE);
@@ -132,6 +125,8 @@ const ProblemTable = ({
   // Message with Undo after marking a problem as mastered or unsolving it
   // ({ id, message, undo })
   const [notice, setNotice] = useState(null);
+  // The problem just marked as solved whose note is being offered
+  const [notePrompt, setNotePrompt] = useState(null);
   const closeNotice = useCallback(() => setNotice(null), []);
 
   // The Solved button is a switch. Solving is immediate. Unsolving erases the
@@ -139,7 +134,13 @@ const ProblemTable = ({
   // when a review is done; with none done nothing real is lost. Either way the
   // message with Undo follows, so a wrong click can be taken back.
   const toggleSolved = async (problem, prob) => {
-    if (!prob.solved) return guard(problem.id, () => markSolved(problem.id));
+    if (!prob.solved) {
+      return guard(problem.id, () => {
+        markSolved(problem.id);
+        // Solving is the moment to write what was learned
+        setNotePrompt(problem);
+      });
+    }
     if (prob.reviews?.some(Boolean) && !(await confirm(UNSOLVE_CONFIRM))) return;
     const list = selectedList;
     const before = progress[problem.id];
@@ -229,22 +230,6 @@ const ProblemTable = ({
           )}
           {showNotes ? "Hide notes" : "Show notes"}
         </button>
-        <button
-          onClick={toggleSolutions}
-          aria-pressed={showSolutions}
-          className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-            showSolutions
-              ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
-              : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600"
-          }`}
-        >
-          {showSolutions ? (
-            <EyeOff size={16} aria-hidden="true" />
-          ) : (
-            <Eye size={16} aria-hidden="true" />
-          )}
-          {showSolutions ? "Hide solutions" : "Show solutions"}
-        </button>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -280,11 +265,6 @@ const ProblemTable = ({
               {showNotes && (
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[220px]">
                   Notes
-                </th>
-              )}
-              {showSolutions && (
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider min-w-[180px]">
-                  Solutions
                 </th>
               )}
             </tr>
@@ -511,11 +491,6 @@ const ProblemTable = ({
                       />
                     </td>
                   )}
-                  {showSolutions && (
-                    <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 align-top">
-                      <SolutionCell problem={problem} solutions={solutionsOf(prob)} />
-                    </td>
-                  )}
                 </tr>
               );
             })}
@@ -536,6 +511,15 @@ const ProblemTable = ({
             completeReviewWithHelp(problem.id, index, option.help);
           }}
           onClose={() => setHelpFor(null)}
+        />
+      )}
+      {notePrompt && (
+        <SolvedNotePrompt
+          key={notePrompt.id}
+          problem={notePrompt}
+          note={progress[notePrompt.id]?.note}
+          onSave={(text) => setNote(notePrompt.id, text)}
+          onClose={() => setNotePrompt(null)}
         />
       )}
       {notice && (
