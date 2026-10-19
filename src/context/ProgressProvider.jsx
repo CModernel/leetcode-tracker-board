@@ -25,10 +25,22 @@ const timeFor = (list, problemId, kind, limits) => {
   return { now: Date.now(), limitMs: problem ? limitMsFor(kind, problem.difficulty, limits) : null };
 };
 
+// Browser keys of the removed solutions feature (the column choice and the
+// last language): cleaned up once, best effort.
+const LEGACY_KEYS = ["leetcode-show-solutions", "leetcode-solution-language"];
+const removeLegacyKeys = () => {
+  try {
+    LEGACY_KEYS.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // nothing to clean when storage is unavailable
+  }
+};
+
 export const ProgressProvider = ({ children }) => {
   // The person's own time limits (the defaults without a TimerSettingsProvider)
   const { limits } = useTimerSettings();
   const [progress, setProgress] = useState(() => {
+    removeLegacyKeys();
     try {
       return loadProgress((key) => localStorage.getItem(key));
     } catch (error) {
@@ -127,10 +139,6 @@ export const ProgressProvider = ({ children }) => {
     setNote: (problemId, note) =>
       setProgress((prev) =>
         reducers.setNote(prev, selectedList, problemId, note, localToday())
-      ),
-    setSolution: (problemId, index, solution) =>
-      setProgress((prev) =>
-        reducers.setSolution(prev, selectedList, problemId, index, solution, localToday())
       ),
     startTimer: (problemId, list = selectedList) =>
       setProgress((prev) => reducers.startTimer(prev, list, problemId, Date.now())),

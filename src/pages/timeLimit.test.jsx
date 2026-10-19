@@ -177,14 +177,14 @@ describe("completing a review whose timer ran out", () => {
   const complete = () => fireEvent.click(within(card(TS)).getByRole("button", { name: /^Complete R3/ }));
   const timedOut = (extra = {}) => twoSum({ timer: { elapsedMs: 25 * MIN, runningSince: null }, ...extra });
 
-  it("asks how it went and suggests the solution, even if nothing was opened", () => {
+  it("asks how it went and suggests needed help, even if nothing was opened", () => {
     seed({ "blind75-1": timedOut() });
     renderApp();
     complete();
     expect(screen.getByText("How did it go?")).toBeTruthy();
     expect(screen.getByText("The timer ran past twice the limit.")).toBeTruthy();
     const suggested = screen.getByText("Suggested").closest("button");
-    expect(suggested.textContent).toContain("Needed the solution");
+    expect(suggested.textContent).toContain("Needed help");
     expect(document.activeElement).toBe(suggested);
     expect(saved().reviews).toEqual([true, true, false, false, false]);
   });

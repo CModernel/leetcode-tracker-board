@@ -81,7 +81,7 @@ const KanbanCardMenu = ({ card, onComplete }) => {
     close();
     if (action.confirm && !(await confirm(action.confirm))) return;
     // Completing a review goes the same way as its button: it asks how it went
-    // when the note or the solution was opened, and the attempt (with the time)
+    // when the note was opened, and the attempt (with the time)
     // is written in the history
     if (action.type === "completeReview" && onComplete) return onComplete(card);
     // Another problem is being timed: ask before finishing this one

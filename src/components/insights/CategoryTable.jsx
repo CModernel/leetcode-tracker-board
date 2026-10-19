@@ -24,17 +24,16 @@ const Pill = ({ tone, children }) => (
   </span>
 );
 
-// Alone / note / solution as one bar, with the numbers as text for everyone.
+// Alone / needed help as one bar, with the numbers as text for everyone.
 const HelpBar = ({ row }) => {
   if (row.attempts === 0) return <span className="text-gray-400 dark:text-gray-500">-</span>;
   const width = (count) => `${(count / row.attempts) * 100}%`;
-  const label = `${row.alone} alone, ${row.note} with the note, ${row.solution} with the solution`;
+  const label = `${row.alone} alone, ${row.helped} needed help`;
   return (
     <div className="min-w-[120px]">
       <div className="flex h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700" role="img" aria-label={label} title={label}>
         <div className="bg-green-500" style={{ width: width(row.alone) }} />
-        <div className="bg-yellow-400" style={{ width: width(row.note) }} />
-        <div className="bg-red-500" style={{ width: width(row.solution) }} />
+        <div className="bg-yellow-400" style={{ width: width(row.helped) }} />
       </div>
       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
         {percent(row.helpRate)} needed help
@@ -62,7 +61,6 @@ const CategoryTable = ({ rows, showTime, notStarted = [] }) => {
             <th className="py-2 pr-4">Solved</th>
             <th className="py-2 pr-4">Reviews</th>
             <th className="py-2 pr-4">Help needed</th>
-            <th className="py-2 pr-4">Step-backs</th>
             {showTime && <th className="py-2 pr-4">Time</th>}
             <th className="py-2">Status</th>
           </tr>
@@ -78,7 +76,6 @@ const CategoryTable = ({ rows, showTime, notStarted = [] }) => {
               <td className="py-2 pr-4">
                 <HelpBar row={row} />
               </td>
-              <td className="py-2 pr-4 tabular-nums">{row.stepBacks}</td>
               {showTime && (
                 <td className="py-2 pr-4 whitespace-nowrap text-xs">
                   {row.timed === 0 ? (
@@ -125,11 +122,7 @@ const CategoryTable = ({ rows, showTime, notStarted = [] }) => {
           {MIN_ATTEMPTS} reviews.
         </li>
         <li>
-          <strong>Needs practice</strong>: {Math.round(HELP_WEAK * 100)}% or more of the reviews needed the
-          note or the solution.
-        </li>
-        <li>
-          <strong>Step-backs</strong>: reviews that needed the solution (the problem went one review back).
+          <strong>Needs practice</strong>: {Math.round(HELP_WEAK * 100)}% or more of the reviews needed help.
         </li>
         <li>
           <strong>Slow</strong>: at least {MIN_TIMED} timed attempts or first solves, and{" "}

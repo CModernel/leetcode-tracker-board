@@ -220,10 +220,10 @@ const KanbanBoard = () => {
       });
     });
 
-  // The Complete button: if the note or the solution was opened today, ask how
+  // The Complete button: if the note was opened today, ask how
   // it went; if not, there is nothing to ask and it was solved alone.
   // A review whose timer ran out (twice the limit) always asks, suggesting the
-  // solution, even when nothing was opened.
+  // help, even when nothing was opened.
   const completeReviewFromUi = (item) =>
     guard(item.problem.id, () => {
       const entry = listProgress[item.problem.id];
@@ -269,7 +269,7 @@ const KanbanBoard = () => {
     }
 
     // Mastered from R5 completes the last review like the Complete button: it
-    // asks how it went when the note or the solution was opened, and the
+    // asks how it went when the note was opened, and the
     // attempt is written in the history (a plain drop would skip both).
     if (target === "mastered" && card.stage === "R5") {
       if (canDrop(card, target).allowed) {

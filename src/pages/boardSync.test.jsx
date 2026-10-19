@@ -753,11 +753,11 @@ describe("the review button and how it went", () => {
       // Only the suggested option is marked, with a badge and not a ring
       const badges = within(dialog).getAllByText("Suggested");
       expect(badges).toHaveLength(1);
-      expect(badges[0].closest("button").textContent).toMatch(/Needed the note/);
+      expect(badges[0].closest("button").textContent).toMatch(/Needed help/);
       expect(dialog.innerHTML).not.toMatch(/ring-2 ring-blue-400/);
       expect(within(dialog).getByText("Next review: R4 in 7 days (Oct 27)")).toBeTruthy();
       expect(within(dialog).getByText("Repeat R3 in 2 days (Oct 22)")).toBeTruthy();
-      expect(within(dialog).getByText("Back to R2 in 2 days (Oct 22)")).toBeTruthy();
+      expect(within(dialog).queryByText(/Back to R2/)).toBeNull();
       expect(saved().reviews).toEqual([true, true, false, false, false]);
     });
 
@@ -786,12 +786,12 @@ describe("the review button and how it went", () => {
       expect(saved()).not.toHaveProperty("helpViewed");
     });
 
-    it("needed the note repeats R3 in 2 days, and the table shows that date", () => {
+    it("needed help repeats R3 in 2 days, and the table shows that date", () => {
       const view = renderBoth();
       openNoteOnCard(view);
       closeNote();
       fireEvent.click(completeButton(view));
-      fireEvent.click(screen.getByRole("button", { name: /Needed the note/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Needed help/ }));
       expect(screen.getByText("R3 again in 2 days")).toBeTruthy();
       expect(saved().reviews).toEqual([true, true, false, false, false]);
       expect(saved().attempts[0]).toEqual({ date: "2026-10-20", review: 2, help: 1 });
@@ -799,24 +799,12 @@ describe("the review button and how it went", () => {
       expect(within(view.row()).getByText("Oct 22")).toBeTruthy();
     });
 
-    it("needed the solution goes one review back, not a reset", () => {
-      const view = renderBoth();
-      openNoteOnCard(view);
-      closeNote();
-      fireEvent.click(completeButton(view));
-      fireEvent.click(screen.getByRole("button", { name: /Needed the solution/ }));
-      expect(screen.getByText("Back to R2 in 2 days")).toBeTruthy();
-      expect(saved().reviews).toEqual([true, false, false, false, false]);
-      expect(saved().solved).toBe(true);
-      expect(saved().attempts[0]).toEqual({ date: "2026-10-20", review: 2, help: 2 });
-    });
-
     it("Undo brings back the review, the history and the reminder that the note was opened", () => {
       const view = renderBoth();
       openNoteOnCard(view);
       closeNote();
       fireEvent.click(completeButton(view));
-      fireEvent.click(screen.getByRole("button", { name: /Needed the solution/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Needed help/ }));
       fireEvent.click(screen.getByRole("button", { name: "Undo" }));
       expect(saved().reviews).toEqual([true, true, false, false, false]);
       expect(saved().attempts).toBeUndefined();
@@ -854,7 +842,7 @@ describe("the review button and how it went", () => {
       const view = renderBoth();
       fireEvent.click(completeButton(view));
       const dialog = screen.getByRole("dialog");
-      expect(within(dialog).getByText("You wrote or edited the note or solution today, so it does not count as help.")).toBeTruthy();
+      expect(within(dialog).getByText("You wrote or edited the note today, so it does not count as help.")).toBeTruthy();
       const badges = within(dialog).getAllByText("Suggested");
       expect(badges).toHaveLength(1);
       expect(badges[0].closest("button").textContent).toMatch(/Solved it myself/);
@@ -894,7 +882,7 @@ describe("the review button and how it went", () => {
       expect(saved()).not.toHaveProperty("noteEditedOn");
       fireEvent.click(completeButton(view));
       const badge = within(screen.getByRole("dialog")).getByText("Suggested");
-      expect(badge.closest("button").textContent).toMatch(/Needed the note/);
+      expect(badge.closest("button").textContent).toMatch(/Needed help/);
     });
 
     it("a note that was there before today is still suggested when read", () => {
@@ -902,14 +890,15 @@ describe("the review button and how it went", () => {
       const view = renderBoth();
       fireEvent.click(completeButton(view));
       const badge = within(screen.getByRole("dialog")).getByText("Suggested");
-      expect(badge.closest("button").textContent).toMatch(/Needed the note/);
+      expect(badge.closest("button").textContent).toMatch(/Needed help/);
     });
 
-    it("the solution opened today is suggested instead", () => {
+    it("a solution marker left by old data is ignored: the review completes at once", () => {
       seed({ helpViewed: { solution: "2026-10-20" } });
       const view = renderBoth();
       fireEvent.click(completeButton(view));
-      expect(screen.getByText("You opened the solution today.")).toBeTruthy();
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(saved().reviews).toEqual([true, true, true, false, false]);
     });
   });
 
@@ -925,24 +914,15 @@ describe("the review button and how it went", () => {
       const view = renderBoth();
       const group = (name) => view.board().getByRole("group", { name });
       expect(within(group("Overdue")).getByText("1 - Two Sum")).toBeTruthy();
-      answerWithNote(view, /Needed the note/);
+      answerWithNote(view, /Needed help/);
       expect(view.board().queryByRole("group", { name: "Overdue" })).toBeNull();
       expect(within(group("Upcoming")).getByText("1 - Two Sum")).toBeTruthy();
       expect(saved().dueOverride).toEqual({ review: 2, date: "2026-10-22" });
     });
 
-    it("needed the solution puts the card back on R2 and the table shows it pending", () => {
-      const view = renderBoth();
-      answerWithNote(view, /Needed the solution/);
-      expect(view.columnOfCard()).toBe("Reviewing");
-      expect(within(view.card()).getByRole("button", { name: /^Complete R2/ })).toBeTruthy();
-      expect(saved().dueOverride).toEqual({ review: 1, date: "2026-10-22" });
-      expect(within(view.row()).getByText("Oct 22")).toBeTruthy();
-    });
-
     it("the history is kept when the problem is unsolved", async () => {
       const view = renderBoth();
-      answerWithNote(view, /Needed the note/);
+      answerWithNote(view, /Needed help/);
       view.menu("Unsolve");
       fireEvent.click(screen.getByRole("button", { name: "Reset" }));
       await act(async () => {});
@@ -953,7 +933,7 @@ describe("the review button and how it went", () => {
 
     it("each attempt adds to the history, in order", () => {
       const view = renderBoth();
-      answerWithNote(view, /Needed the note/);
+      answerWithNote(view, /Needed help/);
       // R3 now waits for Oct 22, so completing it today is early
       fireEvent.click(completeButton(view));
       expect(saved().attempts.map((a) => a.help)).toEqual([1, 0]);

@@ -102,13 +102,13 @@ const ProblemTable = ({
   const [helpFor, setHelpFor] = useState(null);
 
   // A review that is not done is completed: at once, as solved alone, unless
-  // the note or the solution was opened today (then it asks how it went, like
+  // the note was opened today (then it asks how it went, like
   // the board). A done review can be undone at any time; going back more than
   // one review asks first, because it erases the later ones too.
   const toggleReview = async (problem, prob, idx) => {
     if (!prob.reviews?.[idx]) {
       return guard(problem.id, () => {
-        // A review whose timer ran out asks too, suggesting the solution
+        // A review whose timer ran out asks too, suggesting help
         const timedOut = showTimer && isTimedOut(prob, problem.difficulty, limits, Date.now());
         if (suggestedHelp(prob, today, { timedOut }) === null) {
           return completeReviewWithHelp(problem.id, idx, HELP.ALONE);

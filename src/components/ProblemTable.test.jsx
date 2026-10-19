@@ -267,7 +267,12 @@ describe("completing a review in the table", () => {
     expect(within(dialog).getByText("You opened the note today.")).toBeTruthy();
     expect(within(dialog).getByText("Next review: R4 in 7 days (Oct 27)")).toBeTruthy();
     expect(within(dialog).getByText("Repeat R3 in 2 days (Oct 22)")).toBeTruthy();
-    expect(within(dialog).getByText("Back to R2 in 2 days (Oct 22)")).toBeTruthy();
+    // two choices only: there is no step back any more
+    expect(within(dialog).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      expect.stringContaining("Solved it myself"),
+      expect.stringContaining("Needed help"),
+      "Cancel",
+    ]);
     expect(saved().reviews).toEqual([true, true, false, false, false]);
   });
 
@@ -282,28 +287,15 @@ describe("completing a review in the table", () => {
     expect(saved().attempts).toBeUndefined();
   });
 
-  it("needed the note: R3 is repeated in 2 days and the row shows that date", () => {
+  it("needed help: R3 is repeated in 2 days and the row shows that date", () => {
     seed();
     renderTracker();
     readNote();
     fireEvent.click(r3());
-    fireEvent.click(screen.getByRole("button", { name: /Needed the note/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Needed help/ }));
     expect(saved().reviews).toEqual([true, true, false, false, false]);
     expect(saved().attempts).toEqual([{ date: "2026-10-20", review: 2, help: 1 }]);
     expect(within(row()).getByText("Oct 22")).toBeTruthy();
-  });
-
-  it("needed the solution: one review back, the row shows R2 pending", () => {
-    seed();
-    renderTracker();
-    readNote();
-    fireEvent.click(r3());
-    fireEvent.click(screen.getByRole("button", { name: /Needed the solution/ }));
-    expect(saved().reviews).toEqual([true, false, false, false, false]);
-    expect(saved().solved).toBe(true);
-    expect(saved().attempts[0]).toMatchObject({ review: 2, help: 2 });
-    expect(within(row()).getByRole("button", { name: "R2" }).disabled).toBe(false);
-    expect(within(row()).getByRole("button", { name: "R3" }).disabled).toBe(true);
   });
 
   it("solved it myself completes and clears the reminder that the note was opened", () => {

@@ -11,7 +11,7 @@ import { getNextDue, getStage } from "./board";
 // A category needs this many review attempts before it is judged at all, so one
 // bad day does not decide.
 export const MIN_ATTEMPTS = 3;
-// Share of attempts that needed the note or the solution from which a category
+// Share of attempts that needed help from which a category
 // needs practice.
 export const HELP_WEAK = 0.4;
 // Timed records needed before the time says anything, and the share of them
@@ -38,8 +38,7 @@ const average = (values) =>
 
 // One summary per category, in the order the categories first appear in the
 // list: how many problems, solved and mastered; the review attempts by the
-// help they needed; the step-backs ("needed the solution" moves a problem one
-// review back); and the time: how many timed records, the average time as a
+// help they needed (alone or helped); and the time: how many timed records, the average time as a
 // multiple of its limit, the share over the limit, the timed-out ones and the
 // average score. Rates are null when there is nothing to divide.
 export const categoryStats = (problems, progress = {}) => {
@@ -54,8 +53,7 @@ export const categoryStats = (problems, progress = {}) => {
         mastered: 0,
         attempts: 0,
         alone: 0,
-        note: 0,
-        solution: 0,
+        helped: 0,
         timed: 0,
         ratios: [],
         scores: [],
@@ -72,8 +70,7 @@ export const categoryStats = (problems, progress = {}) => {
     }
     for (const attempt of attemptsOf(entry)) {
       if (attempt?.help === HELP.ALONE) stats.alone += 1;
-      else if (attempt?.help === HELP.NOTE) stats.note += 1;
-      else if (attempt?.help === HELP.SOLUTION) stats.solution += 1;
+      else if (attempt?.help === HELP.NOTE) stats.helped += 1;
       else continue;
       stats.attempts += 1;
     }
@@ -91,10 +88,7 @@ export const categoryStats = (problems, progress = {}) => {
 
   return [...byCategory.values()].map(({ ratios, scores, ...stats }) => ({
     ...stats,
-    stepBacks: stats.solution,
-    helpRate: share(stats.note + stats.solution, stats.attempts),
-    // 0 (always alone) to 1 (always the solution)
-    helpLevel: share(stats.note + 2 * stats.solution, 2 * stats.attempts),
+    helpRate: share(stats.helped, stats.attempts),
     averageRatio: average(ratios),
     averageScore: average(scores),
     overLimitShare: share(stats.overLimit, stats.timed),
@@ -129,7 +123,7 @@ export const classifyCategory = (stats) => {
 
 // The categories with their status: needing practice and slow first, then only
 // needing practice, then only slow, then the rest with enough data; inside each
-// group by how much help they needed and how often they went over the limit.
+// group by how often they needed help and how often they went over the limit.
 // Categories with no data keep the list order at the end.
 export const rankCategories = (stats) =>
   stats
@@ -139,7 +133,7 @@ export const rankCategories = (stats) =>
         item.weak && item.slow ? 4 : item.weak ? 3 : item.slow ? 2 : item.enough ? 1 : 0;
       return (
         weight(b) - weight(a) ||
-        (b.helpLevel ?? -1) - (a.helpLevel ?? -1) ||
+        (b.helpRate ?? -1) - (a.helpRate ?? -1) ||
         (b.overLimitShare ?? -1) - (a.overLimitShare ?? -1) ||
         a.index - b.index
       );

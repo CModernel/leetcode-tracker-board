@@ -14,7 +14,6 @@ import {
   restoreEntry,
   setDueOverride,
   setNote,
-  setSolution,
   rewindReviews,
   setOrder,
   pauseTimer,
@@ -853,52 +852,6 @@ describe("completeReviewWithHelp", () => {
     });
   });
 
-  describe("needed the solution", () => {
-    it("at R4 goes back to R3, due in R3's gap (4 days) from today", () => {
-      const next = completeReviewWithHelp(after(3), LIST, 1, 3, HELP.SOLUTION, TODAY);
-      expect(pendingReview(next)).toBe(2);
-      expect(dueOf(next, 2)).toBe("2026-10-24");
-      expect(entry(next).dates.review3).toBeUndefined();
-      expect(entry(next).dates.review2).toBe("2026-10-04");
-    });
-
-    it("at R3 goes back to R2 in 2 days", () => {
-      const next = completeReviewWithHelp(after(2), LIST, 1, 2, HELP.SOLUTION, TODAY);
-      expect(pendingReview(next)).toBe(1);
-      expect(dueOf(next, 1)).toBe("2026-10-22");
-    });
-
-    it("at R2 goes back to R1 in 1 day", () => {
-      const next = completeReviewWithHelp(after(1), LIST, 1, 1, HELP.SOLUTION, TODAY);
-      expect(pendingReview(next)).toBe(0);
-      expect(dueOf(next, 0)).toBe("2026-10-21");
-    });
-
-    it("at R1 stays at R1, due tomorrow", () => {
-      const next = completeReviewWithHelp(after(0), LIST, 1, 0, HELP.SOLUTION, TODAY);
-      expect(pendingReview(next)).toBe(0);
-      expect(dueOf(next, 0)).toBe("2026-10-21");
-    });
-
-    it("at R5 goes back to R4 in 7 days and is not mastered", () => {
-      const next = completeReviewWithHelp(after(4), LIST, 1, 4, HELP.SOLUTION, TODAY);
-      expect(pendingReview(next)).toBe(3);
-      expect(dueOf(next, 3)).toBe("2026-10-27");
-    });
-
-    it("is one step back, not a reset: earlier reviews and the solved date stay", () => {
-      const next = completeReviewWithHelp(after(3), LIST, 1, 3, HELP.SOLUTION, TODAY);
-      expect(entry(next).reviews).toEqual([true, true, false, false, false]);
-      expect(entry(next).solved).toBe(true);
-      expect(entry(next).solvedDate).toBe("2026-10-01");
-    });
-
-    it.each([0, 1, 2, 3, 4])("at index %i writes the attempt for the review that was tried", (index) => {
-      const next = completeReviewWithHelp(after(index), LIST, 1, index, HELP.SOLUTION, TODAY);
-      expect(entry(next).attempts).toEqual([{ date: TODAY, review: index, help: 2 }]);
-    });
-  });
-
   describe("after the outcome", () => {
     it("the repeated review can be done alone and then the schedule goes on", () => {
       let state = completeReviewWithHelp(after(2), LIST, 1, 2, HELP.NOTE, TODAY);
@@ -909,25 +862,8 @@ describe("completeReviewWithHelp", () => {
       expect(entry(state).attempts.map((a) => a.help)).toEqual([1, 0]);
     });
 
-    it("after a step back, the review before it must be done first", () => {
-      let state = completeReviewWithHelp(after(3), LIST, 1, 3, HELP.SOLUTION, TODAY);
-      expect(completeReviewWithHelp(state, LIST, 1, 3, HELP.ALONE, TODAY)).toBe(state);
-      state = completeReviewWithHelp(state, LIST, 1, 2, HELP.ALONE, "2026-10-24");
-      expect(pendingReview(state)).toBe(3);
-      expect(dueOf(state, 3)).toBe("2026-10-31"); // 10-24 + 7
-    });
-
-    it("the history grows with every attempt and is never erased by a step back", () => {
-      let state = completeReviewWithHelp(after(3), LIST, 1, 3, HELP.SOLUTION, TODAY);
-      state = completeReviewWithHelp(state, LIST, 1, 2, HELP.ALONE, "2026-10-24");
-      expect(entry(state).attempts).toEqual([
-        { date: TODAY, review: 3, help: 2 },
-        { date: "2026-10-24", review: 2, help: 0 },
-      ]);
-    });
-
     it("keeps the note", () => {
-      for (const help of [0, 1, 2]) {
+      for (const help of [0, 1]) {
         expect(entry(completeReviewWithHelp(after(2), LIST, 1, 2, help, TODAY)).note).toBe("keep");
       }
     });
@@ -936,7 +872,7 @@ describe("completeReviewWithHelp", () => {
   describe("what is not allowed", () => {
     it("does nothing for a review that cannot be completed yet", () => {
       const start = after(1);
-      for (const help of [0, 1, 2]) {
+      for (const help of [0, 1]) {
         expect(completeReviewWithHelp(start, LIST, 1, 3, help, TODAY)).toBe(start);
         expect(completeReviewWithHelp(start, LIST, 1, 0, help, TODAY)).toBe(start); // done
       }
@@ -944,6 +880,7 @@ describe("completeReviewWithHelp", () => {
 
     it("does nothing for an unknown help level or a bad review", () => {
       const start = after(1);
+      expect(completeReviewWithHelp(start, LIST, 1, 1, 2, TODAY)).toBe(start); // no longer a level
       expect(completeReviewWithHelp(start, LIST, 1, 1, 3, TODAY)).toBe(start);
       expect(completeReviewWithHelp(start, LIST, 1, 1, undefined, TODAY)).toBe(start);
       expect(completeReviewWithHelp(start, LIST, 1, 9, HELP.ALONE, TODAY)).toBe(start);
@@ -959,7 +896,7 @@ describe("completeReviewWithHelp", () => {
       const start = after(2);
       start[LIST][2] = { solved: false, reviews: noReviews, dates: {} };
       start[OTHER] = { 7: { solved: true, solvedDate: "2026-09-01", reviews: noReviews, dates: {} } };
-      const next = completeReviewWithHelp(start, LIST, 1, 2, HELP.SOLUTION, TODAY);
+      const next = completeReviewWithHelp(start, LIST, 1, 2, HELP.NOTE, TODAY);
       expect(next[LIST][2]).toBe(start[LIST][2]);
       expect(next[OTHER]).toBe(start[OTHER]);
     });
@@ -967,7 +904,7 @@ describe("completeReviewWithHelp", () => {
 
   it("is brought back by Undo together with the entry", () => {
     const before = after(2)[LIST][1];
-    const done = completeReviewWithHelp(after(2), LIST, 1, 2, HELP.SOLUTION, TODAY);
+    const done = completeReviewWithHelp(after(2), LIST, 1, 2, HELP.NOTE, TODAY);
     expect(restoreEntry(done, LIST, 1, before)[LIST][1]).toEqual(before);
   });
 });
@@ -981,11 +918,15 @@ describe("markHelpViewed", () => {
     expect(next[OTHER]).toBe(start[OTHER]);
   });
 
-  it("keeps the other kind and updates the day", () => {
+  it("updates the day when the note is opened again later", () => {
     let state = markHelpViewed(solvedState(), LIST, 1, "note", "2026-10-06");
-    state = markHelpViewed(state, LIST, 1, "solution", "2026-10-06");
     state = markHelpViewed(state, LIST, 1, "note", "2026-10-08");
-    expect(state[LIST][1].helpViewed).toEqual({ note: "2026-10-08", solution: "2026-10-06" });
+    expect(state[LIST][1].helpViewed).toEqual({ note: "2026-10-08" });
+  });
+
+  it("no longer accepts the solution as something that can be opened", () => {
+    const start = solvedState();
+    expect(markHelpViewed(start, LIST, 1, "solution", "2026-10-06")).toBe(start);
   });
 
   it("returns the same object when that day is already saved", () => {
@@ -1003,14 +944,14 @@ describe("markHelpViewed", () => {
 
   it("does not change the calendar or the history", () => {
     const start = solvedState();
-    const next = markHelpViewed(start, LIST, 1, "solution", "2026-10-06");
+    const next = markHelpViewed(start, LIST, 1, "note", "2026-10-06");
     const { helpViewed, ...rest } = next[LIST][1];
     void helpViewed;
     expect(rest).toEqual(start[LIST][1]);
   });
 
   it("is cleared by any review outcome, so the question is asked once", () => {
-    for (const help of [0, 1, 2]) {
+    for (const help of [0, 1]) {
       const viewed = markHelpViewed(solvedState(), LIST, 1, "note", "2026-10-06");
       const next = completeReviewWithHelp(viewed, LIST, 1, 2, help, "2026-10-06");
       expect(next[LIST][1]).not.toHaveProperty("helpViewed");
@@ -1165,106 +1106,6 @@ describe("setNote and the day the note was last written", () => {
   });
 });
 
-describe("setSolution", () => {
-  const sol = { code: "x = 1", language: "python" };
-  const saved = (code, extra = {}) => ({
-    code,
-    language: "python",
-    source: "manual",
-    savedAt: "2026-10-04",
-    ...extra,
-  });
-  const withOne = () => setSolution(solvedState(), LIST, 1, 0, sol, "2026-10-04");
-  const withTwo = () => setSolution(withOne(), LIST, 1, 1, { ...sol, code: "x = 2" }, "2026-10-04");
-
-  it("saves a solution and the day it was written, keeping the rest", () => {
-    const start = solvedState();
-    const next = setSolution(start, LIST, 1, 0, sol, "2026-10-04");
-    expect(next[LIST][1]).toEqual({
-      ...start[LIST][1],
-      solutions: [saved("x = 1")],
-      solutionEditedOn: "2026-10-04",
-    });
-    expect(next[OTHER]).toBe(start[OTHER]);
-  });
-
-  it("saves the name of a solution", () => {
-    const next = setSolution(solvedState(), LIST, 1, 0, { ...sol, name: " Optimal " }, "2026-10-04");
-    expect(next[LIST][1].solutions[0].name).toBe("Optimal");
-  });
-
-  it("creates an entry for a problem with no progress", () => {
-    const next = setSolution({ [LIST]: {} }, LIST, 5, 0, sol, "2026-10-04");
-    expect(next[LIST][5].solved).toBe(false);
-    expect(next[LIST][5].solutions[0].code).toBe("x = 1");
-  });
-
-  it("adds a second solution, and not a third", () => {
-    const two = withTwo();
-    expect(two[LIST][1].solutions.map((s) => s.code)).toEqual(["x = 1", "x = 2"]);
-    expect(setSolution(two, LIST, 1, 2, sol, "2026-10-04")).toBe(two);
-  });
-
-  it("does not leave holes: the next free slot is the only new one", () => {
-    const start = solvedState();
-    expect(setSolution(start, LIST, 1, 1, sol, "2026-10-04")).toBe(start);
-    expect(setSolution(start, LIST, 1, -1, sol, "2026-10-04")).toBe(start);
-    expect(setSolution(start, LIST, 1, 0.5, sol, "2026-10-04")).toBe(start);
-  });
-
-  it("does nothing when the same solution is saved again", () => {
-    const first = withOne();
-    expect(setSolution(first, LIST, 1, 0, sol, "2026-10-09")).toBe(first);
-  });
-
-  it("an edit changes the code and the edited day, only in its slot", () => {
-    const next = setSolution(withTwo(), LIST, 1, 0, { ...sol, code: "x = 9" }, "2026-10-09");
-    expect(next[LIST][1].solutions.map((s) => s.code)).toEqual(["x = 9", "x = 2"]);
-    expect(next[LIST][1].solutionEditedOn).toBe("2026-10-09");
-  });
-
-  it("changing only the name or the language is an edit", () => {
-    const first = withOne();
-    expect(setSolution(first, LIST, 1, 0, { ...sol, name: "A" }, "2026-10-09")).not.toBe(first);
-    expect(setSolution(first, LIST, 1, 0, { ...sol, language: "go" }, "2026-10-09")).not.toBe(first);
-  });
-
-  it("removing the first one moves the second up", () => {
-    const next = setSolution(withTwo(), LIST, 1, 0, null, "2026-10-05");
-    expect(next[LIST][1].solutions.map((s) => s.code)).toEqual(["x = 2"]);
-  });
-
-  it("removing the last one removes the solutions and the day", () => {
-    expect(setSolution(withOne(), LIST, 1, 0, { code: "  " }, "2026-10-04")[LIST][1]).toEqual(
-      solvedState()[LIST][1],
-    );
-  });
-
-  it("creates nothing for an empty solution, or removes one that is not there", () => {
-    const start = { [LIST]: {} };
-    expect(setSolution(start, LIST, 5, 0, null, "2026-10-04")).toBe(start);
-    const one = withOne();
-    expect(setSolution(one, LIST, 1, 1, null, "2026-10-04")).toBe(one);
-  });
-
-  it("does not replace a manual solution with an automatic one", () => {
-    const first = withOne();
-    const auto = { code: "y", source: "leetcode-api" };
-    expect(setSolution(first, LIST, 1, 0, auto, "2026-10-05")).toBe(first);
-  });
-
-  it("an automatic solution can be replaced by a newer one, and removal always works", () => {
-    const first = setSolution(solvedState(), LIST, 1, 0, { code: "y", source: "extension" }, "2026-10-04");
-    const second = setSolution(first, LIST, 1, 0, { code: "z", source: "leetcode-api" }, "2026-10-05");
-    expect(second[LIST][1].solutions[0].code).toBe("z");
-    expect(setSolution(withOne(), LIST, 1, 0, null, "2026-10-05")[LIST][1]).not.toHaveProperty("solutions");
-  });
-
-  it("keeps the solutions when the problem is unsolved", () => {
-    expect(unsolve(withTwo(), LIST, 1)[LIST][1].solutions).toHaveLength(2);
-  });
-});
-
 describe("startTimer, pauseTimer and resetTimer", () => {
   const T0 = 1_000_000;
   const timerOf = (progress, list = LIST, id = "1") => progress[list][id].timer;
@@ -1362,8 +1203,7 @@ describe("recording the time used", () => {
   describe("a review answered with completeReviewWithHelp", () => {
     it.each([
       ["alone", HELP.ALONE],
-      ["with the note", HELP.NOTE],
-      ["with the solution", HELP.SOLUTION],
+      ["needing help", HELP.NOTE],
     ])("saves the time used and the limit in the attempt, %s, and clears the timer", (_, help) => {
       const next = completeReviewWithHelp(running(), LIST, "1", 2, help, "2026-10-20", {
         now: T0 + 7 * MIN,
