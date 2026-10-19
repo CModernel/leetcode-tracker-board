@@ -10,51 +10,65 @@ const shade = (count) => {
 
 const actions = (count) => `${count} ${count === 1 ? "action" : "actions"}`;
 
-// The streak, the active days of this week and a heat map of the last weeks
-// (columns are weeks, Monday at the top).
-const ActivitySection = ({ streak, thisWeek, grid }) => (
+const Stat = ({ value, label, alert = false }) => (
   <div>
-    <div className="flex flex-wrap gap-6">
-      <div>
-        <p className="text-2xl font-bold text-gray-800 dark:text-white tabular-nums">
-          {streak} {streak === 1 ? "day" : "days"}
-        </p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">Current streak</p>
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-gray-800 dark:text-white tabular-nums">{thisWeek}/7</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">Active days this week</p>
-      </div>
-    </div>
-    <div className="mt-4 overflow-x-auto">
-      <div className="flex gap-1" role="img" aria-label="Activity of the last weeks">
-        {grid.map((week, w) => (
-          <div key={w} className="flex flex-col gap-1">
-            {week.map((day, d) =>
-              day ? (
-                <div
-                  key={day.date}
-                  data-count={day.count}
-                  title={`${formatShortDate(day.date)}: ${actions(day.count)}`}
-                  aria-label={`${formatShortDate(day.date)}: ${actions(day.count)}`}
-                  className={`h-3 w-3 rounded-sm ${shade(day.count)}`}
-                />
-              ) : (
-                <div key={`empty-${d}`} className="h-3 w-3" />
-              ),
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400" aria-hidden="true">
-        Less
-        {[0, 1, 2, 4].map((count) => (
-          <span key={count} className={`h-3 w-3 rounded-sm ${shade(count)}`} />
-        ))}
-        More
-      </div>
-    </div>
+    <p
+      className={`text-xl font-bold tabular-nums ${
+        alert ? "text-red-600 dark:text-red-400" : "text-gray-800 dark:text-white"
+      }`}
+    >
+      {value}
+    </p>
+    <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
   </div>
 );
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+// The heat map of the last weeks (columns are weeks, Monday at the top), like
+// GitHub's, with the numbers that go with it: streak, active days this week,
+// reviews overdue and due tomorrow, and the actions of those weeks.
+const ActivitySection = ({ streak, thisWeek, overdue, tomorrow, grid }) => {
+  const total = grid.flat().reduce((sum, day) => sum + (day?.count ?? 0), 0);
+  return (
+    <div className="mt-4 flex flex-col gap-5 border-t border-gray-100 pt-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
+      <div className="overflow-x-auto">
+        <div className="flex gap-1" role="img" aria-label="Activity of the last weeks">
+          {grid.map((week, w) => (
+            <div key={w} className="flex flex-col gap-1">
+              {week.map((day, d) =>
+                day ? (
+                  <div
+                    key={day.date}
+                    data-count={day.count}
+                    title={`${formatShortDate(day.date)}: ${actions(day.count)}`}
+                    aria-label={`${formatShortDate(day.date)}: ${actions(day.count)}`}
+                    className={`h-3.5 w-3.5 rounded-sm ${shade(day.count)}`}
+                  />
+                ) : (
+                  <div key={`empty-${d}`} className="h-3.5 w-3.5" />
+                ),
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400" aria-hidden="true">
+          Less
+          {[0, 1, 2, 4].map((count) => (
+            <span key={count} className={`h-3 w-3 rounded-sm ${shade(count)}`} />
+          ))}
+          More
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3 md:grid-cols-5">
+        <Stat value={plural(streak, "day")} label="Current streak" />
+        <Stat value={`${thisWeek}/7`} label="Active days this week" />
+        <Stat value={overdue} label="Reviews overdue" alert={overdue > 0} />
+        <Stat value={tomorrow} label="Due tomorrow" />
+        <Stat value={total} label="Actions, last 12 weeks" />
+      </div>
+    </div>
+  );
+};
 
 export default ActivitySection;

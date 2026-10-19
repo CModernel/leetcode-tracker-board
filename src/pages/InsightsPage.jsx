@@ -37,8 +37,8 @@ const lateText = (daysLate) =>
   daysLate === 0 ? "due today" : `${daysLate} ${daysLate === 1 ? "day" : "days"} late`;
 
 // What the history of the selected list says: what to do today, what to try
-// next, which categories need practice (help, step-backs, time) and, in one
-// line, the streak and the reviews coming. Everything is computed from the saved progress.
+// next, which categories need practice (help, step-backs, time), and at the top
+// the activity heat map with the streak and the reviews coming. Everything is computed from the saved progress.
 const InsightsPage = () => {
   const { progress, selectedList } = useProgress();
   const { showTimer } = useTimerSettings();
@@ -65,12 +65,6 @@ const InsightsPage = () => {
   const fresh = suggestNew(problems, listProgress, weak, SHOWN);
   const days = activityDays(listProgress);
   const load = upcomingLoad(problems, listProgress, today);
-  const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-  // The reviews coming, in one line
-  const glance = [
-    load.overdue > 0 ? `${count(load.overdue, "review")} overdue` : "Nothing overdue",
-    `${load.days[1].count} due tomorrow`,
-  ].join(" · ");
 
   // Opening a problem starts working on it, as on the board and in the table
   const open = (problem) => {
@@ -95,9 +89,13 @@ const InsightsPage = () => {
             </div>
             <ListSelect />
           </div>
-          <p className="mt-4 border-t border-gray-100 pt-3 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
-            {glance}
-          </p>
+          <ActivitySection
+            streak={streak(days, today)}
+            thisWeek={activeDaysThisWeek(days, today)}
+            overdue={load.overdue}
+            tomorrow={load.days[1].count}
+            grid={heatMap(days, today)}
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -143,14 +141,6 @@ const InsightsPage = () => {
               help it needed, and this shows which categories need more practice.
             </p>
           )}
-        </Card>
-
-        <Card title="Activity">
-          <ActivitySection
-            streak={streak(days, today)}
-            thisWeek={activeDaysThisWeek(days, today)}
-            grid={heatMap(days, today)}
-          />
         </Card>
       </div>
       {notice && (

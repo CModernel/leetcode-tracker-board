@@ -41,8 +41,9 @@ const renderPage = () =>
     </ThemeProvider>,
   );
 const section = (title) => screen.getByRole("heading", { name: title }).closest("section");
-// The one line under the title: streak, week, overdue and due tomorrow
-const glance = () => screen.getByText(/overdue|Nothing overdue/).textContent;
+// The numbers next to the heat map, by their label
+const stat = (label) => screen.getByText(label).previousSibling.textContent;
+const heat = () => screen.getByRole("img", { name: "Activity of the last weeks" });
 const categoryRow = (name) => within(section("Categories")).getByText(name).closest("tr");
 
 // Arrays & Hashing: 3 reviews, 2 with help (one solution), all timed over the limit
@@ -73,8 +74,9 @@ describe("the Insights page", () => {
     expect(within(section("Categories")).getByText(/Nothing to analyse yet/)).toBeTruthy();
     expect(within(section("What to do today")).getByText("No reviews due today.")).toBeTruthy();
     expect(within(section("Try next")).getByText("1 - Two Sum")).toBeTruthy();
-    expect(glance()).toBe("Nothing overdue · 0 due tomorrow");
-    expect(within(section("Activity")).getByText("0 days")).toBeTruthy();
+    expect(stat("Current streak")).toBe("0 days");
+    expect(stat("Reviews overdue")).toBe("0");
+    expect(stat("Actions, last 12 weeks")).toBe("0");
   });
 
   it("shows the table with the weak and slow category first, and every number", () => {
@@ -165,17 +167,26 @@ describe("the Insights page", () => {
     expect(categoryRow("Two Pointers").textContent).toContain("Not enough data yet");
   });
 
-  it("shows the reviews coming in one line and the streak, the week and the heat map in Activity", () => {
+  it("shows the heat map at the top with the streak, the week, the reviews coming and the total", () => {
     seed({
       "blind75-1": solved({ attempts: [attempt(0, { date: "2026-10-18" }), attempt(0, { date: "2026-10-19" })] }),
     });
     renderPage();
+    expect(within(heat()).getByLabelText("Oct 19: 1 action")).toBeTruthy();
+    expect(stat("Current streak")).toBe("2 days");
+    expect(stat("Active days this week")).toBe("1/7");
     // R2 of Two Sum was due Oct 4: overdue
-    expect(glance()).toBe("1 review overdue · 0 due tomorrow");
-    const activity = within(section("Activity"));
-    expect(activity.getByText("2 days")).toBeTruthy();
-    expect(activity.getByText("1/7")).toBeTruthy();
-    expect(activity.getByLabelText("Oct 19: 1 action")).toBeTruthy();
+    expect(stat("Reviews overdue")).toBe("1");
+    expect(stat("Due tomorrow")).toBe("0");
+    // solved Oct 1, review Oct 2 and the two attempts
+    expect(stat("Actions, last 12 weeks")).toBe("4");
+  });
+
+  it("the activity comes before the lists, not after", () => {
+    renderPage();
+    const heatBefore = heat().compareDocumentPosition(section("What to do today"));
+    expect(heatBefore & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Activity" })).toBeNull();
   });
 
   it("changes with the selected list", () => {
