@@ -42,27 +42,17 @@ One short note per problem (up to 300 characters), to read before a review: the 
 - **Board**: the note icon on each card opens the note in a dialog to read or edit it.
 - Both views share the same note. It is kept when you unsolve or move a problem, and it is included in the export/import file.
 - Reading a note never changes the review schedule.
-
-### 💻 Solutions
-
-Keep up to **two solutions** per problem (for example a brute force one and an optimal one), each with an optional name and a language. Opening a solution works like opening a note: you read it, and **Edit** changes it.
-
-- **Board**: the `{ }` icon on each card opens the solutions in a dialog. With none saved it opens the editor.
-- **Tracker**: turn on **Show solutions** for a Solutions column with a **View solution** (or **Add solution**) button. The choice is remembered.
-- The editor has a language list (Python, JavaScript, TypeScript, Java, C, C++, C#, Go, Rust, Kotlin, Swift, SQL, Other); it starts with the language you used last. The code is shown with syntax colours and can be copied.
-- Opening a solution counts as looking it up: if you complete a review the same day you are asked **How did it go?** and **Needed the solution** is suggested. If you changed the code the same day (for example a better version after a review), it counts as your own work and **Solved on my own** is suggested. Saving it unchanged does not.
-- Both views share the same solutions. They are kept when you unsolve or move a problem and are included in the export/import file.
+- Earlier versions could also keep code solutions per problem. That feature was removed: any saved solutions are dropped when the app loads, and an attempt that "needed the solution" now counts as "needed help". Export your progress first if you want to keep a copy.
 
 ### 🧭 Review outcomes
 
-Completing a review is one click: it counts as **solved it myself**. If you opened the note (or a solution) that day, you are asked **How did it go?** first, and each answer shows its real dates before you choose:
+Completing a review is one click: it counts as **solved it myself**. If you opened the note that day, you are asked **How did it go?** first, and each answer shows its real dates before you choose:
 
 - **Solved it myself**: the next review follows the schedule.
-- **Needed the note**: the same review is repeated in 2 days.
-- **Needed the solution**: the problem goes one review back (R4 to R3), not a full reset.
+- **Needed help**: the same review is repeated in 2 days.
 
 - Works the same in the tracker, and on the board cards, with an **Undo** message.
-- Every attempt is saved in a history (date, review and help needed) that is kept when a problem steps back, and included in the export/import file. It is only erased by **Clear All**.
+- Every attempt is saved in a history (date, review and help needed) that is kept when you go back a review, and included in the export/import file. It is only erased by **Clear All**.
 
 ### ⏱️ Timer
 
@@ -71,7 +61,7 @@ Time yourself on the first solve and on every review. It is optional: if you nev
 - **It starts by itself** when you open a problem (the title), use **Start** in the ⋯ menu or drag a card to **In Progress**. There is also a small ▶ next to the complete button. Only **one timer runs at a time**: starting another pauses the first, with a message and **Undo**.
 - **Cards**: a bar above the complete button shows `⏸ 4:12 · R3` (pause or resume, and ↺ to reset). It is blue while running, grey when paused, amber past the limit and red when the time ran out. **In Progress** cards have a green **Mark as solved** button, like reviews have theirs.
 - **Time limits** by difficulty (first solve 20 / 35 / 50 min, review 10 / 20 / 30 min). Up to 1.25 times the limit counts as on time; from there the score drops from 100 to 50, and at twice the limit the time ran out. Change the limits, choose **No limit**, or turn the timer off in **Timer settings** (the stopwatch icon in the navbar).
-- **Past the limit** you get one quiet message per problem and session: **Keep going**, **Read the note** (it counts as help) or **Learn** (the Patterns page). If you complete a review whose time ran out, **Needed the solution** is suggested; you can still choose another answer. Time never changes the schedule by itself.
+- **Past the limit** you get one quiet message per problem and session: **Keep going**, **Read the note** (it counts as help) or **Learn** (the Patterns page). If you complete a review whose time ran out, **Needed help** is suggested; you can still choose another answer. Time never changes the schedule by itself.
 - **Another problem running?** Completing, solving or mastering a different problem asks first, so a timer does not keep counting unseen. The running timer is also shown in the navbar on every page.
 - **Tracker**: turn on **Show time** for a Time column with the running timer (pause, resume or reset it there) and the last recorded time (with its limit and score in the tooltip). Opening a problem from the table also starts its timer.
 - The time is saved with each attempt and first solve (kept in the export/import file) together with the limit it had, so changing limits later never rewrites history. The timer itself survives a reload.
@@ -82,7 +72,7 @@ The **Insights** page reads your history for the selected list and tells you whe
 
 - **What to do today**: the 3 most important reviews due today or overdue (those from categories that need practice first, then the most overdue), with a link to the Board for the rest.
 - **Try next**: 3 new problems from the categories that need practice, easiest first (before there is enough data, simply the next ones in the list).
-- **Categories**: the 5 that need practice most, with solved problems, reviews, how much help they needed (alone / note / solution), step-backs and, if you use the timer, the time against the limit. **Show more** opens the rest. A category needs practice when 40% or more of at least 3 of its reviews needed help, and is slow when half of its timed attempts went over the limit. Categories not started yet are only named.
+- **Categories**: the 5 that need practice most, with solved problems, reviews, how much help they needed (alone / needed help) and, if you use the timer, the time against the limit. **Show more** opens the rest. A category needs practice when 40% or more of at least 3 of its reviews needed help, and is slow when half of its timed attempts went over the limit. Categories not started yet are only named.
 - **At the top**, a heat map of the last 12 weeks (like a contribution graph) with six numbers: current streak, active days this week, mastered problems, average time against the time limit (for example "12% under limit"; it needs 3 timed attempts and shows why when it has none), overdue reviews and how many are due tomorrow.
 - Nothing new is saved: it is all computed from your progress, so it works with your existing data and the export/import file.
 
@@ -209,16 +199,16 @@ These are the dates when every review is done on time. If you do a review late, 
 - [x] Dark mode support
 - [x] Notes per problem
 - [x] Kanban board synchronized with the tracker
-- [x] Review outcomes by help needed (solved alone / needed the note / needed the solution)
+- [x] Review outcomes by help needed (solved alone / needed help)
 - [x] Review rewind, Mark as mastered and Undo
-- [x] Show/hide the solution attached to a problem (up to two per problem)
+- [x] Save code solutions per problem (removed later: the app now keeps notes only, see Notes)
 - [x] Time limits and a timer for attempts
 - [x] Weak-topic analytics and exercise suggestions (Insights page)
 
 **Planned** (in this order)
 - [ ] Cloud data persistence (Supabase, local-first, sign in with GitHub, Google or magic link)
 - [ ] Browser/push notifications for due reviews (needs cloud persistence)
-- [ ] Import progress and solutions from a file
+- [ ] Import progress from a file
 
 **Ideas**
 - [ ] Custom problem sets
