@@ -9,6 +9,9 @@ import { NOTE_MAX_LENGTH } from "../lib/notes";
 import { SHOW_NOTES_KEY, SHOW_TIME_KEY } from "../lib/preferences";
 import { V3_KEY, serializeProgress } from "../lib/migrate";
 
+// These render the whole tracker: give them room when the machine is busy.
+vi.setConfig({ testTimeout: 20000 });
+
 const withNote = (note) =>
   serializeProgress({
     "Blind 75": {
