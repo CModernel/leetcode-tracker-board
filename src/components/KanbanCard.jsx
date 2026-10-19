@@ -1,13 +1,11 @@
 import { Calendar, Check, Clock, ExternalLink } from "lucide-react";
 import KanbanCardMenu from "./KanbanCardMenu";
 import KanbanCardNote from "./KanbanCardNote";
-import KanbanCardSolution from "./KanbanCardSolution";
 import { KanbanCardTimerBar, KanbanCardTimerStart } from "./KanbanCardTimer";
 import { useCardTimer } from "./useCardTimer";
 import { useStartWork } from "./useStartWork";
 import { useLingering } from "../hooks/useLingering";
 import { useNotice } from "../context/NoticeContext";
-import { solutionsOf } from "../lib/solutions";
 import { difficultyColor } from "../lib/difficultyStyles";
 import { problemLabel } from "../lib/lists";
 import { completeButtonFor } from "../lib/board";
@@ -93,11 +91,10 @@ const KanbanCard = ({ card, onComplete, onSolve }) => {
           ))}
         </div>
         </div>
-        {/* One column on the right: the menu, then the note and the solution */}
+        {/* One column on the right: the menu, then the note */}
         <div className="flex flex-shrink-0 flex-col items-center gap-0.5">
           <KanbanCardMenu card={card} onComplete={onComplete} />
           <KanbanCardNote problem={problem} note={card.entry?.note} />
-          <KanbanCardSolution problem={problem} solutions={solutionsOf(card.entry)} />
         </div>
       </div>
       {urgency && !completeButton && (
