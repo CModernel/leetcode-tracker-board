@@ -88,6 +88,23 @@ describe("the timer in the tracker and on the board", () => {
     expect(within(view.row()).getByRole("button", { name: /Pause timer/ })).toBeTruthy();
   });
 
+  it("the row has a reset button like the card: the time goes, nothing is recorded, and the card follows", () => {
+    seed({ "blind75-1": twoSum({ timer: { elapsedMs: 3 * MIN, runningSince: null } }) });
+    const view = renderBoth();
+    fireEvent.click(within(view.row()).getByRole("button", { name: "Reset timer" }));
+    expect(saved()).not.toHaveProperty("timer");
+    expect(saved()).not.toHaveProperty("attempts");
+    expect(within(view.row()).queryByRole("timer")).toBeNull();
+    expect(within(view.row()).getByRole("button", { name: /Start timer \(R3\)/ })).toBeTruthy();
+    expect(within(view.card()).queryByRole("timer")).toBeNull();
+  });
+
+  it("a row with no timer has no reset button, only Start", () => {
+    seed({ "blind75-1": twoSum() });
+    const view = renderBoth();
+    expect(within(view.row()).queryByRole("button", { name: "Reset timer" })).toBeNull();
+  });
+
   it("a row with no timer offers Start, and it starts", () => {
     seed({ "blind75-1": twoSum() });
     const view = renderBoth();

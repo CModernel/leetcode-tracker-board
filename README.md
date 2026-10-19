@@ -73,7 +73,7 @@ Time yourself on the first solve and on every review. It is optional: if you nev
 - **Time limits** by difficulty (first solve 20 / 35 / 50 min, review 10 / 20 / 30 min). Up to 1.25 times the limit counts as on time; from there the score drops from 100 to 50, and at twice the limit the time ran out. Change the limits, choose **No limit**, or turn the timer off in **Timer settings** (the stopwatch icon in the navbar).
 - **Past the limit** you get one quiet message per problem and session: **Keep going**, **Read the note** (it counts as help) or **Learn** (the Patterns page). If you complete a review whose time ran out, **Needed the solution** is suggested; you can still choose another answer. Time never changes the schedule by itself.
 - **Another problem running?** Completing, solving or mastering a different problem asks first, so a timer does not keep counting unseen. The running timer is also shown in the navbar on every page.
-- **Tracker**: turn on **Show time** for a Time column with the running timer and the last recorded time (with its limit and score in the tooltip). Opening a problem from the table also starts its timer.
+- **Tracker**: turn on **Show time** for a Time column with the running timer (pause, resume or reset it there) and the last recorded time (with its limit and score in the tooltip). Opening a problem from the table also starts its timer.
 - The time is saved with each attempt and first solve (kept in the export/import file) together with the limit it had, so changing limits later never rewrites history. The timer itself survives a reload.
 
 ### 📈 Insights

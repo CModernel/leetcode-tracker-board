@@ -1,4 +1,4 @@
-import { Pause, Play } from "lucide-react";
+import { Pause, Play, RotateCcw } from "lucide-react";
 import { barStyles } from "./KanbanCardTimer";
 import { useCardTimer } from "./useCardTimer";
 import { attemptsOf } from "../lib/attempts";
@@ -23,8 +23,8 @@ const lastRecorded = (entry) => {
   return null;
 };
 
-// The Time column of a table row: the timer of the problem (pause or resume it
-// here, or start it), and the last time recorded, with its colour and score.
+// The Time column of a table row: the timer of the problem (pause, resume or
+// reset it here, or start it), and the last time recorded, with its colour and score.
 const TimeCell = ({ problem, entry }) => {
   const timer = useCardTimer(problem, entry);
   const recorded = lastRecorded(entry);
@@ -34,20 +34,31 @@ const TimeCell = ({ problem, entry }) => {
   return (
     <div className="flex flex-col items-start gap-1">
       {timer && timer.hasTime && (
-        <button
-          onClick={timer.toggle}
-          aria-label={`${timer.running ? "Pause" : "Resume"} timer (${timer.activity.label})`}
-          title={`${timer.running ? "Pause" : "Resume"} timer (${timer.activity.label})`}
-          className={`flex h-6 items-center gap-1 whitespace-nowrap rounded-lg border px-2 text-xs font-semibold transition hover:brightness-95 dark:hover:brightness-125 ${barStyles(timer)}`}
-        >
-          {timer.running ? <Pause size={12} aria-hidden="true" /> : <Play size={12} aria-hidden="true" />}
-          <span role="timer" aria-label={`Time on ${timer.activity.label}`} className="tabular-nums">
-            {formatDuration(timer.ms)}
-          </span>
-          <span aria-hidden="true" className="font-medium opacity-80">
-            · {timer.activity.label}
-          </span>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={timer.toggle}
+            aria-label={`${timer.running ? "Pause" : "Resume"} timer (${timer.activity.label})`}
+            title={`${timer.running ? "Pause" : "Resume"} timer (${timer.activity.label})`}
+            className={`flex h-6 items-center gap-1 whitespace-nowrap rounded-lg border px-2 text-xs font-semibold transition hover:brightness-95 dark:hover:brightness-125 ${barStyles(timer)}`}
+          >
+            {timer.running ? <Pause size={12} aria-hidden="true" /> : <Play size={12} aria-hidden="true" />}
+            <span role="timer" aria-label={`Time on ${timer.activity.label}`} className="tabular-nums">
+              {formatDuration(timer.ms)}
+            </span>
+            <span aria-hidden="true" className="font-medium opacity-80">
+              · {timer.activity.label}
+            </span>
+          </button>
+          {/* Same as the reset of the card: the time is thrown away, not recorded */}
+          <button
+            onClick={timer.reset}
+            aria-label="Reset timer"
+            title="Reset timer (the time will not be recorded)"
+            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-gray-50 text-gray-500 transition hover:bg-gray-100 dark:border-gray-500 dark:bg-gray-800/50 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            <RotateCcw size={12} aria-hidden="true" />
+          </button>
+        </div>
       )}
       {timer && !timer.hasTime && (
         <button
