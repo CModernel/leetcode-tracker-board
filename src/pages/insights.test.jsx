@@ -42,13 +42,8 @@ const renderPage = () =>
   );
 const section = (title) => screen.getByRole("heading", { name: title }).closest("section");
 // The one line under the title: streak, week, overdue and due tomorrow
-const glance = () => screen.getByText(/Streak:/).textContent;
-// "See all categories" opens the full table
-const categoryRow = (name) => {
-  const details = section("Needs practice").querySelector("details");
-  details.open = true;
-  return within(details).getByText(name).closest("tr");
-};
+const glance = () => screen.getByText(/overdue|Nothing overdue/).textContent;
+const categoryRow = (name) => within(section("Categories")).getByText(name).closest("tr");
 
 // Arrays & Hashing: 3 reviews, 2 with help (one solution), all timed over the limit
 const weakArrays = () => ({
@@ -75,30 +70,22 @@ afterEach(() => {
 describe("the Insights page", () => {
   it("with no history says what will appear and still suggests the first problems", () => {
     renderPage();
-    expect(within(section("Needs practice")).getByText(/Nothing to analyse yet/)).toBeTruthy();
+    expect(within(section("Categories")).getByText(/Nothing to analyse yet/)).toBeTruthy();
     expect(within(section("What to do today")).getByText("No reviews due today.")).toBeTruthy();
     expect(within(section("Try next")).getByText("1 - Two Sum")).toBeTruthy();
-    expect(glance()).toContain("Streak: 0 days");
+    expect(glance()).toBe("Nothing overdue · 0 due tomorrow");
+    expect(within(section("Activity")).getByText("0 days")).toBeTruthy();
   });
 
-  it("names the categories that need practice in one sentence each, the weak and slow one first", () => {
+  it("shows the table with the weak and slow category first, and every number", () => {
     seed({
       ...weakArrays(),
       // Trees: 3 reviews, all alone, no time: fine
       "blind75-30": solved({ attempts: [attempt(0), attempt(0), attempt(0)] }),
     });
     renderPage();
-    // the first list is the sentences; the explanation below has its own list
-    const items = within(section("Needs practice").querySelector("ul")).getAllByRole("listitem");
-    expect(items).toHaveLength(1);
-    expect(items[0].textContent).toBe(
-      "Arrays & Hashing · 67% of its reviews needed help · 100% of its timed attempts went over the limit",
-    );
-  });
-
-  it("the full table is behind See all categories, with every number", () => {
-    seed(weakArrays());
-    renderPage();
+    const rows = within(section("Categories")).getAllByRole("row");
+    expect(within(rows[1]).getByText("Arrays & Hashing")).toBeTruthy();
     const row = categoryRow("Arrays & Hashing");
     expect(row.textContent).toContain("1/8");
     expect(row.textContent).toContain("67% needed help");
@@ -108,24 +95,26 @@ describe("the Insights page", () => {
     expect(within(row).getByRole("img").getAttribute("aria-label")).toBe(
       "1 alone, 1 with the note, 1 with the solution",
     );
+    expect(categoryRow("Trees").textContent).toContain("Doing well");
     // Two Pointers has nothing done: it is only named below the table
-    expect(within(section("Needs practice")).queryByRole("cell", { name: "Two Pointers" })).toBeNull();
-    expect(within(section("Needs practice")).getByText(/Not started yet: .*Two Pointers/)).toBeTruthy();
+    expect(within(section("Categories")).queryByRole("cell", { name: "Two Pointers" })).toBeNull();
+    expect(within(section("Categories")).getByText(/Not started yet: .*Two Pointers/)).toBeTruthy();
   });
 
-  it("says no category needs practice when none does", () => {
-    seed({ "blind75-30": solved({ attempts: [attempt(0), attempt(0), attempt(0)] }) });
+  it("shows five categories and Show more opens the rest", () => {
+    const entries = {};
+    // one problem started in each of 7 categories (ids from the list's own sections)
+    [1, 9, 12, 16, 21, 23, 29].forEach((n) => {
+      entries[`blind75-${n}`] = solved({ attempts: [attempt(0)] });
+    });
+    seed(entries);
     renderPage();
-    expect(within(section("Needs practice")).getByText(/No category needs practice yet/)).toBeTruthy();
-  });
-
-  it("hides the time column when the timer is switched off", () => {
-    seed(weakArrays());
-    localStorage.setItem("leetcode-show-timer", "false");
-    renderPage();
-    categoryRow("Arrays & Hashing");
-    expect(within(section("Needs practice")).queryByRole("columnheader", { name: "Time" })).toBeNull();
-    expect(section("Needs practice").querySelector("ul").textContent).not.toContain("timed attempts");
+    const table = within(section("Categories"));
+    expect(table.getAllByRole("row")).toHaveLength(1 + 5);
+    fireEvent.click(table.getByRole("button", { name: "Show 2 more" }));
+    expect(table.getAllByRole("row")).toHaveLength(1 + 7);
+    fireEvent.click(table.getByRole("button", { name: "Show less" }));
+    expect(table.getAllByRole("row")).toHaveLength(1 + 5);
   });
 
   it("suggests new problems of the weak category, easiest first", () => {
@@ -134,6 +123,7 @@ describe("the Insights page", () => {
     const tryNext = section("Try next");
     expect(tryNext.textContent).toContain("categories that need practice");
     const titles = within(tryNext).getAllByRole("link").map((a) => a.textContent);
+    expect(titles).toHaveLength(3);
     expect(titles[0]).toBe("2 - Contains Duplicate");
     expect(titles).not.toContain("1 - Two Sum");
   });
@@ -164,8 +154,8 @@ describe("the Insights page", () => {
       solved({ solvedDate: "2026-09-01", reviews: [false, false, false, false, false], dates: { initial: "2026-09-01" } });
     seed(Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((n) => [`blind75-${n}`, due(n)])));
     renderPage();
-    expect(within(section("What to do today")).getAllByRole("listitem")).toHaveLength(5);
-    expect(section("What to do today").textContent).toContain("Showing 5 of 7");
+    expect(within(section("What to do today")).getAllByRole("listitem")).toHaveLength(3);
+    expect(section("What to do today").textContent).toContain("Showing 3 of 7");
     expect(within(section("What to do today")).getByRole("link", { name: "see all on the Board" })).toBeTruthy();
   });
 
@@ -175,15 +165,17 @@ describe("the Insights page", () => {
     expect(categoryRow("Two Pointers").textContent).toContain("Not enough data yet");
   });
 
-  it("sums up the streak, the week and the reviews coming in one line", () => {
+  it("shows the reviews coming in one line and the streak, the week and the heat map in Activity", () => {
     seed({
       "blind75-1": solved({ attempts: [attempt(0, { date: "2026-10-18" }), attempt(0, { date: "2026-10-19" })] }),
     });
     renderPage();
     // R2 of Two Sum was due Oct 4: overdue
-    expect(glance()).toBe(
-      "Streak: 2 days · 1 of 7 days active this week · 1 review overdue · 0 due tomorrow",
-    );
+    expect(glance()).toBe("1 review overdue · 0 due tomorrow");
+    const activity = within(section("Activity"));
+    expect(activity.getByText("2 days")).toBeTruthy();
+    expect(activity.getByText("1/7")).toBeTruthy();
+    expect(activity.getByLabelText("Oct 19: 1 action")).toBeTruthy();
   });
 
   it("changes with the selected list", () => {
@@ -191,6 +183,6 @@ describe("the Insights page", () => {
     renderPage();
     fireEvent.change(screen.getByLabelText("Problem list"), { target: { value: "NeetCode 150" } });
     expect(screen.getByRole("heading", { name: "Insights - NeetCode 150" })).toBeTruthy();
-    expect(within(section("Needs practice")).getByText(/Nothing to analyse yet/)).toBeTruthy();
+    expect(within(section("Categories")).getByText(/Nothing to analyse yet/)).toBeTruthy();
   });
 });

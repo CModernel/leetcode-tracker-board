@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { HELP_WEAK, MIN_ATTEMPTS, MIN_TIMED, SLOW_SHARE } from "../../lib/insights";
 
 const percent = (value) => (value === null || value === undefined ? "-" : `${Math.round(value * 100)}%`);
@@ -42,9 +43,16 @@ const HelpBar = ({ row }) => {
   );
 };
 
-// One row per category, the ones that need practice first; the categories not
-// started yet are only named below.
-const CategoryTable = ({ rows, showTime, notStarted = [] }) => (
+// How many categories show before "Show more".
+export const VISIBLE_CATEGORIES = 5;
+
+// One row per category, the ones that need practice first. Only the first few
+// show; "Show more" opens the rest. The categories not started yet are only
+// named below.
+const CategoryTable = ({ rows, showTime, notStarted = [] }) => {
+  const [all, setAll] = useState(false);
+  const shown = all ? rows : rows.slice(0, VISIBLE_CATEGORIES);
+  return (
   <>
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
@@ -60,7 +68,7 @@ const CategoryTable = ({ rows, showTime, notStarted = [] }) => (
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-          {rows.map((row) => (
+          {shown.map((row) => (
             <tr key={row.category} className="align-top text-gray-800 dark:text-gray-100">
               <td className="py-2 pr-4 font-medium">{row.category}</td>
               <td className="py-2 pr-4 whitespace-nowrap tabular-nums">
@@ -95,6 +103,15 @@ const CategoryTable = ({ rows, showTime, notStarted = [] }) => (
         </tbody>
       </table>
     </div>
+    {rows.length > VISIBLE_CATEGORIES && (
+      <button
+        onClick={() => setAll(!all)}
+        aria-expanded={all}
+        className="mt-3 text-sm text-blue-600 hover:underline dark:text-blue-400"
+      >
+        {all ? "Show less" : `Show ${rows.length - VISIBLE_CATEGORIES} more`}
+      </button>
+    )}
     {notStarted.length > 0 && (
       <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Not started yet: {notStarted.join(", ")}.</p>
     )}
@@ -122,6 +139,7 @@ const CategoryTable = ({ rows, showTime, notStarted = [] }) => (
       </ul>
     </details>
   </>
-);
+  );
+};
 
 export default CategoryTable;

@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import ListSelect from "../components/ListSelect";
 import Toast from "../components/Toast";
 import ProblemList from "../components/insights/ProblemList";
-import NeedsPractice from "../components/insights/NeedsPractice";
+import CategoryTable from "../components/insights/CategoryTable";
+import ActivitySection from "../components/insights/ActivitySection";
 import { useStartWork } from "../components/useStartWork";
 import { useProgress } from "../context/ProgressContext";
 import { useTimerSettings } from "../context/TimerSettingsContext";
@@ -14,6 +15,7 @@ import {
   activityDays,
   categoryOf,
   categoryStats,
+  heatMap,
   rankCategories,
   streak,
   suggestNew,
@@ -27,6 +29,9 @@ const Card = ({ title, children, className = "" }) => (
     {children}
   </section>
 );
+
+// How many problems each short list shows
+const SHOWN = 3;
 
 const lateText = (daysLate) =>
   daysLate === 0 ? "due today" : `${daysLate} ${daysLate === 1 ? "day" : "days"} late`;
@@ -54,16 +59,15 @@ const InsightsPage = () => {
   const anyHistory = startedRows.length > 0;
   const showTime = showTimer && ranked.some((row) => row.timed > 0);
 
-  const due = todayList(problems, listProgress, today, weak);
+  // Only the most important few of each list
+  const due = todayList(problems, listProgress, today, weak, SHOWN);
   const allDue = todayList(problems, listProgress, today, weak, Infinity).length;
-  const fresh = suggestNew(problems, listProgress, weak);
+  const fresh = suggestNew(problems, listProgress, weak, SHOWN);
   const days = activityDays(listProgress);
   const load = upcomingLoad(problems, listProgress, today);
   const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-  // Streak, week and reviews coming, in one line
+  // The reviews coming, in one line
   const glance = [
-    `Streak: ${count(streak(days, today), "day")}`,
-    `${activeDaysThisWeek(days, today)} of 7 days active this week`,
     load.overdue > 0 ? `${count(load.overdue, "review")} overdue` : "Nothing overdue",
     `${load.days[1].count} due tomorrow`,
   ].join(" · ");
@@ -130,15 +134,23 @@ const InsightsPage = () => {
           </Card>
         </div>
 
-        <Card title="Needs practice">
+        <Card title="Categories">
           {anyHistory ? (
-            <NeedsPractice rows={startedRows} showTime={showTime} notStarted={notStarted} />
+            <CategoryTable rows={startedRows} showTime={showTime} notStarted={notStarted} />
           ) : (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Nothing to analyse yet. Solve problems and complete reviews: each review you complete says how much
               help it needed, and this shows which categories need more practice.
             </p>
           )}
+        </Card>
+
+        <Card title="Activity">
+          <ActivitySection
+            streak={streak(days, today)}
+            thisWeek={activeDaysThisWeek(days, today)}
+            grid={heatMap(days, today)}
+          />
         </Card>
       </div>
       {notice && (
