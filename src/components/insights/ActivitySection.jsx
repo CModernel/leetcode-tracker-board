@@ -31,8 +31,8 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const ActivitySection = ({ streak, thisWeek, overdue, tomorrow, grid }) => {
   const total = grid.flat().reduce((sum, day) => sum + (day?.count ?? 0), 0);
   return (
-    <div className="mt-4 flex flex-col gap-5 border-t border-gray-100 pt-4 dark:border-gray-700 md:flex-row md:items-center md:justify-between">
-      <div className="overflow-x-auto">
+    <div className="mt-4 flex flex-col items-center gap-5 border-t border-gray-100 px-5 pb-0 pt-5 dark:border-gray-700 md:flex-row md:justify-center md:gap-12 md:px-6 md:pt-6">
+      <div className="flex max-w-full flex-col items-center overflow-x-auto">
         <div className="flex gap-1" role="img" aria-label="Activity of the last weeks">
           {grid.map((week, w) => (
             <div key={w} className="flex flex-col gap-1">
@@ -60,7 +60,7 @@ const ActivitySection = ({ streak, thisWeek, overdue, tomorrow, grid }) => {
           More
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-center sm:grid-cols-3 md:grid-cols-5">
         <Stat value={plural(streak, "day")} label="Current streak" />
         <Stat value={`${thisWeek}/7`} label="Active days this week" />
         <Stat value={overdue} label="Reviews overdue" alert={overdue > 0} />
