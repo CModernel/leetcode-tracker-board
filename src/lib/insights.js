@@ -3,9 +3,9 @@
 // are grouped by their category (the list's section, like "Arrays & Hashing"):
 // there is one per problem and it is the same in every list's own data, while
 // LeetCode topics differ from list to list.
-import { HELP, attemptsOf } from "./attempts";
+import { HELP, REPEAT_DAYS, attemptsOf } from "./attempts";
 import { timeScore, timeState } from "./timer";
-import { addDays, daysBetween } from "./schedule";
+import { GAPS, addDays, daysBetween } from "./schedule";
 import { getNextDue, getStage } from "./board";
 
 // A category needs this many review attempts before it is judged at all, so one
@@ -142,6 +142,75 @@ export const rankCategories = (stats) =>
       void index;
       return item;
     });
+
+// --- Retention and punctuality ------------------------------------------
+
+// How each review (R1..R5) went: the attempts at it, how many were solved alone
+// and the share solved alone (`rate`, null with fewer than MIN_ATTEMPTS, so one
+// bad day does not decide). Shows whether an interval is too long.
+export const retentionByReview = (problems, progress = {}) => {
+  const rows = Array.from({ length: GAPS.length }, () => ({ attempts: 0, alone: 0 }));
+  for (const problem of problems) {
+    for (const attempt of attemptsOf(progress[problem.id])) {
+      const row = rows[attempt?.review];
+      if (!row) continue;
+      if (attempt.help === HELP.ALONE) row.alone += 1;
+      else if (attempt.help !== HELP.NOTE) continue;
+      row.attempts += 1;
+    }
+  }
+  return rows.map((row) => ({ ...row, rate: row.attempts >= MIN_ATTEMPTS ? row.alone / row.attempts : null }));
+};
+
+// The day an attempt was due, rebuilt from the history (nothing extra is saved):
+// a review repeated after needing help was due REPEAT_DAYS after that attempt;
+// otherwise R1 is due GAPS[0] days after solving and each next review GAPS[n]
+// days after the one before was completed. `index` is the place of the attempt
+// in `attempts`. null when a date it needs is missing.
+export const attemptDue = (entry, index) => {
+  const attempts = attemptsOf(entry);
+  const attempt = attempts[index];
+  if (!attempt || !Number.isInteger(attempt.review) || attempt.review < 0 || attempt.review >= GAPS.length) return null;
+  for (let before = index - 1; before >= 0; before -= 1) {
+    const earlier = attempts[before];
+    if (earlier?.review === attempt.review && earlier.help === HELP.NOTE && isDay(earlier.date)) {
+      return addDays(earlier.date, REPEAT_DAYS);
+    }
+  }
+  const from = attempt.review === 0 ? entry?.solvedDate : entry?.dates?.[`review${attempt.review}`];
+  return isDay(from) ? addDays(from, GAPS[attempt.review]) : null;
+};
+
+// Reviews done on time against late (a review is late when it was done after the
+// day it was due) and how much help each group needed. `onTimeRate` and the help
+// rates are null with fewer than MIN_ATTEMPTS in the group. Attempts whose due
+// day cannot be rebuilt are left out.
+export const punctuality = (problems, progress = {}) => {
+  const group = () => ({ attempts: 0, helped: 0 });
+  const onTime = group();
+  const late = group();
+  for (const problem of problems) {
+    const entry = progress[problem.id];
+    attemptsOf(entry).forEach((attempt, index) => {
+      if (attempt?.help !== HELP.ALONE && attempt?.help !== HELP.NOTE) return;
+      const due = attemptDue(entry, index);
+      if (!due || !isDay(attempt.date)) return;
+      const target = attempt.date > due ? late : onTime;
+      target.attempts += 1;
+      if (attempt.help === HELP.NOTE) target.helped += 1;
+    });
+  }
+  const count = onTime.attempts + late.attempts;
+  const helpRate = (g) => (g.attempts >= MIN_ATTEMPTS ? g.helped / g.attempts : null);
+  return {
+    count,
+    onTime: onTime.attempts,
+    late: late.attempts,
+    onTimeRate: count >= MIN_ATTEMPTS ? onTime.attempts / count : null,
+    helpOnTime: helpRate(onTime),
+    helpLate: helpRate(late),
+  };
+};
 
 // --- Activity, load and suggestions -------------------------------------
 

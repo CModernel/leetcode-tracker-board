@@ -8,7 +8,10 @@ import {
   activeDaysThisWeek,
   activityDays,
   classifyCategory,
+  attemptDue,
   heatMap,
+  punctuality,
+  retentionByReview,
   rankCategories,
   streak,
   suggestNew,
@@ -318,5 +321,104 @@ describe("timeSummary", () => {
       averageMs: null,
       averageLimitMs: null,
     });
+  });
+});
+
+describe("retentionByReview", () => {
+  const problems = [problem("p1", "A"), problem("p2", "A")];
+  const at = (review, help) => ({ date: "2026-10-10", review, help });
+
+  it("one row per review with the share solved alone, null with too few attempts", () => {
+    const progress = {
+      p1: solved({ attempts: [at(0, 0), at(0, 1), at(1, 0)] }),
+      p2: solved({ attempts: [at(0, 0), at(0, 0), at(3, 1)] }),
+    };
+    const rows = retentionByReview(problems, progress);
+    expect(rows).toHaveLength(5);
+    expect(rows[0]).toEqual({ attempts: 4, alone: 3, rate: 0.75 });
+    expect(rows[1]).toEqual({ attempts: 1, alone: 1, rate: null });
+    expect(rows[3].rate).toBeNull();
+    expect(rows[4]).toEqual({ attempts: 0, alone: 0, rate: null });
+  });
+
+  it("ignores unknown reviews and help levels, and works with no progress", () => {
+    const progress = { p1: solved({ attempts: [at(7, 0), at(0, 5), { review: 0 }] }) };
+    expect(retentionByReview(problems, progress).every((row) => row.attempts === 0)).toBe(true);
+    expect(retentionByReview([], {})).toHaveLength(5);
+  });
+});
+
+describe("attemptDue", () => {
+  const entry = (attempts, extra = {}) =>
+    solved({ dates: { initial: "2026-10-01", review1: "2026-10-02", review2: "2026-10-05" }, attempts, ...extra });
+
+  it("R1 is due 1 day after solving, the next ones after the review before", () => {
+    const e = entry([
+      { date: "2026-10-02", review: 0, help: 0 },
+      { date: "2026-10-05", review: 1, help: 0 },
+      { date: "2026-10-09", review: 2, help: 0 },
+    ]);
+    expect(attemptDue(e, 0)).toBe("2026-10-02");
+    expect(attemptDue(e, 1)).toBe("2026-10-04");
+    expect(attemptDue(e, 2)).toBe("2026-10-09");
+  });
+
+  it("a review repeated after needing help was due 2 days after that attempt", () => {
+    const e = entry([
+      { date: "2026-10-02", review: 0, help: 1 },
+      { date: "2026-10-06", review: 0, help: 0 },
+    ]);
+    expect(attemptDue(e, 0)).toBe("2026-10-02");
+    expect(attemptDue(e, 1)).toBe("2026-10-04");
+  });
+
+  it("is null when a date is missing or the attempt is not valid", () => {
+    expect(attemptDue(entry([{ date: "2026-10-10", review: 3, help: 0 }]), 0)).toBeNull();
+    expect(attemptDue(entry([{ date: "2026-10-10", review: 9, help: 0 }]), 0)).toBeNull();
+    expect(attemptDue(entry([{ date: "2026-10-10", review: 0, help: 0 }], { solvedDate: null }), 0)).toBeNull();
+    expect(attemptDue(entry([]), 0)).toBeNull();
+    expect(attemptDue(undefined, 0)).toBeNull();
+  });
+});
+
+describe("punctuality", () => {
+  const problems = [problem("p1", "A"), problem("p2", "A")];
+  const dates = { initial: "2026-10-01", review1: "2026-10-02" };
+
+  it("splits attempts on time and late, with the help each group needed", () => {
+    const progress = {
+      // R1 due 10-02: on time (10-02), late (10-05, help); R2 repeated after help
+      p1: solved({ dates, attempts: [{ date: "2026-10-02", review: 0, help: 0 }, { date: "2026-10-05", review: 1, help: 0 }] }),
+      p2: solved({
+        dates,
+        attempts: [
+          { date: "2026-10-01", review: 0, help: 0 },
+          { date: "2026-10-04", review: 0, help: 1 },
+        ],
+      }),
+    };
+    const result = punctuality(problems, progress);
+    expect(result).toMatchObject({ count: 4, onTime: 2, late: 2, onTimeRate: 0.5 });
+    // on time: p1 R1 and p2 R1 early (both alone); late: p1 R2 (due 10-04, done 10-05), p2 R1 help
+    expect(result.helpOnTime).toBeNull();
+    expect(result.helpLate).toBeNull();
+  });
+
+  it("shows rates only with enough attempts in the group", () => {
+    // all done on 10-10, long after R1 was due (10-02): three late attempts, one with help
+    const late = (help) => ({ date: "2026-10-10", review: 0, help });
+    const progress = {
+      p1: solved({ dates, attempts: [late(1)] }),
+      p2: solved({ dates, attempts: [late(0), late(0)] }),
+    };
+    expect(punctuality(problems, progress)).toMatchObject({ count: 3, late: 3, onTime: 0, helpLate: 1 / 3, helpOnTime: null });
+    const fewer = punctuality(problems, { p1: progress.p1 });
+    expect(fewer).toMatchObject({ count: 1, onTimeRate: null, helpLate: null });
+  });
+
+  it("leaves out attempts whose due day cannot be rebuilt, and works with nothing", () => {
+    const progress = { p1: solved({ solvedDate: null, attempts: [{ date: "2026-10-10", review: 0, help: 0 }] }) };
+    expect(punctuality(problems, progress).count).toBe(0);
+    expect(punctuality([], {})).toMatchObject({ count: 0, onTimeRate: null });
   });
 });
