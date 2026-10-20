@@ -55,6 +55,12 @@ export const elapsedMs = (timer, now) => {
   return valid.elapsedMs + Math.max(0, now - valid.runningSince);
 };
 
+// The time counted for a problem's entry at `now`, or null when it has no timer.
+export const timeCounted = (entry, now) => {
+  const timer = normalizeTimer(entry?.timer);
+  return timer ? elapsedMs(timer, now) : null;
+};
+
 // How a time compares with its limit:
 // "ontime" (within the limit, or no limit), "grace" (a little over, same score),
 // "late" (clearly over, lower score) or "timeout" (too long: forgotten).
@@ -89,6 +95,27 @@ export const formatDuration = (ms) => {
   const minutes = Math.floor((seconds % 3600) / 60);
   const rest = seconds % 60;
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(rest)}` : `${minutes}:${pad(rest)}`;
+};
+
+// The most a corrected time can be: a day. Anything longer is a typo.
+export const MAX_EDIT_MS = 24 * 60 * 60 * 1000;
+
+// A time typed by the person -> milliseconds, or null when it is not a valid
+// time. Accepts "7:20" (minutes:seconds), "1:05:30" (hours:minutes:seconds) and
+// "7" (minutes). Seconds and minutes after a colon go up to 59; no decimals, no
+// negatives; up to MAX_EDIT_MS.
+export const parseDuration = (text) => {
+  const value = String(text ?? "").trim();
+  let ms = null;
+  let match;
+  if ((match = /^(\d{1,4})$/.exec(value))) {
+    ms = Number(match[1]) * MINUTE;
+  } else if ((match = /^(\d{1,4}):([0-5]?\d)$/.exec(value))) {
+    ms = (Number(match[1]) * 60 + Number(match[2])) * 1000;
+  } else if ((match = /^(\d{1,3}):([0-5]?\d):([0-5]?\d)$/.exec(value))) {
+    ms = (Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3])) * 1000;
+  }
+  return ms !== null && ms <= MAX_EDIT_MS ? ms : null;
 };
 
 // What the person is doing when they time a problem: the first solve (not

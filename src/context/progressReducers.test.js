@@ -18,7 +18,9 @@ import {
   setOrder,
   pauseTimer,
   resetTimer,
+  setRecordedTime,
   setStatus,
+  setTimerElapsed,
   startTimer,
   uncompleteReview,
   unsolve,
@@ -1318,5 +1320,174 @@ describe("recording the time used", () => {
     }
     const zero = recordAttempt(solvedState(), LIST, "1", 2, HELP.ALONE, "2026-10-20", { ms: 0 });
     expect(entry(zero).attempts.at(-1)).toEqual({ date: "2026-10-20", review: 2, help: 0, ms: 0 });
+  });
+});
+
+describe("correcting a time by hand", () => {
+  const T0 = 1_000_000;
+  const MIN = 60000;
+  const entry = (state, id = 1) => state[LIST][id];
+
+  describe("setTimerElapsed", () => {
+    it("sets the time of a paused timer and keeps it paused", () => {
+      let state = pauseTimer(startTimer(solvedState(), LIST, "1", T0), LIST, "1", T0 + 90 * MIN);
+      state = setTimerElapsed(state, LIST, "1", 7 * MIN, T0 + 200 * MIN);
+      expect(entry(state).timer).toEqual({ elapsedMs: 7 * MIN, runningSince: null });
+    });
+
+    it("a running timer shows the new time now and keeps counting from it", () => {
+      const running = startTimer(solvedState(), LIST, "1", T0);
+      const state = setTimerElapsed(running, LIST, "1", 5 * MIN, T0 + 120 * MIN);
+      expect(entry(state).timer).toEqual({ elapsedMs: 5 * MIN, runningSince: T0 + 120 * MIN });
+    });
+
+    it("can be set to 0", () => {
+      const paused = pauseTimer(startTimer(solvedState(), LIST, "1", T0), LIST, "1", T0 + MIN);
+      expect(entry(setTimerElapsed(paused, LIST, "1", 0, T0)).timer.elapsedMs).toBe(0);
+    });
+
+    it("does nothing without a timer, with an invalid time, or when it already is that time", () => {
+      const none = solvedState();
+      expect(setTimerElapsed(none, LIST, "1", MIN, T0)).toBe(none);
+      const paused = pauseTimer(startTimer(none, LIST, "1", T0), LIST, "1", T0 + 3 * MIN);
+      for (const bad of [-1, NaN, "5", null, 25 * 60 * MIN]) {
+        expect(setTimerElapsed(paused, LIST, "1", bad, T0)).toBe(paused);
+      }
+      expect(setTimerElapsed(paused, LIST, "1", 3 * MIN, T0)).toBe(paused);
+      const running = startTimer(none, LIST, "1", T0);
+      expect(setTimerElapsed(running, LIST, "1", 2 * MIN, T0 + 2 * MIN)).toBe(running);
+      expect(setTimerElapsed(running, LIST, "1", MIN, undefined)).toBe(running);
+    });
+
+    it("changes only that problem's timer", () => {
+      const start = pauseTimer(startTimer(solvedState(), LIST, "1", T0), LIST, "1", T0 + MIN);
+      const next = setTimerElapsed(start, LIST, "1", 9 * MIN, T0);
+      const { timer, ...rest } = entry(next);
+      void timer;
+      const { timer: before, ...restBefore } = entry(start);
+      void before;
+      expect(rest).toEqual(restBefore);
+      expect(next[OTHER]).toBe(start[OTHER]);
+    });
+
+    it("the corrected time is what completing records", () => {
+      const paused = pauseTimer(startTimer(solvedState(), LIST, "1", T0), LIST, "1", T0 + 90 * MIN);
+      const fixed = setTimerElapsed(paused, LIST, "1", 6 * MIN, T0);
+      const done = completeReviewWithHelp(fixed, LIST, "1", 2, HELP.ALONE, "2026-10-20", { now: T0 + 99 * MIN, limitMs: 10 * MIN });
+      expect(entry(done).attempts.at(-1)).toMatchObject({ ms: 6 * MIN, limitMs: 10 * MIN });
+    });
+  });
+
+  describe("setRecordedTime", () => {
+    const withHistory = () => {
+      const start = solvedState();
+      start[LIST][1] = {
+        ...start[LIST][1],
+        firstSolve: { date: "2026-10-01", ms: 9 * MIN, limitMs: 20 * MIN },
+        attempts: [
+          { date: "2026-10-02", review: 0, help: 0, ms: 4 * MIN, limitMs: 10 * MIN },
+          { date: "2026-10-04", review: 1, help: 1 },
+          { date: "2026-10-08", review: 1, help: 0, ms: 30 * MIN, limitMs: 10 * MIN },
+        ],
+      };
+      return start;
+    };
+
+    it("corrects the last review attempt that has a time and keeps its limit", () => {
+      const next = setRecordedTime(withHistory(), LIST, 1, 8 * MIN);
+      expect(entry(next).attempts.map((a) => a.ms)).toEqual([4 * MIN, undefined, 8 * MIN]);
+      expect(entry(next).attempts[2]).toEqual({ date: "2026-10-08", review: 1, help: 0, ms: 8 * MIN, limitMs: 10 * MIN });
+      expect(entry(next).firstSolve.ms).toBe(9 * MIN);
+    });
+
+    it("corrects the first solve when no review has a time", () => {
+      const start = withHistory();
+      start[LIST][1].attempts = [{ date: "2026-10-02", review: 0, help: 0 }];
+      const next = setRecordedTime(start, LIST, 1, 5 * MIN);
+      expect(entry(next).firstSolve).toEqual({ date: "2026-10-01", ms: 5 * MIN, limitMs: 20 * MIN });
+    });
+
+    it("null removes the time and its limit, so it is unknown, not 0", () => {
+      const next = setRecordedTime(withHistory(), LIST, 1, null);
+      expect(entry(next).attempts[2]).toEqual({ date: "2026-10-08", review: 1, help: 0 });
+      // the one before it is now the last with a time
+      expect(setRecordedTime(next, LIST, 1, 3 * MIN)[LIST][1].attempts[0].ms).toBe(3 * MIN);
+    });
+
+    it("removing the first solve's time leaves its date", () => {
+      const start = withHistory();
+      start[LIST][1].attempts = [];
+      expect(entry(setRecordedTime(start, LIST, 1, null)).firstSolve).toEqual({ date: "2026-10-01" });
+    });
+
+    it("never raises a time: a higher one does nothing", () => {
+      const start = withHistory();
+      expect(setRecordedTime(start, LIST, 1, 30 * MIN + 1000)).toBe(start);
+      expect(entry(setRecordedTime(start, LIST, 1, 30 * MIN - 1000)).attempts[2].ms).toBe(30 * MIN - 1000);
+    });
+
+    it("can be set to 0", () => {
+      expect(entry(setRecordedTime(withHistory(), LIST, 1, 0)).attempts[2].ms).toBe(0);
+    });
+
+    it("does nothing without a recorded time, with an invalid time or when it is the same", () => {
+      const none = solvedState();
+      expect(setRecordedTime(none, LIST, 1, MIN)).toBe(none);
+      expect(setRecordedTime(none, LIST, 99, MIN)).toBe(none);
+      const start = withHistory();
+      for (const bad of [-1, NaN, "5", undefined, 25 * 60 * MIN]) {
+        expect(setRecordedTime(start, LIST, 1, bad)).toBe(start);
+      }
+      expect(setRecordedTime(start, LIST, 1, 30 * MIN)).toBe(start);
+    });
+
+    it("keeps the other attempts, the schedule and other problems, and Undo brings it back", () => {
+      const start = withHistory();
+      const next = setRecordedTime(start, LIST, 1, 8 * MIN);
+      expect(entry(next).reviews).toBe(entry(start).reviews);
+      expect(entry(next).attempts[0]).toBe(entry(start).attempts[0]);
+      expect(next[OTHER]).toBe(start[OTHER]);
+      expect(restoreEntry(next, LIST, 1, entry(start))[LIST][1]).toEqual(entry(start));
+    });
+  });
+
+  describe("completing with a corrected time", () => {
+    const running = () => startTimer(solvedState(), LIST, "1", T0);
+
+    it("a review answer records the corrected time instead of the counted one", () => {
+      const next = completeReviewWithHelp(running(), LIST, "1", 2, HELP.ALONE, "2026-10-20", {
+        now: T0 + 90 * MIN,
+        limitMs: 10 * MIN,
+        ms: 6 * MIN,
+      });
+      expect(entry(next).attempts.at(-1)).toEqual({ date: "2026-10-20", review: 2, help: 0, ms: 6 * MIN, limitMs: 10 * MIN });
+      expect(entry(next)).not.toHaveProperty("timer");
+    });
+
+    it("an invalid correction is ignored: the counted time is used", () => {
+      for (const ms of [-1, NaN, "5", 25 * 60 * MIN]) {
+        const next = completeReviewWithHelp(running(), LIST, "1", 2, HELP.ALONE, "2026-10-20", { now: T0 + 7 * MIN, ms });
+        expect(entry(next).attempts.at(-1).ms).toBe(7 * MIN);
+      }
+    });
+
+    it("a correction higher than the counted time is ignored: a time only goes down", () => {
+      const next = completeReviewWithHelp(running(), LIST, "1", 2, HELP.ALONE, "2026-10-20", { now: T0 + 7 * MIN, ms: 8 * MIN });
+      expect(entry(next).attempts.at(-1).ms).toBe(7 * MIN);
+      const same = completeReviewWithHelp(running(), LIST, "1", 2, HELP.ALONE, "2026-10-20", { now: T0 + 7 * MIN, ms: 7 * MIN });
+      expect(entry(same).attempts.at(-1).ms).toBe(7 * MIN);
+    });
+
+    it("without a timer there is nothing to correct: no time is invented", () => {
+      const next = completeReviewWithHelp(solvedState(), LIST, "1", 2, HELP.ALONE, "2026-10-20", { now: T0, ms: 6 * MIN });
+      expect(entry(next).attempts.at(-1)).toEqual({ date: "2026-10-20", review: 2, help: 0 });
+    });
+
+    it("the first solve records the corrected time too", () => {
+      const todo = { [LIST]: { 7: { status: "in-progress", solved: false, reviews: [false, false, false, false, false], dates: {} } } };
+      const started = startTimer(todo, LIST, "7", T0);
+      const next = markSolved(started, LIST, "7", "2026-10-20", { now: T0 + 90 * MIN, limitMs: 20 * MIN, ms: 12 * MIN });
+      expect(next[LIST][7].firstSolve).toEqual({ date: "2026-10-20", ms: 12 * MIN, limitMs: 20 * MIN });
+    });
   });
 });

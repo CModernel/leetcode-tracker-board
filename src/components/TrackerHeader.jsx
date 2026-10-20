@@ -138,7 +138,8 @@ const TrackerHeader = ({ title, showDueToday = true }) => {
                 <li>
                   7. Opening a problem starts its timer; pause it on the
                   card or in the Time column. Limits are in Timer settings
-                  (stopwatch icon)
+                  (stopwatch icon). A recorded time can be lowered (pencil
+                  in the Time column), never raised
                 </li>
                 <li>
                   8. Open Insights to see which categories need practice

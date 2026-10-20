@@ -1,7 +1,7 @@
-import { Pause, Play, RotateCcw } from "lucide-react";
+import { Pause, Pencil, Play, RotateCcw } from "lucide-react";
 import { barStyles } from "./KanbanCardTimer";
 import { useCardTimer } from "./useCardTimer";
-import { attemptsOf } from "../lib/attempts";
+import { lastTimedRecord } from "../lib/attempts";
 import { formatDuration, timeScore, timeState } from "../lib/timer";
 
 // Text colour of a recorded time by how it stood against the limit it had.
@@ -12,20 +12,20 @@ const stateText = {
   timeout: "text-red-700 dark:text-red-300",
 };
 
-// The last time that was recorded for a problem: the latest review attempt that
-// has one, else the first solve. null when none was recorded (unknown, never 0).
+// The last time that was recorded for a problem (see lastTimedRecord), as the
+// text of the cell. null when none was recorded (unknown, never 0).
 const lastRecorded = (entry) => {
-  const attempt = [...attemptsOf(entry)].reverse().find((a) => Number.isFinite(a?.ms));
-  if (attempt) return { text: `Last review`, label: `R${attempt.review + 1}`, ms: attempt.ms, limitMs: attempt.limitMs };
-  if (Number.isFinite(entry?.firstSolve?.ms)) {
-    return { text: "Solved in", label: null, ms: entry.firstSolve.ms, limitMs: entry.firstSolve.limitMs };
-  }
-  return null;
+  const record = lastTimedRecord(entry);
+  if (!record) return null;
+  return record.kind === "attempt"
+    ? { text: "Last review", label: `R${record.review + 1}`, ms: record.ms, limitMs: record.limitMs }
+    : { text: "Solved in", label: null, ms: record.ms, limitMs: record.limitMs };
 };
 
 // The Time column of a table row: the timer of the problem (pause, resume or
 // reset it here, or start it), and the last time recorded, with its colour and score.
-const TimeCell = ({ problem, entry }) => {
+// `onEditRecorded` adds a pencil to correct that recorded time.
+const TimeCell = ({ problem, entry, onEditRecorded = null }) => {
   const timer = useCardTimer(problem, entry);
   const recorded = lastRecorded(entry);
 
@@ -72,20 +72,32 @@ const TimeCell = ({ problem, entry }) => {
         </button>
       )}
       {recorded && (
-        <span
-          className={`text-xs ${stateText[timeState(recorded.ms, recorded.limitMs)]}`}
-          title={[
-            Number.isFinite(recorded.limitMs) ? `Limit ${formatDuration(recorded.limitMs)}` : "No limit",
-            timeScore(recorded.ms, recorded.limitMs) !== null
-              ? `Score ${timeScore(recorded.ms, recorded.limitMs)}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        >
-          {recorded.text} <span className="tabular-nums font-medium">{formatDuration(recorded.ms)}</span>
-          {recorded.label ? ` (${recorded.label})` : ""}
-        </span>
+        <div className="flex items-center gap-1">
+          <span
+            className={`text-xs ${stateText[timeState(recorded.ms, recorded.limitMs)]}`}
+            title={[
+              Number.isFinite(recorded.limitMs) ? `Limit ${formatDuration(recorded.limitMs)}` : "No limit",
+              timeScore(recorded.ms, recorded.limitMs) !== null
+                ? `Score ${timeScore(recorded.ms, recorded.limitMs)}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          >
+            {recorded.text} <span className="tabular-nums font-medium">{formatDuration(recorded.ms)}</span>
+            {recorded.label ? ` (${recorded.label})` : ""}
+          </span>
+          {onEditRecorded && (
+            <button
+              onClick={() => onEditRecorded(problem)}
+              aria-label={`Edit recorded time (${problem.title})`}
+              title="Edit the recorded time"
+              className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+            >
+              <Pencil size={12} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HELP, VIEW_KINDS, attemptsOf, isHelp, suggestedHelp } from "./attempts";
+import { HELP, VIEW_KINDS, attemptsOf, isHelp, lastTimedRecord, suggestedHelp } from "./attempts";
 
 describe("isHelp", () => {
   it("accepts the two levels only", () => {
@@ -72,5 +72,36 @@ describe("suggestedHelp", () => {
 
   it("ignores a solution marker left by old data", () => {
     expect(suggestedHelp({ helpViewed: { solution: TODAY } }, TODAY)).toBeNull();
+  });
+});
+
+describe("lastTimedRecord", () => {
+  it("is the last review attempt that has a time, with its place in the history", () => {
+    const entry = {
+      firstSolve: { date: "2026-10-01", ms: 9000, limitMs: 20000 },
+      attempts: [
+        { date: "2026-10-02", review: 0, help: 0, ms: 1000, limitMs: 5000 },
+        { date: "2026-10-04", review: 1, help: 0 },
+        { date: "2026-10-08", review: 2, help: 1, ms: 3000, limitMs: 5000 },
+        { date: "2026-10-09", review: 2, help: 0 },
+      ],
+    };
+    expect(lastTimedRecord(entry)).toEqual({ kind: "attempt", index: 2, review: 2, ms: 3000, limitMs: 5000 });
+  });
+
+  it("falls back to the time of the first solve", () => {
+    const entry = { firstSolve: { date: "2026-10-01", ms: 9000, limitMs: 20000 }, attempts: [{ date: "x", review: 0, help: 0 }] };
+    expect(lastTimedRecord(entry)).toEqual({ kind: "first", ms: 9000, limitMs: 20000 });
+  });
+
+  it("is null when no time was recorded (unknown, not zero) or the data is damaged", () => {
+    expect(lastTimedRecord({})).toBeNull();
+    expect(lastTimedRecord(undefined)).toBeNull();
+    expect(lastTimedRecord({ firstSolve: { date: "2026-10-01" }, attempts: [{ review: 0, help: 0 }] })).toBeNull();
+    expect(lastTimedRecord({ attempts: [null, { ms: "x" }], firstSolve: { ms: -1 / 0 } })).toBeNull();
+  });
+
+  it("counts a recorded time of 0 as a time", () => {
+    expect(lastTimedRecord({ attempts: [{ review: 0, help: 0, ms: 0 }] })).toMatchObject({ kind: "attempt", ms: 0 });
   });
 });

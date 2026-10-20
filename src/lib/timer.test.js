@@ -8,7 +8,9 @@ import {
   isTimedOut,
   limitCrossing,
   limitMsFor,
+  MAX_EDIT_MS,
   normalizeTimer,
+  parseDuration,
   timeScore,
   timeState,
 } from "./timer";
@@ -229,5 +231,35 @@ describe("isTimedOut", () => {
     expect(isTimedOut(solved({ elapsedMs: 999 * MIN, runningSince: null }), "Medium", limits, 0)).toBe(false);
     const first = { solved: false, timer: { elapsedMs: 999 * MIN, runningSince: null } };
     expect(isTimedOut(first, "Easy", limits, 0)).toBe(false);
+  });
+});
+
+describe("parseDuration", () => {
+  const S = 1000;
+  it("reads minutes:seconds, hours:minutes:seconds and plain minutes", () => {
+    expect(parseDuration("7:20")).toBe(7 * 60 * S + 20 * S);
+    expect(parseDuration("0:05")).toBe(5 * S);
+    expect(parseDuration("12:00")).toBe(12 * 60 * S);
+    expect(parseDuration("1:05:30")).toBe((3600 + 5 * 60 + 30) * S);
+    expect(parseDuration("7")).toBe(7 * 60 * S);
+    expect(parseDuration("0")).toBe(0);
+  });
+
+  it("ignores spaces around it and accepts one digit of seconds", () => {
+    expect(parseDuration("  7:20 ")).toBe(440 * S);
+    expect(parseDuration("7:5")).toBe(425 * S);
+  });
+
+  it("refuses anything else", () => {
+    for (const bad of ["", "  ", "abc", "7:60", "7:2:3:4", "-5", "-1:00", "7.5", "7,5", "1e3", ":30", "7:", null, undefined]) {
+      expect(parseDuration(bad)).toBeNull();
+    }
+  });
+
+  it("accepts up to a day and refuses more", () => {
+    expect(parseDuration("24:00:00")).toBe(MAX_EDIT_MS);
+    expect(parseDuration("1440")).toBe(MAX_EDIT_MS);
+    expect(parseDuration("24:00:01")).toBeNull();
+    expect(parseDuration("1441")).toBeNull();
   });
 });

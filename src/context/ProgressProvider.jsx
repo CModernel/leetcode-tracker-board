@@ -142,6 +142,10 @@ export const ProgressProvider = ({ children }) => {
       ),
     startTimer: (problemId, list = selectedList) =>
       setProgress((prev) => reducers.startTimer(prev, list, problemId, Date.now())),
+    setTimerElapsed: (problemId, ms) =>
+      setProgress((prev) => reducers.setTimerElapsed(prev, selectedList, problemId, ms, Date.now())),
+    setRecordedTime: (problemId, ms) =>
+      setProgress((prev) => reducers.setRecordedTime(prev, selectedList, problemId, ms)),
     pauseTimer: (problemId, list = selectedList) =>
       setProgress((prev) => reducers.pauseTimer(prev, list, problemId, Date.now())),
     resetTimer: (problemId) =>
@@ -192,7 +196,8 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.markHelpViewed(prev, selectedList, problemId, kind, localToday())
       ),
-    completeReviewWithHelp: (problemId, index, help) =>
+    // `ms` is a time typed in the outcome dialog (lower than the one counted)
+    completeReviewWithHelp: (problemId, index, help, ms) =>
       setProgress((prev) =>
         reducers.completeReviewWithHelp(
           prev,
@@ -201,7 +206,10 @@ export const ProgressProvider = ({ children }) => {
           index,
           help,
           localToday(),
-          timeFor(selectedList, problemId, "review", limits)
+          {
+            ...timeFor(selectedList, problemId, "review", limits),
+            ...(ms === undefined ? {} : { ms }),
+          }
         )
       ),
     rewindReviews: (problemId, index) =>
