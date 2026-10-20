@@ -543,6 +543,7 @@ const ProblemTable = ({
           key={timeEdit.id}
           label={timeEdit.title}
           initialMs={lastTimedRecord(progress[timeEdit.id])?.ms ?? 0}
+          maxMs={lastTimedRecord(progress[timeEdit.id])?.ms ?? 0}
           onSave={(ms) => correctTime(timeEdit, ms)}
           onRemove={() => correctTime(timeEdit, null)}
           onClose={() => setTimeEdit(null)}

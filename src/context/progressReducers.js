@@ -179,14 +179,15 @@ export const setTimerElapsed = (progress, list, problemId, ms, now) => {
 // Corrects the last time recorded for a problem (see lastTimedRecord: the last
 // review attempt with a time, else the first solve's) to `ms`, or removes it
 // with `null` (the time becomes unknown, never 0, and its limit goes too). The
-// score follows by itself, it is computed. Does nothing when there is no time
-// recorded, `ms` is invalid or it already is that.
+// score follows by itself, it is computed. A time can only be lowered, never
+// raised. Does nothing when there is no time recorded, `ms` is invalid, higher
+// than the recorded one or already that.
 export const setRecordedTime = (progress, list, problemId, ms) => {
   const entry = progress[list]?.[problemId];
   const target = lastTimedRecord(entry);
   if (!target) return progress;
   if (ms !== null && !validMs(ms)) return progress;
-  if (ms === target.ms) return progress;
+  if (ms === target.ms || (ms !== null && ms > target.ms)) return progress;
   const fix = (record) => {
     const { ms: oldMs, limitMs, ...rest } = record;
     void oldMs;

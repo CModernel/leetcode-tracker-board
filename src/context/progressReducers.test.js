@@ -1420,6 +1420,12 @@ describe("correcting a time by hand", () => {
       expect(entry(setRecordedTime(start, LIST, 1, null)).firstSolve).toEqual({ date: "2026-10-01" });
     });
 
+    it("never raises a time: a higher one does nothing", () => {
+      const start = withHistory();
+      expect(setRecordedTime(start, LIST, 1, 30 * MIN + 1000)).toBe(start);
+      expect(entry(setRecordedTime(start, LIST, 1, 30 * MIN - 1000)).attempts[2].ms).toBe(30 * MIN - 1000);
+    });
+
     it("can be set to 0", () => {
       expect(entry(setRecordedTime(withHistory(), LIST, 1, 0)).attempts[2].ms).toBe(0);
     });

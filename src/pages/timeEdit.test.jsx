@@ -78,9 +78,9 @@ describe("correcting the recorded time in the tracker", () => {
     renderTracker();
     fireEvent.click(pencil());
     expect(field().value).toBe("3:00");
-    fireEvent.change(field(), { target: { value: "4" } });
+    fireEvent.change(field(), { target: { value: "2" } });
     click("Save");
-    expect(saved().attempts[0].ms).toBe(4 * MIN);
+    expect(saved().attempts[0].ms).toBe(2 * MIN);
     expect(saved().firstSolve.ms).toBe(7 * MIN + 20_000);
   });
 
@@ -94,6 +94,19 @@ describe("correcting the recorded time in the tracker", () => {
     expect(saved().firstSolve.ms).toBe(7 * MIN + 20_000);
     fireEvent.change(field(), { target: { value: "8:00" } });
     expect(within(dialog()).queryByRole("alert")).toBeNull();
+  });
+
+  it("a time can be lowered but not raised", () => {
+    seed();
+    renderTracker();
+    fireEvent.click(pencil());
+    fireEvent.change(field(), { target: { value: "8:00" } });
+    click("Save");
+    expect(within(dialog()).getByRole("alert").textContent).toContain("only be lowered");
+    expect(saved().firstSolve.ms).toBe(7 * MIN + 20_000);
+    fireEvent.change(field(), { target: { value: "7:20" } });
+    click("Save");
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("Cancel changes nothing", () => {

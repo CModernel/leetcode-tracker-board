@@ -5,13 +5,15 @@ import { MAX_EDIT_MS, formatDuration, parseDuration } from "../lib/timer";
 // centered native <dialog> like the others, shown as soon as it is rendered.
 // Save or Enter saves a valid time; an invalid one shows the error under the
 // field and keeps the dialog open. `onRemove` (only for a time already
-// recorded) adds "Remove time": the time becomes unknown, never 0. Cancel,
+// recorded) adds "Remove time". `maxMs` is the most that can be saved (a time can
+// be corrected down, never up); a bigger one shows its own error: the time becomes unknown, never 0. Cancel,
 // Escape and a click on the backdrop close without changing anything. It sits
 // inside a draggable card, so mouse, touch and keys are kept from reaching it.
-const TimeEditDialog = ({ label, title = "Edit time", initialMs, onSave, onRemove = null, onClose }) => {
+const TimeEditDialog = ({ label, title = "Edit time", initialMs, maxMs = MAX_EDIT_MS, onSave, onRemove = null, onClose }) => {
   const dialogRef = useRef(null);
   const [text, setText] = useState(formatDuration(initialMs));
-  const [error, setError] = useState(false);
+  // "invalid" (not a time), "too-long" (more than maxMs) or null
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -26,8 +28,8 @@ const TimeEditDialog = ({ label, title = "Edit time", initialMs, onSave, onRemov
 
   const save = () => {
     const ms = parseDuration(text);
-    if (ms === null) {
-      setError(true);
+    if (ms === null || ms > maxMs) {
+      setError(ms === null ? "invalid" : "too-long");
       return;
     }
     onSave(ms);
@@ -73,17 +75,19 @@ const TimeEditDialog = ({ label, title = "Edit time", initialMs, onSave, onRemov
           value={text}
           inputMode="numeric"
           autoComplete="off"
-          aria-invalid={error || undefined}
+          aria-invalid={Boolean(error) || undefined}
           aria-describedby={error ? "time-edit-error" : undefined}
           onChange={(event) => {
             setText(event.target.value);
-            setError(false);
+            setError(null);
           }}
           className="mt-1 w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
         {error && (
           <p id="time-edit-error" role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
-            Use minutes and seconds, like 7:20 (up to {formatDuration(MAX_EDIT_MS)}).
+            {error === "too-long"
+              ? `A time can only be lowered: ${formatDuration(maxMs)} at most.`
+              : `Use minutes and seconds, like 7:20 (up to ${formatDuration(MAX_EDIT_MS)}).`}
           </p>
         )}
         <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
