@@ -230,3 +230,75 @@ describe("the Insights page", () => {
     expect(within(section("Categories")).getByText(/Nothing to analyse yet/)).toBeTruthy();
   });
 });
+
+describe("the Patterns card", () => {
+  const withHistory = () =>
+    seed({
+      // Two Sum: R1 needed help then repeated on its day (50% help, both on time)
+      "blind75-1": solved({
+        dates: { initial: "2026-10-01" },
+        attempts: [
+          { date: "2026-10-02", review: 0, help: 1 },
+          { date: "2026-10-04", review: 0, help: 0 },
+        ],
+      }),
+      // Contains Duplicate: needed help twice, the first one late
+      "blind75-2": solved({
+        dates: { initial: "2026-10-01" },
+        note: "use a set",
+        attempts: [
+          { date: "2026-10-10", review: 0, help: 1 },
+          { date: "2026-10-12", review: 0, help: 1 },
+        ],
+      }),
+    });
+  const patterns = () => within(section("Patterns"));
+
+  it("with no reviews says what will appear instead of four empty panels", () => {
+    renderPage();
+    expect(patterns().getByText(/Complete some reviews/)).toBeTruthy();
+    expect(patterns().queryByText("Retention by review")).toBeNull();
+  });
+
+  it("shows retention by review: the share solved alone, a dash where there is too little data", () => {
+    withHistory();
+    renderPage();
+    expect(patterns().getByRole("img", { name: "R1: 25% solved alone" })).toBeTruthy();
+    expect(patterns().getByRole("img", { name: "R2: not enough data" })).toBeTruthy();
+  });
+
+  it("shows punctuality with the late count and the help on time", () => {
+    withHistory();
+    renderPage();
+    expect(patterns().getByText("on time", { selector: "span" }).parentElement.textContent).toContain("75%");
+    expect(patterns().getByText(/1 of 4 reviews was late/)).toBeTruthy();
+    expect(patterns().getByText("Needed help: on time 67%")).toBeTruthy();
+  });
+
+  it("lists the problems harder than they look, worst first, and the notes effect line", () => {
+    withHistory();
+    renderPage();
+    const titles = patterns()
+      .getAllByRole("link")
+      .map((link) => link.textContent);
+    expect(titles.slice(0, 2)).toEqual(["2 - Contains Duplicate", "1 - Two Sum"]);
+    expect(patterns().getByText((_, el) => el.tagName === "P" && el.textContent === "Easy · needed help in 2 of 2 reviews")).toBeTruthy();
+    expect(patterns().getByText(/Notes: needs 3 reviews with and without a note/)).toBeTruthy();
+  });
+
+  it("names the categories not practiced for the longest time", () => {
+    withHistory();
+    renderPage();
+    const panel = patterns().getByText("Not practiced lately").parentElement;
+    expect(within(panel).getByText("Arrays & Hashing")).toBeTruthy();
+    expect(within(panel).getByText("7 days ago")).toBeTruthy();
+  });
+
+  it("opening a problem of the list starts working on it", () => {
+    withHistory();
+    renderPage();
+    fireEvent.click(patterns().getByText("2 - Contains Duplicate"));
+    const entry = JSON.parse(localStorage.getItem(KEY)).progress["Blind 75"]["blind75-2"];
+    expect(entry.timer.runningSince).not.toBeNull();
+  });
+});
