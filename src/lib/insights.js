@@ -220,20 +220,25 @@ const isDay = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test
 // first solves (the solved date) and completed reviews that have no attempt of
 // their own (older data, or a review completed from the menu without the
 // outcome). A review with its attempt counts once.
+// The days something was done on one problem (see activityDays), one item per
+// thing done, so a day can repeat.
+const entryDays = (entry) => {
+  const days = [];
+  if (!entry || typeof entry !== "object") return days;
+  const attempts = attemptsOf(entry);
+  attempts.forEach((a) => days.push(a?.date));
+  if (entry.solved) days.push(entry.firstSolve?.date ?? entry.solvedDate);
+  for (let index = 0; index < 5; index += 1) {
+    const day = entry.reviews?.[index] && entry.dates?.[`review${index + 1}`];
+    if (day && !attempts.some((a) => a?.review === index && a?.date === day)) days.push(day);
+  }
+  return days.filter(isDay);
+};
+
 export const activityDays = (progress = {}) => {
   const days = {};
-  const add = (day) => {
-    if (isDay(day)) days[day] = (days[day] ?? 0) + 1;
-  };
   for (const entry of Object.values(progress)) {
-    if (!entry || typeof entry !== "object") continue;
-    const attempts = attemptsOf(entry);
-    attempts.forEach((a) => add(a?.date));
-    if (entry.solved) add(entry.firstSolve?.date ?? entry.solvedDate);
-    for (let index = 0; index < 5; index += 1) {
-      const day = entry.reviews?.[index] && entry.dates?.[`review${index + 1}`];
-      if (day && !attempts.some((a) => a?.review === index && a?.date === day)) add(day);
-    }
+    for (const day of entryDays(entry)) days[day] = (days[day] ?? 0) + 1;
   }
   return days;
 };
@@ -335,4 +340,80 @@ export const suggestNew = (problems, progress = {}, weakCategories = new Set(), 
       )
       .slice(0, limit),
   };
+};
+
+// --- Real difficulty, coverage and notes ---------------------------------
+
+// A problem is harder than its label says when, in at least HARDER_MIN review
+// attempts, HARDER_SHARE or more needed help.
+export const HARDER_MIN = 2;
+export const HARDER_SHARE = 0.5;
+
+const helpCounts = (entry) => {
+  const counts = { attempts: 0, helped: 0 };
+  for (const attempt of attemptsOf(entry)) {
+    if (attempt?.help === HELP.ALONE) counts.attempts += 1;
+    else if (attempt?.help === HELP.NOTE) {
+      counts.attempts += 1;
+      counts.helped += 1;
+    }
+  }
+  return counts;
+};
+
+// Easy and Medium problems that cost more than their difficulty says (a Hard
+// that needs help is expected, so Hard is left out): Easy first, then the ones
+// that needed help most often, then list order. At most `limit`.
+// Each item is `{ problem, attempts, helped }`.
+export const harderThanTheyLook = (problems, progress = {}, limit = 3) =>
+  problems
+    .filter((problem) => problem.difficulty === "Easy" || problem.difficulty === "Medium")
+    .map((problem) => ({ problem, ...helpCounts(progress[problem.id]) }))
+    .filter((item) => item.attempts >= HARDER_MIN && item.helped / item.attempts >= HARDER_SHARE)
+    .sort(
+      (a, b) =>
+        (DIFFICULTY_ORDER[a.problem.difficulty] ?? 1) - (DIFFICULTY_ORDER[b.problem.difficulty] ?? 1) ||
+        b.helped / b.attempts - a.helped / a.attempts ||
+        b.attempts - a.attempts ||
+        listOrder(a.problem) - listOrder(b.problem),
+    )
+    .slice(0, limit);
+
+// The categories with a solved problem that were practiced the longest time ago
+// (the last day anything was done on any of their problems), oldest first, then
+// list order. Each item is `{ category, daysAgo }`. At most `limit`.
+export const notPracticedLately = (problems, progress = {}, today, limit = 3) => {
+  const byCategory = new Map();
+  for (const problem of problems) {
+    const entry = progress[problem.id];
+    if (!entry?.solved) continue;
+    const name = categoryOf(problem);
+    const last = entryDays(entry).sort().at(-1);
+    const seen = byCategory.get(name);
+    if (!seen) byCategory.set(name, { category: name, last: last ?? null, index: byCategory.size });
+    else if (last && (!seen.last || last > seen.last)) seen.last = last;
+  }
+  return [...byCategory.values()]
+    .filter((item) => item.last)
+    .map((item) => ({ ...item, daysAgo: Math.max(0, daysBetween(item.last, today)) }))
+    .sort((a, b) => b.daysAgo - a.daysAgo || a.index - b.index)
+    .slice(0, limit)
+    .map(({ category, daysAgo }) => ({ category, daysAgo }));
+};
+
+// Do problems with a note need help less often? The attempts of the problems
+// that have a note now against those that do not, each `{ attempts, helped,
+// rate }` with `rate` null below MIN_ATTEMPTS. The date a note was written is
+// not kept, so this compares the problems as they are today.
+export const notesEffect = (problems, progress = {}) => {
+  const groups = { withNote: { attempts: 0, helped: 0 }, without: { attempts: 0, helped: 0 } };
+  for (const problem of problems) {
+    const entry = progress[problem.id];
+    const group = groups[typeof entry?.note === "string" && entry.note.trim() ? "withNote" : "without"];
+    const counts = helpCounts(entry);
+    group.attempts += counts.attempts;
+    group.helped += counts.helped;
+  }
+  const rate = (g) => ({ ...g, rate: g.attempts >= MIN_ATTEMPTS ? g.helped / g.attempts : null });
+  return { withNote: rate(groups.withNote), without: rate(groups.without) };
 };
