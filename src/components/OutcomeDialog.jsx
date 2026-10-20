@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { HELP } from "../lib/attempts";
+import TimeField from "./TimeField";
 import { formatDuration, parseDuration } from "../lib/timer";
 
 // Each option carries a barely visible hint of its color (green alone, yellow
@@ -91,21 +92,20 @@ const OutcomeDialog = ({ title, options, suggested = null, timedOut = false, tim
         )}
         {counted !== null && (
           <div className="mt-4">
-            <label htmlFor="outcome-time" className="block text-sm font-medium text-gray-800 dark:text-gray-100">
+            <label htmlFor="outcome-time" className="mb-1 block text-sm font-medium text-gray-800 dark:text-gray-100">
               Time (optional)
             </label>
-            <input
+            <TimeField
               id="outcome-time"
               value={text}
-              inputMode="numeric"
-              autoComplete="off"
-              aria-invalid={timeError || undefined}
-              aria-describedby={timeError ? "outcome-time-error" : undefined}
-              onChange={(event) => {
-                setText(event.target.value);
+              maxMs={counted}
+              invalid={timeError}
+              describedBy={timeError ? "outcome-time-error" : undefined}
+              onChange={(value) => {
+                setText(value);
                 setTimeError(false);
               }}
-              className="mt-1 w-28 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-1.5 text-sm tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-28 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-1.5 text-sm tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
             {timeError ? (
               <p id="outcome-time-error" role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">

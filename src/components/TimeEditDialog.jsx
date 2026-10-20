@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import TimeField from "./TimeField";
 import { MAX_EDIT_MS, formatDuration, parseDuration } from "../lib/timer";
 
 // Corrects a time by hand: a field in m:ss (also h:mm:ss, or just minutes), in a
@@ -67,21 +68,20 @@ const TimeEditDialog = ({ label, title = "Edit time", initialMs, maxMs = MAX_EDI
           {title}
         </h2>
         <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-300">{label}</p>
-        <label className="mt-4 block text-sm font-medium text-gray-800 dark:text-gray-100" htmlFor="time-edit-field">
+        <label className="mt-4 mb-1 block text-sm font-medium text-gray-800 dark:text-gray-100" htmlFor="time-edit-field">
           Time (m:ss)
         </label>
-        <input
+        <TimeField
           id="time-edit-field"
           value={text}
-          inputMode="numeric"
-          autoComplete="off"
-          aria-invalid={Boolean(error) || undefined}
-          aria-describedby={error ? "time-edit-error" : undefined}
-          onChange={(event) => {
-            setText(event.target.value);
+          maxMs={maxMs}
+          invalid={Boolean(error)}
+          describedBy={error ? "time-edit-error" : undefined}
+          onChange={(value) => {
+            setText(value);
             setError(null);
           }}
-          className="mt-1 w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-32 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
         {error && (
           <p id="time-edit-error" role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
