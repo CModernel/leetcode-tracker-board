@@ -18,7 +18,7 @@ import {
 } from "../lib/schedule";
 import { rewindConfirm } from "../lib/rewind";
 import { UNSOLVE_CONFIRM, getStage, masterConfirmFor } from "../lib/board";
-import { HELP, suggestedHelp } from "../lib/attempts";
+import { HELP, lastTimedRecord, suggestedHelp } from "../lib/attempts";
 import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
 import {
@@ -36,6 +36,7 @@ import { useTimerGuard } from "./useTimerGuard";
 import { useStartWork } from "./useStartWork";
 import SolvedNotePrompt from "./SolvedNotePrompt";
 import TimeCell from "./TimeCell";
+import TimeEditDialog from "./TimeEditDialog";
 import { useTimerSettings } from "../context/TimerSettingsContext";
 import { isTimedOut } from "../lib/timer";
 import NoteCell from "./NoteCell";
@@ -81,6 +82,7 @@ const ProblemTable = ({
     selectedList,
     markSolved,
     markMastered,
+    setRecordedTime,
     unsolve,
     completeReviewWithHelp,
     setNote,
@@ -127,6 +129,8 @@ const ProblemTable = ({
   const [notice, setNotice] = useState(null);
   // The problem just marked as solved whose note is being offered
   const [notePrompt, setNotePrompt] = useState(null);
+  // The problem whose recorded time is being corrected
+  const [timeEdit, setTimeEdit] = useState(null);
   const closeNotice = useCallback(() => setNotice(null), []);
 
   // The Solved button is a switch. Solving is immediate. Unsolving erases the
@@ -185,6 +189,18 @@ const ProblemTable = ({
         undo: paused.resume,
       });
     }
+  };
+
+  // Corrects (or removes, with null) the last recorded time, with Undo
+  const correctTime = (problem, ms) => {
+    const list = selectedList;
+    const before = progress[problem.id];
+    setRecordedTime(problem.id, ms);
+    setNotice({
+      id: Date.now(),
+      message: ms === null ? "Time removed" : "Time updated",
+      undo: () => restoreEntry(list, problem.id, before),
+    });
   };
 
   const filteredProblems = filterProblems(problems, progress, filters, today);
@@ -478,7 +494,7 @@ const ProblemTable = ({
                   </td>
                   {showTimer && showTime && (
                     <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 align-top">
-                      <TimeCell problem={problem} entry={prob} />
+                      <TimeCell problem={problem} entry={prob} onEditRecorded={setTimeEdit} />
                     </td>
                   )}
                   {showNotes && (
@@ -520,6 +536,16 @@ const ProblemTable = ({
           note={progress[notePrompt.id]?.note}
           onSave={(text) => setNote(notePrompt.id, text)}
           onClose={() => setNotePrompt(null)}
+        />
+      )}
+      {timeEdit && (
+        <TimeEditDialog
+          key={timeEdit.id}
+          label={timeEdit.title}
+          initialMs={lastTimedRecord(progress[timeEdit.id])?.ms ?? 0}
+          onSave={(ms) => correctTime(timeEdit, ms)}
+          onRemove={() => correctTime(timeEdit, null)}
+          onClose={() => setTimeEdit(null)}
         />
       )}
       {notice && (
