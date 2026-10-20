@@ -6,9 +6,9 @@ import {
   canUncompleteReview,
   isDateString,
 } from "../lib/schedule";
-import { HELP, REPEAT_DAYS, VIEW_KINDS, attemptsOf, isHelp } from "../lib/attempts";
+import { HELP, REPEAT_DAYS, VIEW_KINDS, attemptsOf, isHelp, lastTimedRecord } from "../lib/attempts";
 import { isStatus } from "../lib/status";
-import { activityOf, elapsedMs, findRunningTimer, normalizeTimer } from "../lib/timer";
+import { MAX_EDIT_MS, activityOf, elapsedMs, findRunningTimer, normalizeTimer } from "../lib/timer";
 
 // Pure functions that return the next `progress` object. `progress` is
 // { [listName]: { [problemId]: { status, solved, solvedDate, reviews, dates, note?, attempts?, helpViewed? } } }.
@@ -42,12 +42,14 @@ const withoutOverride = (entry) => {
 // no (valid) timer. `time` is { now, limitMs? } from the caller: `now` is the
 // timestamp the timer stops at (without it only the time already counted is
 // used) and `limitMs` the limit that applied, saved so a later change of the
-// limits does not rewrite history.
+// limits does not rewrite history. `time.ms` is a time corrected by the person
+// (see parseDuration) that replaces the one counted.
+const validMs = (value) => Number.isFinite(value) && value >= 0 && value <= MAX_EDIT_MS;
 const timeUsed = (entry, time) => {
   const timer = normalizeTimer(entry?.timer);
   if (!timer) return null;
   const stop = Number.isFinite(time?.now) ? time.now : timer.runningSince ?? 0;
-  const used = { ms: elapsedMs(timer, stop) };
+  const used = { ms: validMs(time?.ms) ? time.ms : elapsedMs(timer, stop) };
   if (Number.isFinite(time?.limitMs) && time.limitMs > 0) used.limitMs = time.limitMs;
   return used;
 };
@@ -156,6 +158,50 @@ export const pauseTimer = (progress, list, problemId, now) => {
   const current = progress[list]?.[problemId];
   if (normalizeTimer(current?.timer)?.runningSince == null) return progress;
   return updateEntry(progress, list, problemId, (entry) => pausedAt(entry, now));
+};
+
+// Corrects the time of the timer of a problem to `ms` (as the person says it
+// should be). A running timer keeps running from that value; a paused one stays
+// paused. Does nothing without a timer, with an invalid `ms` (not 0 to a day)
+// or when the time already is that.
+export const setTimerElapsed = (progress, list, problemId, ms, now) => {
+  const timer = normalizeTimer(progress[list]?.[problemId]?.timer);
+  if (!timer || !validMs(ms)) return progress;
+  const running = timer.runningSince !== null;
+  if (running && !Number.isFinite(now)) return progress;
+  if (elapsedMs(timer, running ? now : 0) === ms) return progress;
+  return updateEntry(progress, list, problemId, (entry) => ({
+    ...entry,
+    timer: { elapsedMs: ms, runningSince: running ? now : null },
+  }));
+};
+
+// Corrects the last time recorded for a problem (see lastTimedRecord: the last
+// review attempt with a time, else the first solve's) to `ms`, or removes it
+// with `null` (the time becomes unknown, never 0, and its limit goes too). The
+// score follows by itself, it is computed. Does nothing when there is no time
+// recorded, `ms` is invalid or it already is that.
+export const setRecordedTime = (progress, list, problemId, ms) => {
+  const entry = progress[list]?.[problemId];
+  const target = lastTimedRecord(entry);
+  if (!target) return progress;
+  if (ms !== null && !validMs(ms)) return progress;
+  if (ms === target.ms) return progress;
+  const fix = (record) => {
+    const { ms: oldMs, limitMs, ...rest } = record;
+    void oldMs;
+    return ms === null ? rest : { ...rest, ms, ...(limitMs === undefined ? {} : { limitMs }) };
+  };
+  return updateEntry(progress, list, problemId, (current) =>
+    target.kind === "first"
+      ? { ...current, firstSolve: fix(current.firstSolve) }
+      : {
+          ...current,
+          attempts: attemptsOf(current).map((attempt, index) =>
+            index === target.index ? fix(attempt) : attempt
+          ),
+        }
+  );
 };
 
 // Throws the time counted away (running or not). Does nothing without a timer.

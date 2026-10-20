@@ -142,6 +142,10 @@ export const ProgressProvider = ({ children }) => {
       ),
     startTimer: (problemId, list = selectedList) =>
       setProgress((prev) => reducers.startTimer(prev, list, problemId, Date.now())),
+    setTimerElapsed: (problemId, ms) =>
+      setProgress((prev) => reducers.setTimerElapsed(prev, selectedList, problemId, ms, Date.now())),
+    setRecordedTime: (problemId, ms) =>
+      setProgress((prev) => reducers.setRecordedTime(prev, selectedList, problemId, ms)),
     pauseTimer: (problemId, list = selectedList) =>
       setProgress((prev) => reducers.pauseTimer(prev, list, problemId, Date.now())),
     resetTimer: (problemId) =>

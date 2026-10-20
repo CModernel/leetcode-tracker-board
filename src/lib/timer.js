@@ -91,6 +91,27 @@ export const formatDuration = (ms) => {
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(rest)}` : `${minutes}:${pad(rest)}`;
 };
 
+// The most a corrected time can be: a day. Anything longer is a typo.
+export const MAX_EDIT_MS = 24 * 60 * 60 * 1000;
+
+// A time typed by the person -> milliseconds, or null when it is not a valid
+// time. Accepts "7:20" (minutes:seconds), "1:05:30" (hours:minutes:seconds) and
+// "7" (minutes). Seconds and minutes after a colon go up to 59; no decimals, no
+// negatives; up to MAX_EDIT_MS.
+export const parseDuration = (text) => {
+  const value = String(text ?? "").trim();
+  let ms = null;
+  let match;
+  if ((match = /^(\d{1,4})$/.exec(value))) {
+    ms = Number(match[1]) * MINUTE;
+  } else if ((match = /^(\d{1,4}):([0-5]?\d)$/.exec(value))) {
+    ms = (Number(match[1]) * 60 + Number(match[2])) * 1000;
+  } else if ((match = /^(\d{1,3}):([0-5]?\d):([0-5]?\d)$/.exec(value))) {
+    ms = (Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3])) * 1000;
+  }
+  return ms !== null && ms <= MAX_EDIT_MS ? ms : null;
+};
+
 // What the person is doing when they time a problem: the first solve (not
 // solved yet) or the next review that is pending (R1..R5). Null when there is
 // nothing left to do (every review is done).

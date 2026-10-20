@@ -35,3 +35,22 @@ export const suggestedHelp = (entry, today, { timedOut = false } = {}) => {
   }
   return null;
 };
+
+// The last time recorded for a problem, the one that can be corrected: the last
+// review attempt that has a time (`{ kind: "attempt", index, review, ms,
+// limitMs }`, `index` its place in `attempts`), else the first solve's time
+// (`{ kind: "first", ms, limitMs }`), else null. A missing time is unknown, not
+// zero.
+export const lastTimedRecord = (entry) => {
+  const attempts = attemptsOf(entry);
+  for (let index = attempts.length - 1; index >= 0; index -= 1) {
+    const attempt = attempts[index];
+    if (Number.isFinite(attempt?.ms)) {
+      return { kind: "attempt", index, review: attempt.review, ms: attempt.ms, limitMs: attempt.limitMs };
+    }
+  }
+  if (Number.isFinite(entry?.firstSolve?.ms)) {
+    return { kind: "first", ms: entry.firstSolve.ms, limitMs: entry.firstSolve.limitMs };
+  }
+  return null;
+};
