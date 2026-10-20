@@ -196,7 +196,8 @@ export const ProgressProvider = ({ children }) => {
       setProgress((prev) =>
         reducers.markHelpViewed(prev, selectedList, problemId, kind, localToday())
       ),
-    completeReviewWithHelp: (problemId, index, help) =>
+    // `ms` is a time typed in the outcome dialog (lower than the one counted)
+    completeReviewWithHelp: (problemId, index, help, ms) =>
       setProgress((prev) =>
         reducers.completeReviewWithHelp(
           prev,
@@ -205,7 +206,10 @@ export const ProgressProvider = ({ children }) => {
           index,
           help,
           localToday(),
-          timeFor(selectedList, problemId, "review", limits)
+          {
+            ...timeFor(selectedList, problemId, "review", limits),
+            ...(ms === undefined ? {} : { ms }),
+          }
         )
       ),
     rewindReviews: (problemId, index) =>

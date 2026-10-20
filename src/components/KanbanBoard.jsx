@@ -45,7 +45,7 @@ import { useTimerGuard } from "./useTimerGuard";
 import SolvedNotePrompt from "./SolvedNotePrompt";
 import { NotePromptContext } from "../context/NotePromptContext";
 import { useTimerSettings } from "../context/TimerSettingsContext";
-import { isTimedOut } from "../lib/timer";
+import { isTimedOut, timeCounted } from "../lib/timer";
 import { outcomeOptions } from "../lib/outcomes";
 import { filterProblems } from "../lib/filters";
 import { localToday } from "../lib/schedule";
@@ -196,13 +196,14 @@ const KanbanBoard = () => {
   // Completing a review (card button, or the dialog's answer): same
   // action everywhere, written in the attempt history, with Undo. `option` says
   // how it went: { help, message }.
-  const finishReview = (item, option) => {
+  const finishReview = (item, option, ms) => {
     const list = selectedList;
     const before = listProgress[item.problem.id];
     completeReviewWithHelp(
       item.problem.id,
       Number(item.stage.slice(1)) - 1,
-      option.help
+      option.help,
+      ms
     );
     setNotice({
       id: Date.now(),
@@ -446,10 +447,11 @@ const KanbanBoard = () => {
             timedOut: helpItem.timedOut,
           })}
           timedOut={helpItem.timedOut}
-          onChoose={(option) => {
+          timeMs={showTimer ? timeCounted(listProgress[helpItem.problem.id], Date.now()) : null}
+          onChoose={(option, ms) => {
             const item = helpItem;
             setHelpItem(null);
-            finishReview(item, option);
+            finishReview(item, option, ms);
           }}
           onClose={() => setHelpItem(null)}
         />

@@ -55,6 +55,12 @@ export const elapsedMs = (timer, now) => {
   return valid.elapsedMs + Math.max(0, now - valid.runningSince);
 };
 
+// The time counted for a problem's entry at `now`, or null when it has no timer.
+export const timeCounted = (entry, now) => {
+  const timer = normalizeTimer(entry?.timer);
+  return timer ? elapsedMs(timer, now) : null;
+};
+
 // How a time compares with its limit:
 // "ontime" (within the limit, or no limit), "grace" (a little over, same score),
 // "late" (clearly over, lower score) or "timeout" (too long: forgotten).

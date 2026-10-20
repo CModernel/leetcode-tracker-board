@@ -308,6 +308,54 @@ describe("completing from the card menu", () => {
   });
 });
 
+describe("the Time field of the outcome dialog", () => {
+  const noted = (extra = {}) =>
+    twoSum({ helpViewed: { note: "2026-10-20" }, timer: { elapsedMs: 6 * MIN, runningSince: null }, ...extra });
+  const field = () => within(screen.getByRole("dialog")).getByLabelText("Time (optional)");
+  const answer = (name) => fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name }));
+
+  it("shows the time counted, and an unchanged field records it as counted", () => {
+    seed({ "blind75-1": noted() });
+    renderBoard();
+    fireEvent.click(within(card()).getByRole("button", { name: /^Complete R3/ }));
+    expect(field().value).toBe("6:00");
+    answer(/Solved it myself/);
+    expect(saved().attempts.at(-1)).toEqual({ date: "2026-10-20", review: 2, help: 0, ms: 6 * MIN, limitMs: 10 * MIN });
+  });
+
+  it("a lowered time is the one recorded, whatever the answer", () => {
+    seed({ "blind75-1": noted() });
+    renderBoard();
+    fireEvent.click(within(card()).getByRole("button", { name: /^Complete R3/ }));
+    fireEvent.change(field(), { target: { value: "4:10" } });
+    answer(/Needed help/);
+    expect(saved().attempts.at(-1)).toEqual({ date: "2026-10-20", review: 2, help: 1, ms: 4 * MIN + 10_000, limitMs: 10 * MIN });
+  });
+
+  it("a higher or invalid time shows an error and answers nothing", () => {
+    seed({ "blind75-1": noted() });
+    renderBoard();
+    fireEvent.click(within(card()).getByRole("button", { name: /^Complete R3/ }));
+    for (const bad of ["6:01", "abc"]) {
+      fireEvent.change(field(), { target: { value: bad } });
+      answer(/Solved it myself/);
+      expect(within(screen.getByRole("dialog")).getByRole("alert")).toBeTruthy();
+      expect(saved().reviews[2]).toBe(false);
+    }
+    fireEvent.change(field(), { target: { value: "5" } });
+    answer(/Solved it myself/);
+    expect(saved().attempts.at(-1).ms).toBe(5 * MIN);
+  });
+
+  it("without a timer there is no Time field", () => {
+    seed({ "blind75-1": twoSum({ helpViewed: { note: "2026-10-20" } }) });
+    renderBoard();
+    fireEvent.click(within(card()).getByRole("button", { name: /^Complete R3/ }));
+    expect(screen.getByText("How did it go?")).toBeTruthy();
+    expect(screen.queryByLabelText("Time (optional)")).toBeNull();
+  });
+});
+
 describe("skipping the timer", () => {
   it("completing without starting it records no time (unknown, not 0)", () => {
     seed();

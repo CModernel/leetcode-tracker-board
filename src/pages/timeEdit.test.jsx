@@ -137,3 +137,23 @@ describe("correcting the recorded time in the tracker", () => {
     expect(saved().firstSolve).toEqual({ date: "2026-10-18", ms: 7 * MIN + 20_000, limitMs: 15 * MIN });
   });
 });
+
+describe("the Time field of the outcome dialog in the tracker", () => {
+  it("a lowered time is the one recorded", () => {
+    seed(
+      solved({
+        reviews: [true, true, false, false, false],
+        dates: { initial: "2026-10-18", review1: "2026-10-19", review2: "2026-10-19" },
+        helpViewed: { note: "2026-10-20" },
+        timer: { elapsedMs: 6 * MIN, runningSince: null },
+      }),
+    );
+    renderTracker();
+    fireEvent.click(within(row()).getByRole("button", { name: /^R3/ }));
+    const time = within(dialog()).getByLabelText("Time (optional)");
+    expect(time.value).toBe("6:00");
+    fireEvent.change(time, { target: { value: "3:30" } });
+    click(/Solved it myself/);
+    expect(saved().attempts.at(-1)).toMatchObject({ review: 2, help: 0, ms: 3 * MIN + 30_000 });
+  });
+});

@@ -43,13 +43,15 @@ const withoutOverride = (entry) => {
 // timestamp the timer stops at (without it only the time already counted is
 // used) and `limitMs` the limit that applied, saved so a later change of the
 // limits does not rewrite history. `time.ms` is a time corrected by the person
-// (see parseDuration) that replaces the one counted.
+// (see parseDuration) that replaces the one counted, only when it is lower: a
+// time can be corrected down, never up.
 const validMs = (value) => Number.isFinite(value) && value >= 0 && value <= MAX_EDIT_MS;
 const timeUsed = (entry, time) => {
   const timer = normalizeTimer(entry?.timer);
   if (!timer) return null;
   const stop = Number.isFinite(time?.now) ? time.now : timer.runningSince ?? 0;
-  const used = { ms: validMs(time?.ms) ? time.ms : elapsedMs(timer, stop) };
+  const counted = elapsedMs(timer, stop);
+  const used = { ms: validMs(time?.ms) && time.ms <= counted ? time.ms : counted };
   if (Number.isFinite(time?.limitMs) && time.limitMs > 0) used.limitMs = time.limitMs;
   return used;
 };

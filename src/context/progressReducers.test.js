@@ -1471,6 +1471,13 @@ describe("correcting a time by hand", () => {
       }
     });
 
+    it("a correction higher than the counted time is ignored: a time only goes down", () => {
+      const next = completeReviewWithHelp(running(), LIST, "1", 2, HELP.ALONE, "2026-10-20", { now: T0 + 7 * MIN, ms: 8 * MIN });
+      expect(entry(next).attempts.at(-1).ms).toBe(7 * MIN);
+      const same = completeReviewWithHelp(running(), LIST, "1", 2, HELP.ALONE, "2026-10-20", { now: T0 + 7 * MIN, ms: 7 * MIN });
+      expect(entry(same).attempts.at(-1).ms).toBe(7 * MIN);
+    });
+
     it("without a timer there is nothing to correct: no time is invented", () => {
       const next = completeReviewWithHelp(solvedState(), LIST, "1", 2, HELP.ALONE, "2026-10-20", { now: T0, ms: 6 * MIN });
       expect(entry(next).attempts.at(-1)).toEqual({ date: "2026-10-20", review: 2, help: 0 });

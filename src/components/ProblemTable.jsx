@@ -38,7 +38,7 @@ import SolvedNotePrompt from "./SolvedNotePrompt";
 import TimeCell from "./TimeCell";
 import TimeEditDialog from "./TimeEditDialog";
 import { useTimerSettings } from "../context/TimerSettingsContext";
-import { isTimedOut } from "../lib/timer";
+import { isTimedOut, timeCounted } from "../lib/timer";
 import NoteCell from "./NoteCell";
 import OutcomeDialog from "./OutcomeDialog";
 import Toast from "./Toast";
@@ -521,10 +521,11 @@ const ProblemTable = ({
             timedOut: helpFor.timedOut,
           })}
           timedOut={helpFor.timedOut}
-          onChoose={(option) => {
+          timeMs={showTimer ? timeCounted(progress[helpFor.problem.id], Date.now()) : null}
+          onChoose={(option, ms) => {
             const { problem, index } = helpFor;
             setHelpFor(null);
-            completeReviewWithHelp(problem.id, index, option.help);
+            completeReviewWithHelp(problem.id, index, option.help, ms);
           }}
           onClose={() => setHelpFor(null)}
         />
