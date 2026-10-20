@@ -142,8 +142,8 @@ const TrackerHeader = ({ title, showDueToday = true }) => {
                   in the Time column), never raised
                 </li>
                 <li>
-                  8. Open Insights to see which categories need practice
-                  and what to do next
+                  8. Open Insights to see which categories need practice,
+                  how punctual you are and what to do next
                 </li>
               </ul>
             </div>
