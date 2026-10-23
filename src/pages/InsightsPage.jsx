@@ -5,6 +5,7 @@ import Toast from "../components/Toast";
 import ProblemList from "../components/insights/ProblemList";
 import CategoryTable from "../components/insights/CategoryTable";
 import ActivitySection from "../components/insights/ActivitySection";
+import PatternsSection from "../components/insights/PatternsSection";
 import { useStartWork } from "../components/useStartWork";
 import { useProgress } from "../context/ProgressContext";
 import { useTimerSettings } from "../context/TimerSettingsContext";
@@ -15,8 +16,13 @@ import {
   activityDays,
   categoryOf,
   categoryStats,
+  harderThanTheyLook,
   heatMap,
+  notPracticedLately,
+  notesEffect,
+  punctuality,
   rankCategories,
+  retentionByReview,
   streak,
   suggestNew,
   timeSummary,
@@ -38,7 +44,8 @@ const lateText = (daysLate) =>
   daysLate === 0 ? "due today" : `${daysLate} ${daysLate === 1 ? "day" : "days"} late`;
 
 // What the history of the selected list says: what to do today, what to try
-// next, which categories need practice (help, step-backs, time), and at the top
+// next, patterns (retention, punctuality, problems harder than they look, categories
+// not practiced), which categories need practice (help, time), and at the top
 // the activity heat map with the streak and the reviews coming. Everything is computed from the saved progress.
 const InsightsPage = () => {
   const { progress, selectedList } = useProgress();
@@ -136,6 +143,17 @@ const InsightsPage = () => {
             />
           </Card>
         </div>
+
+        <Card title="Patterns">
+          <PatternsSection
+            retention={retentionByReview(problems, listProgress)}
+            punctuality={punctuality(problems, listProgress)}
+            harder={harderThanTheyLook(problems, listProgress)}
+            notes={notesEffect(problems, listProgress)}
+            notPracticed={notPracticedLately(problems, listProgress, today)}
+            onOpen={open}
+          />
+        </Card>
 
         <Card title="Categories">
           {anyHistory ? (
