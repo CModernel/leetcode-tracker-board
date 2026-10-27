@@ -53,6 +53,13 @@ describe("the hint tables", () => {
     expect(Object.values(manualHints).every((id) => id === null || ids.has(id))).toBe(true);
   });
 
+  it("every problem of the three lists has a manual entry (a pattern or null)", () => {
+    const missing = [...blind75, ...leetcode75, ...neetcode150]
+      .filter((p) => !Object.hasOwn(manualHints, p.slug))
+      .map((p) => p.slug);
+    expect(missing).toEqual([]);
+  });
+
   it("every slug of the manual hints belongs to a problem of a list", () => {
     const slugs = new Set([...blind75, ...leetcode75, ...neetcode150].map((p) => p.slug));
     expect(Object.keys(manualHints).every((slug) => slugs.has(slug))).toBe(true);
