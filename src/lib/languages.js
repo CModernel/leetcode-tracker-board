@@ -12,6 +12,8 @@ export const LANGUAGES = [
   { id: "go", name: "Go", prism: "go", color: "bg-cyan-500" },
   { id: "kotlin", name: "Kotlin", prism: "kotlin", color: "bg-purple-500" },
   { id: "swift", name: "Swift", prism: "swift", color: "bg-orange-500" },
+  { id: "csharp", name: "C#", prism: "csharp", color: "bg-green-600" },
+  { id: "rust", name: "Rust", prism: "rust", color: "bg-amber-700" },
 ];
 
 export const DEFAULT_LANGUAGE = "python";
