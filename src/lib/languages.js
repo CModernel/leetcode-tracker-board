@@ -5,8 +5,10 @@
 // checks it), so a half-written language never shows.
 export const LANGUAGES = [
   { id: "python", name: "Python", prism: "python", color: "bg-blue-500" },
+  { id: "cpp", name: "C++", prism: "cpp", color: "bg-indigo-500" },
   { id: "java", name: "Java", prism: "java", color: "bg-red-500" },
   { id: "javascript", name: "JavaScript", prism: "javascript", color: "bg-yellow-500" },
+  { id: "typescript", name: "TypeScript", prism: "typescript", color: "bg-sky-600" },
   { id: "go", name: "Go", prism: "go", color: "bg-cyan-500" },
 ];
 
