@@ -1,5 +1,6 @@
 [
   {
+    "id": "two-pointers",
     "title": "Two Pointers",
     "description": "Used for sorted arrays, reversing, removing elements, comparing ends. Great for reducing O(n²) to O(n).",
     "templates": {
@@ -22,6 +23,7 @@
     ]
   },
   {
+    "id": "sliding-window",
     "title": "Sliding Window",
     "description": "Sliding Window is a technique to efficiently handle contiguous subarrays or substrings. Two major forms exist: (1) Fixed-size window (size = k), used for sums/averages and constant-length subarrays; (2) Dynamic (variable-size) window, used when the window expands and shrinks based on a condition (e.g., character frequency, distinct characters, constraints). For binary arrays or situations where only one counter is needed, an optimized dynamic window without a hashmap can be used.",
     "templates": {
@@ -50,6 +52,7 @@
     ]
   },
   {
+    "id": "monotonic-stack",
     "title": "Monotonic Stack",
     "description": "Used for finding next/previous greater or smaller elements. Maintains elements in monotonic (increasing or decreasing) order. Two variants: (1) Monotonic Decreasing Stack - for next greater element problems; (2) Monotonic Increasing Stack - for next smaller element problems. The stack stores indices (not values) to track positions.",
     "templates": {
@@ -76,6 +79,7 @@
     ]
   },
   {
+    "id": "fast-slow-pointers",
     "title": "Fast and Slow Pointers",
     "description": "Used for cycle detection in linked lists or arrays.",
     "templates": {
@@ -98,6 +102,7 @@
     ]
   },
   {
+    "id": "hashing",
     "title": "Hashing (Set / Dictionary)",
     "description": "Used for frequency counting, quick lookup.",
     "templates": {
@@ -116,6 +121,7 @@
     "problems": ["Two Sum", "Group Anagrams", "Top K Frequent Elements"]
   },
   {
+    "id": "binary-search",
     "title": "Binary Search",
     "description": "Used for sorted arrays and search space problems. Three main variants: (1) Standard Binary Search - finds exact target; (2) Lower Bound - finds first position where arr[i] >= target (leftmost insertion point); (3) Upper Bound - finds first position where arr[i] > target (rightmost insertion point). Lower/Upper bounds are useful for finding insert positions, range queries, and 'at least/at most' problems.",
     "templates": {
@@ -142,6 +148,7 @@
     ]
   },
   {
+    "id": "prefix-sum",
     "title": "Prefix Sum",
     "description": "Used for fast range sum queries and subarray sum problems. Two common implementations: (1) with an extra 0 at the start, which makes range sums easier, and (2) without the extra 0, using 0-based indexing.",
     "templates": {
@@ -164,6 +171,7 @@
     ]
   },
   {
+    "id": "backtracking",
     "title": "Backtracking",
     "description": "Used for generating combinations/permutations.",
     "templates": {
@@ -182,6 +190,7 @@
     "problems": ["Subsets", "Permutations", "N-Queens"]
   },
   {
+    "id": "dfs-trees",
     "title": "DFS for Trees",
     "description": "Used for traversals, height calculation, path sums.",
     "templates": {
@@ -200,6 +209,7 @@
     "problems": ["Max Depth of Binary Tree", "Path Sum", "Balanced Binary Tree"]
   },
   {
+    "id": "bfs-trees",
     "title": "BFS for Trees",
     "description": "Used for level order traversal, shortest path in trees.",
     "templates": {
@@ -221,6 +231,7 @@
     ]
   },
   {
+    "id": "dp",
     "title": "Dynamic Programming (DP)",
     "description": "Used for optimal substructure, overlapping subproblems.",
     "templates": {
@@ -243,6 +254,7 @@
     ]
   },
   {
+    "id": "topological-sort",
     "title": "Topological Sort",
     "description": "Kahn’s Algorithm for ordering nodes in a Directed Acyclic Graph (DAG) based on dependencies. Used for task scheduling.",
     "templates": {
@@ -265,6 +277,7 @@
     ]
   },
   {
+    "id": "union-find",
     "title": "Union Find (Disjoint Set)",
     "description": "Efficiently manages connected components. Features path compression and union by rank/size for nearly O(1) operations.",
     "templates": {
@@ -288,6 +301,7 @@
     ]
   },
   {
+    "id": "trie",
     "title": "Trie (Prefix Tree)",
     "description": "Used for efficient string prefix matching and search. Each node contains a map/array of children and an 'isEndOfWord' flag.",
     "templates": {
@@ -311,6 +325,7 @@
     ]
   },
   {
+    "id": "heap",
     "title": "Heap / Priority Queue",
     "description": "Maintains a running 'top K' elements. Min-heap for K largest elements, Max-heap for K smallest elements. Python and Java have built-in support; JS requires a manual implementation or sorted array for simple cases.",
     "templates": {
@@ -334,6 +349,7 @@
     ]
   },
   {
+    "id": "dfs-graphs",
     "title": "DFS for Graphs",
     "description": "Used for connectivity, path finding, and cycle detection. Unlike trees, graphs can have cycles, so a 'visited' set is required to avoid infinite loops.",
     "templates": {
@@ -357,6 +373,7 @@
     ]
   },
   {
+    "id": "bfs-graphs",
     "title": "BFS for Graphs",
     "description": "Used for finding the shortest path in unweighted graphs and level-order traversal. Uses a queue and a 'visited' set.",
     "templates": {
@@ -379,6 +396,7 @@
     ]
   },
   {
+    "id": "dijkstra",
     "title": "Dijkstra's Algorithm",
     "description": "Finds the shortest path from a source to all other nodes in a weighted graph with non-negative edge weights. Uses a Priority Queue (Min-Heap).",
     "templates": {
@@ -401,6 +419,7 @@
     ]
   },
   {
+    "id": "bellman-ford",
     "title": "Bellman-Ford",
     "description": "Finds the shortest path from a source to all nodes in a graph that can have negative edge weights. Can also detect negative cycles.",
     "templates": {

@@ -15,6 +15,12 @@ describe("the Patterns templates", () => {
     }
   });
 
+  it("every pattern has a unique id for the hint links", () => {
+    const ids = patterns.map((pattern) => pattern.id);
+    expect(ids.every((id) => /^[a-z0-9-]+$/.test(id))).toBe(true);
+    expect(new Set(ids).size).toBe(patterns.length);
+  });
+
   it("the language list has unique ids and a highlighter id for each", () => {
     expect(new Set(LANGUAGES.map((l) => l.id)).size).toBe(LANGUAGES.length);
     expect(LANGUAGES.every((l) => l.name && l.prism && l.color)).toBe(true);
