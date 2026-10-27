@@ -34,7 +34,7 @@ const Patterns = () => {
   useEffect(() => {
     const target = patterns.find((pattern) => pattern.id === wanted);
     if (!target) return undefined;
-    document.getElementById(`pattern-${target.id}`)?.scrollIntoView?.({ block: "center" });
+    document.getElementById(`pattern-${target.id}`)?.scrollIntoView?.({ block: "start" });
     setHighlighted(target.id);
     const timer = setTimeout(() => setHighlighted(null), 3000);
     return () => clearTimeout(timer);
@@ -122,7 +122,8 @@ const Patterns = () => {
             <div
               key={idx}
               id={`pattern-${pattern.id}`}
-              className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-all ${
+              // scroll-mt keeps the heading clear of the sticky language bar
+              className={`scroll-mt-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-all ${
                 highlighted === pattern.id ? "ring-4 ring-yellow-400" : ""
               }`}
             >

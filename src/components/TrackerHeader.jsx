@@ -145,6 +145,10 @@ const TrackerHeader = ({ title, showDueToday = true }) => {
                   8. Open Insights to see which categories need practice,
                   how punctual you are and what to do next
                 </li>
+                <li>
+                  9. The magnifier next to a problem opens the pattern it is
+                  solved with in Patterns
+                </li>
               </ul>
             </div>
           </div>

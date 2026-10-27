@@ -85,6 +85,7 @@ The **Patterns** page has a short code template for each of the 19 common patter
 
 - **11 languages**: Python, C++, Java, JavaScript, TypeScript, Go, Kotlin, Swift, C#, Rust and C. On a computer you pick it with buttons; on a phone, with a selector.
 - The language you pick is remembered in your browser.
+- **Hints**: a small magnifier on every problem that has a clear pattern (on the board card above the note icon, and next to the title in the tracker) opens this page on that pattern, highlighted. It is only a nudge: opening it never counts as help and changes nothing in your progress. Problems with no clear pattern (many Stack, Linked List, Greedy, Intervals, Math and Bit problems) have no magnifier. The pattern of each of the 208 problems was reviewed by hand.
 - Where a language has no built-in heap or hashmap (Swift, C, JavaScript), the template says so and shows what to use instead.
 
 ### 🏆 Mark as mastered
