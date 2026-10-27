@@ -35,6 +35,7 @@ import {
 import { useTimerGuard } from "./useTimerGuard";
 import { useStartWork } from "./useStartWork";
 import SolvedNotePrompt from "./SolvedNotePrompt";
+import ProblemHint from "./ProblemHint";
 import TimeCell from "./TimeCell";
 import TimeEditDialog from "./TimeEditDialog";
 import { useTimerSettings } from "../context/TimerSettingsContext";
@@ -314,6 +315,7 @@ const ProblemTable = ({
                         <span className="line-clamp-2">{problem.title}</span>
                         <ExternalLink size={14} className="flex-shrink-0" />
                       </a>
+                      <ProblemHint problem={problem} className="h-6 w-6" />
                     </div>
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">

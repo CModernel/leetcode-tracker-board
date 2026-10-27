@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Check, Code2, Copy } from "lucide-react";
 import { patterns } from "../data";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -24,6 +25,20 @@ const Patterns = () => {
   const [selectedLanguage, setSelectedLanguage] = useState(savedLanguage);
   const [copiedIndex, setCopiedIndex] = useState(null);
   const { isDark } = useTheme();
+  // A hint links here with `?pattern=<id>`: that pattern is scrolled into view
+  // and highlighted for a moment. An unknown id just shows the page.
+  const [params] = useSearchParams();
+  const wanted = params.get("pattern");
+  const [highlighted, setHighlighted] = useState(null);
+
+  useEffect(() => {
+    const target = patterns.find((pattern) => pattern.id === wanted);
+    if (!target) return undefined;
+    document.getElementById(`pattern-${target.id}`)?.scrollIntoView?.({ block: "start" });
+    setHighlighted(target.id);
+    const timer = setTimeout(() => setHighlighted(null), 3000);
+    return () => clearTimeout(timer);
+  }, [wanted]);
 
   const language = LANGUAGES.find((l) => l.id === selectedLanguage) ?? LANGUAGES[0];
 
@@ -106,7 +121,11 @@ const Patterns = () => {
             return (
             <div
               key={idx}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-all"
+              id={`pattern-${pattern.id}`}
+              // scroll-mt keeps the heading clear of the sticky language bar
+              className={`scroll-mt-32 bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-all ${
+                highlighted === pattern.id ? "ring-4 ring-yellow-400" : ""
+              }`}
             >
               <div className="bg-gradient-to-r from-indigo-500 to-blue-500 py-3 px-4">
                 <h2 className="text-lg font-bold text-white mb-1">

@@ -1,6 +1,7 @@
 import { Calendar, Check, Clock, ExternalLink } from "lucide-react";
 import KanbanCardMenu from "./KanbanCardMenu";
 import KanbanCardNote from "./KanbanCardNote";
+import ProblemHint from "./ProblemHint";
 import { KanbanCardTimerBar, KanbanCardTimerStart } from "./KanbanCardTimer";
 import { useCardTimer } from "./useCardTimer";
 import { useStartWork } from "./useStartWork";
@@ -91,9 +92,10 @@ const KanbanCard = ({ card, onComplete, onSolve }) => {
           ))}
         </div>
         </div>
-        {/* One column on the right: the menu, then the note */}
+        {/* One column on the right: the menu, the hint (when there is one), then the note */}
         <div className="flex flex-shrink-0 flex-col items-center gap-0.5">
           <KanbanCardMenu card={card} onComplete={onComplete} />
+          <ProblemHint problem={problem} className="p-1" />
           <KanbanCardNote problem={problem} note={card.entry?.note} />
         </div>
       </div>
