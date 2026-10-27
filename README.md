@@ -79,6 +79,14 @@ The **Insights** page reads your history for the selected list and tells you whe
 - **At the top**, a heat map of the last 12 weeks (like a contribution graph) with six numbers: current streak, active days this week, mastered problems, average time against the time limit (for example "12% under limit"; it needs 3 timed attempts and shows why when it has none), overdue reviews and how many are due tomorrow.
 - Nothing new is saved: it is all computed from your progress, so it works with your existing data and the export/import file.
 
+### 🧩 Patterns cheat sheet
+
+The **Patterns** page has a short code template for each of the 19 common patterns (Two Pointers, Sliding Window, Binary Search, Dijkstra...), with copy and the problems that use it.
+
+- **11 languages**: Python, C++, Java, JavaScript, TypeScript, Go, Kotlin, Swift, C#, Rust and C. On a computer you pick it with buttons; on a phone, with a selector.
+- The language you pick is remembered in your browser.
+- Where a language has no built-in heap or hashmap (Swift, C, JavaScript), the template says so and shows what to use instead.
+
 ### 🏆 Mark as mastered
 
 If you already know a problem, you do not need to tap R1 to R5: mark it as mastered.
