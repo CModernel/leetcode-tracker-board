@@ -7,20 +7,34 @@ import {
   oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useTheme } from "../context/ThemeContext";
+import { LANGUAGES } from "../lib/languages";
+import { PATTERN_LANGUAGE_KEY, parsePatternLanguage } from "../lib/preferences";
 
+
+// The language picked last time (kept in the browser), else the default.
+const savedLanguage = () => {
+  try {
+    return parsePatternLanguage(localStorage.getItem(PATTERN_LANGUAGE_KEY));
+  } catch {
+    return parsePatternLanguage(null);
+  }
+};
 
 const Patterns = () => {
-  const [selectedLanguage, setSelectedLanguage] = useState("python");
+  const [selectedLanguage, setSelectedLanguage] = useState(savedLanguage);
   const [copiedIndex, setCopiedIndex] = useState(null);
   const { isDark } = useTheme();
 
+  const language = LANGUAGES.find((l) => l.id === selectedLanguage) ?? LANGUAGES[0];
 
-  const languages = [
-    { id: "python", name: "Python", color: "bg-blue-500" },
-    { id: "javascript", name: "JavaScript", color: "bg-yellow-500" },
-    { id: "java", name: "Java", color: "bg-red-500" },
-    { id: "go", name: "Go", color: "bg-cyan-500" },
-  ];
+  const chooseLanguage = (id) => {
+    setSelectedLanguage(id);
+    try {
+      localStorage.setItem(PATTERN_LANGUAGE_KEY, id);
+    } catch (error) {
+      console.error("Error saving the language:", error);
+    }
+  };
 
   const copyToClipboard = (text, index) => {
     navigator.clipboard.writeText(text);
@@ -48,27 +62,48 @@ const Patterns = () => {
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-8 sticky top-4 z-10 transition-colors">
           <div className="flex items-center justify-center gap-3 flex-wrap">
-            <span className="text-gray-700 dark:text-gray-300 font-medium">
+            <label
+              htmlFor="pattern-language"
+              className="text-gray-700 dark:text-gray-300 font-medium"
+            >
               Select Language:
-            </span>
-            {languages.map((lang) => (
-              <button
-                key={lang.id}
-                onClick={() => setSelectedLanguage(lang.id)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  selectedLanguage === lang.id
-                    ? `${lang.color} text-white shadow-lg scale-105`
-                    : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-                }`}
-              >
-                {lang.name}
-              </button>
-            ))}
+            </label>
+            {/* Phones: one line (a select). From sm up: the buttons. */}
+            <select
+              id="pattern-language"
+              value={language.id}
+              onChange={(event) => chooseLanguage(event.target.value)}
+              className="sm:hidden rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-800 dark:text-gray-100"
+            >
+              {LANGUAGES.map((lang) => (
+                <option key={lang.id} value={lang.id}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+            <div className="hidden sm:flex items-center justify-center gap-3 flex-wrap">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.id}
+                  onClick={() => chooseLanguage(lang.id)}
+                  aria-pressed={language.id === lang.id}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    language.id === lang.id
+                      ? `${lang.color} text-white shadow-lg scale-105`
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {lang.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="space-y-6">
-          {patterns.map((pattern, idx) => (
+          {patterns.map((pattern, idx) => {
+            const template = pattern.templates?.[language.id];
+            return (
             <div
               key={idx}
               className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-all"
@@ -84,16 +119,11 @@ const Patterns = () => {
                 <div className="relative mb-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase">
-                      {languages.find((l) => l.id === selectedLanguage)?.name}{" "}
-                      Template
+                      {language.name} Template
                     </span>
                     <button
-                      onClick={() =>
-                        copyToClipboard(
-                          pattern.templates[selectedLanguage],
-                          idx
-                        )
-                      }
+                      onClick={() => copyToClipboard(template, idx)}
+                      disabled={!template}
                       className="flex items-center gap-2 px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                     >
                       {copiedIndex === idx ? (
@@ -119,15 +149,21 @@ const Patterns = () => {
                       )}
                     </button>
                   </div>
-                  <SyntaxHighlighter
-                    language={selectedLanguage}
-                    style={isDark ? oneDark : oneLight}
-                    wrapLongLines={true}
-                    showLineNumbers={true}
-                    className="rounded-lg overflow-x-auto"
-                  >
-                    {pattern.templates[selectedLanguage].replace(/\\n/g, "\n")}
-                  </SyntaxHighlighter>
+                  {template ? (
+                    <SyntaxHighlighter
+                      language={language.prism}
+                      style={isDark ? oneDark : oneLight}
+                      wrapLongLines={true}
+                      showLineNumbers={true}
+                      className="rounded-lg overflow-x-auto"
+                    >
+                      {template.replace(/\\n/g, "\n")}
+                    </SyntaxHighlighter>
+                  ) : (
+                    <p className="rounded-lg bg-gray-100 dark:bg-gray-700 p-4 text-sm text-gray-600 dark:text-gray-300">
+                      No {language.name} template for this pattern yet.
+                    </p>
+                  )}
                 </div>
                 <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4">
                   <span className="font-semibold text-blue-900 dark:text-blue-300 text-sm">
@@ -146,7 +182,8 @@ const Patterns = () => {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-12 text-center text-gray-600 dark:text-gray-400">
