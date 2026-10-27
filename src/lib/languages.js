@@ -10,6 +10,8 @@ export const LANGUAGES = [
   { id: "javascript", name: "JavaScript", prism: "javascript", color: "bg-yellow-500" },
   { id: "typescript", name: "TypeScript", prism: "typescript", color: "bg-sky-600" },
   { id: "go", name: "Go", prism: "go", color: "bg-cyan-500" },
+  { id: "kotlin", name: "Kotlin", prism: "kotlin", color: "bg-purple-500" },
+  { id: "swift", name: "Swift", prism: "swift", color: "bg-orange-500" },
 ];
 
 export const DEFAULT_LANGUAGE = "python";
